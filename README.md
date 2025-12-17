@@ -13,7 +13,14 @@ Jetpack Compose–based UI
 
 Paging support
 
-Picture-in-Picture (PiP)
+- HLS & DASH playback  
+- DRM (Widevine) support  
+- Jetpack Compose–based UI  
+- Paging support  
+- Picture-in-Picture (PiP)  
+- Fullscreen playback  
+- Subtitles (SRT)  
+- Playback speed & quality selection  
 
 Fullscreen playback
 
@@ -27,13 +34,14 @@ Add JitPack Repository
 Add the following in your project-level Gradle file:
 
 repositories {
-maven { url "https://jitpack.io" }
+    maven { url "https://jitpack.io" }
 }
 
 Add SDK Dependency
 dependencies {
-implementation "com.github.<github-username>:MPlayerSdk:1.0.0"
+    implementation "com.github.<github-username>:MPlayerSdk:1.0.0"
 }
+
 
 Replace <github-username> with the actual GitHub username and use the latest version.
 
@@ -49,15 +57,14 @@ UI Framework: Jetpack Compose
 
 🚀 Usage
 
-Use the MtvVideoPlayerSdk composable with a list of PlayerModel objects to start video playback
-inside your Compose screen.
+Use the MtvVideoPlayerSdk composable with a list of PlayerModel objects to start video playback inside your Compose screen.
 
 MtvVideoPlayerSdk(
-contentList = contentList,
-index = selectedIndex,
-pipListener = pipListener,
-onPlayerBack = { },
-setFullScreen = { }
+    contentList = contentList,
+    index = selectedIndex,
+    pipListener = pipListener,
+    onPlayerBack = { },
+    setFullScreen = { }
 )
 
 🧩 PlayerModel
@@ -65,16 +72,16 @@ setFullScreen = { }
 Each video item must be mapped to a PlayerModel.
 
 PlayerModel(
-hlsUrl = "https://example.com/video.m3u8",
-mpdUrl = "https://example.com/video.mpd",
-drmToken = "DRM_TOKEN",
-imageUrl = "https://example.com/thumbnail.jpg",
-title = "Sample Video",
-description = "Sample Description",
-srt = "https://example.com/subtitle.srt",
-playbackSpeed = 1.0f,
-selectedSubtitle = null,
-selectedVideoQuality = 1080
+    hlsUrl = "https://example.com/video.m3u8",
+    mpdUrl = "https://example.com/video.mpd",
+    drmToken = "DRM_TOKEN",
+    imageUrl = "https://example.com/thumbnail.jpg",
+    title = "Sample Video",
+    description = "Sample Description",
+    srt = "https://example.com/subtitle.srt",
+    playbackSpeed = 1.0f,
+    selectedSubtitle = null,
+    selectedVideoQuality = 1080
 )
 
 📜 Paging, PiP & Fullscreen
