@@ -114,18 +114,9 @@ dependencies {
     implementation(libs.androidx.paging.compose)
     implementation(libs.androidx.paging)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-
-
-    // media3
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
     implementation(libs.ui)
     implementation(libs.androidx.runtime)
-    implementation(libs.androidx.media3.exoplayer.hls)
-
-    implementation(libs.androidx.media3.exoplayer.dash) // Add this for DASH support
-
-     implementation ("com.github.kamleshmultitv:mtvplayersdk:v1.0.5")
- //   implementation(project(":videosdk"))
+   //  implementation ("com.github.kamleshmultitv:mtvplayersdk:v1.0.6")
+    implementation(project(":videosdk"))
 
 }

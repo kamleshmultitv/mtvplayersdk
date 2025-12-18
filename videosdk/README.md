@@ -121,6 +121,10 @@ Use `MtvVideoPlayerSdk` to play videos using a content list with full control ov
 ### Example Usage
 
 ```kotlin
+
+val playerModel = PlayerModel(hlsUrl = "https://live-hls-abr-cdn.livepush.io/live/bigbuckbunnyclip/index.m3u8")
+val contentList = listOf(playerModel)
+
 MtvVideoPlayerSdk(
     contentList = contentList,
     index = selectedIndex.intValue,

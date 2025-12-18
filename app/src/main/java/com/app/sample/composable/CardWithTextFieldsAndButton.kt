@@ -34,7 +34,7 @@ fun CardWithTextFieldsAndButton(expanded: (Boolean) -> Unit,   playContent: (Str
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            var textUrl by remember { mutableStateOf("") }
+            var textUrl by remember { mutableStateOf("https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8") }
             var sprite by remember { mutableStateOf("") }
             var drmToken by remember { mutableStateOf("") }
 
