@@ -125,7 +125,7 @@ dependencies {
 
     implementation(libs.androidx.media3.exoplayer.dash) // Add this for DASH support
 
-    // implementation (libs.mtvplayersdk)
-    implementation(project(":videosdk"))
+     implementation ("com.github.kamleshmultitv:mtvplayersdk:v1.0.5")
+ //   implementation(project(":videosdk"))
 
 }
