@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -174,7 +175,7 @@ fun CustomPlayerController(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    if (castUtils.isCastTVAvailable(context)) {
+                    if (castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
                         CastButton()
                     }
 
@@ -204,7 +205,7 @@ fun CustomPlayerController(
                     contentAlignment = Alignment.TopEnd
                 ) {
 
-                    if (castUtils.isCastTVAvailable(context)) {
+                    if (castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
                         CastButton()
                     }
                 }
