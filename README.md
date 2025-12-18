@@ -1,34 +1,183 @@
-# 🎬 Mtv Video Player SDK – Android
+# 🎬 Mtv Video Player SDK (Android)
 
-This document provides complete integration and usage guidelines for the  
-**Mtv Video Player SDK**, built with **Media3** and **Jetpack Compose**.
+A modern **Android Video Player SDK** built with **Media3** and **Jetpack Compose**, designed for high‑performance video playback, reels, and feed‑based experiences.
 
 ---
 
 ## ✨ Features
 
-- HLS & DASH playback  
-- DRM (Widevine) support  
-- Jetpack Compose–based UI  
-- Paging support  
-- Picture-in-Picture (PiP)  
-- Fullscreen playback  
-- Subtitles (SRT)  
-- Playback speed & quality selection  
+* ▶️ HLS & DASH playback
+* 🔐 Widevine DRM support
+* 🎨 Jetpack Compose–based UI
+* 📜 Paging 3 support (Reels / Feeds)
+* 🪟 Picture‑in‑Picture (PiP)
+* 🔳 Fullscreen playback
+* 📝 Subtitles (SRT)
+* ⏩ Playback speed & quality selection
 
 ---
 
 ## 📦 Installation
 
-### Add JitPack Repository
+### 1. Add JitPack Repository
 
-Add the following in your **project-level Gradle file**:
+In your **project‑level `settings.gradle` or `build.gradle`**:
 
 ```gradle
 repositories {
     maven { url "https://jitpack.io" }
 }
+```
 
+### 2. Add SDK Dependency
+
+```gradle
 dependencies {
-    implementation "com.github.<github-username>:MPlayerSdk:1.0.0"
+    implementation "com.github.kamleshmultitv:mtvplayersdk:v1.0.5"
 }
+```
+
+---
+
+## ⚙️ Android Setup (Required)
+
+### Permissions
+
+Add in **AndroidManifest.xml**:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
+
+### Enable Picture‑in‑Picture
+
+```xml
+<activity
+    android:name=".MainActivity"
+    android:supportsPictureInPicture="true"
+    android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
+```
+
+---
+
+## 🎨 Jetpack Compose Setup
+
+```gradle
+android {
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.14"
+    }
+}
+```
+
+---
+
+## 🧩 SDK Composable API
+
+```kotlin
+@OptIn(UnstableApi::class)
+@Composable
+fun MtvVideoPlayerSdk(
+    contentList: List<PlayerModel>? = null,
+    index: Int? = 0,
+    pipListener: PipListener? = null,
+    onPlayerBack: (Boolean) -> Unit,
+    setFullScreen: (Boolean) -> Unit
+)
+```
+
+---
+
+## 📦 PlayerModel
+
+```kotlin
+package com.app.videosdk.model
+
+data class PlayerModel(
+    val hlsUrl: String? = null,
+    val mpdUrl: String? = null,
+    val drmToken: String? = null,
+    val imageUrl: String? = null,
+    val title: String? = null,
+    val description: String? = null,
+    val srt: String? = null,
+    val spriteUrl: String? = null,
+    val playbackSpeed: Float = 1.0f,
+    val selectedSubtitle: String? = null,
+    val selectedVideoQuality: Int = 1080
+)
+```
+
+---
+
+## ▶️ SDK Usage (Compose)
+
+Use `MtvVideoPlayerSdk` to play videos using a content list with full control over PiP, fullscreen, and navigation.
+
+### Example Usage
+
+```kotlin
+MtvVideoPlayerSdk(
+    contentList = contentList,
+    index = selectedIndex.intValue,
+    pipListener = pipListener,
+    onPlayerBack = { /* handle back */ },
+    setFullScreen = { isFullscreen ->
+        // handle fullscreen change
+    }
+)
+```
+
+---
+
+## 🪟 Picture‑in‑Picture
+
+```kotlin
+onEnterPip = {
+    activity.enterPictureInPictureMode()
+}
+```
+
+---
+
+## 🧪 Supported Formats
+
+* HLS (`.m3u8`)
+* DASH (`.mpd`)
+* MP4
+* Widevine DRM streams
+
+---
+
+## ✅ Requirements
+
+* Android API 24+
+* Kotlin
+* Jetpack Compose
+* Media3
+
+---
+
+## 🛡️ Proguard (Optional)
+
+```proguard
+-keep class androidx.media3.** { *; }
+-keep class com.google.android.exoplayer2.** { *; }
+-keep class com.mtv.playersdk.** { *; }
+-dontwarn androidx.media3.**
+```
+
+---
+
+## 🤝 Support
+
+* GitHub Issues
+* SDK Support Team
+
+---
+
+🚀 **Mtv Video Player SDK** – Built for scalable, high‑performance Android video experiences.
