@@ -11,13 +11,13 @@ import androidx.compose.ui.graphics.Color
 import com.app.videosdk.listener.PipListener
 
 @Composable
-fun PipButton(pipListener: PipListener, isPipEnabled: (Boolean) -> Unit = {}) {
+fun PipButton(pipListener: PipListener? = null, isPipEnabled: (Boolean) -> Unit = {}) {
     IconButton(
         modifier = Modifier
             .wrapContentSize(),
         onClick = {
             isPipEnabled(true)
-            pipListener.onPipRequested()
+            pipListener?.onPipRequested()
         } // Notify the main app
     ) {
         Icon(

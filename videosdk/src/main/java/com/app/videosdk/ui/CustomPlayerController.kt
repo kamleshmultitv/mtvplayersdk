@@ -58,7 +58,7 @@ import kotlinx.coroutines.delay
 fun CustomPlayerController(
     playerModelList: List<PlayerModel>? = null,
     index: Int,
-    pipListener: PipListener,
+    pipListener: PipListener? = null,
     isFullScreen: (Boolean) -> Unit,
     isCurrentlyFullScreen: Boolean,
     exoPlayer: ExoPlayer,
