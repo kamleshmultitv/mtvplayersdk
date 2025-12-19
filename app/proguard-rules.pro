@@ -12,3 +12,10 @@
 -dontwarn com.app.videosdk.model.PlayerModel
 -dontwarn com.app.videosdk.ui.MtvVideoPlayerSdkKt
 
+
+
+# Keep SDK public API
+-keep public class com.app.videosdk.** {
+    public *;
+}
+

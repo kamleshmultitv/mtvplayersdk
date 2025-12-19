@@ -92,7 +92,7 @@ publishing {
         create<MavenPublication>("release") {
             groupId = "com.github.kamleshmultitv"
             artifactId = "mtvplayersdk"
-            version = "v1.0.11"
+            version = "v1.0.13"
 
             afterEvaluate {
                 from(components["release"])

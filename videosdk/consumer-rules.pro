@@ -1,14 +1,9 @@
-# =====================================================
-# Video SDK – Consumer ProGuard Rules
-# Applied automatically to all consuming apps
-# =====================================================
-
-# ---------- PUBLIC SDK API ----------
+# Keep SDK public API
 -keep public class com.app.videosdk.** {
     public *;
 }
 
-# ---------- SDK MODELS ----------
+# Keep models
 -keep class com.app.videosdk.model.** {
     <init>(...);
 }
@@ -16,22 +11,18 @@
     <fields>;
 }
 
-# ---------- MEDIA3 / EXOPLAYER ----------
+# Media3
 -keep class androidx.media3.** { *; }
 -dontwarn androidx.media3.**
 
-# ---------- GOOGLE CAST ----------
+# Cast
 -keep class com.google.android.gms.cast.** { *; }
 -dontwarn com.google.android.gms.cast.**
 
-# ---------- GSON ----------
+# Gson
 -keep class com.google.gson.** { *; }
 -keepattributes Signature
 -keepattributes *Annotation*
 
-# ---------- COMPOSE ----------
+# Compose safety
 -dontwarn androidx.compose.**
-
-# ---------- ANNOTATIONS ----------
--keepattributes RuntimeVisibleAnnotations
--keepattributes RuntimeInvisibleAnnotations
