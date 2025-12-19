@@ -128,6 +128,6 @@ dependencies {
     implementation(libs.logging.interceptor)
 
     // SDK
-    implementation(project(":videosdk"))
-   //  implementation(libs.mtvplayersdk) // enable after publishing
+  //  implementation(project(":videosdk"))
+     implementation(libs.mtvplayersdk) // enable after publishing
 }
