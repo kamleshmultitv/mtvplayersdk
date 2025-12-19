@@ -56,7 +56,7 @@ fun ContentBody(
                 contentList = contentList,
                 index = selectedIndex.intValue,
                 pipListener = pipListener,
-                onPlayerBack = { },
+                onPlayerBack = {  },
                 setFullScreen = onFullScreenChange
             )
 

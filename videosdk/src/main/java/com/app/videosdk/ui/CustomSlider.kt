@@ -1,7 +1,5 @@
 package com.app.videosdk.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,15 +37,29 @@ fun CustomSlider(
 
     LaunchedEffect(currentPosition, duration) {
         if (!isSeeking) {
-            sliderPosition = if (duration > 0) currentPosition.toFloat() / duration else 0f
+            sliderPosition =
+                if (duration > 0) currentPosition.toFloat() / duration else 0f
         }
     }
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
+
+        /* -------- CURRENT POSITION (LEFT) -------- */
+
+        Text(
+            text = formatTime(currentPosition),
+            color = Color.White,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(end = 8.dp)
+        )
+
+        /* -------- SEEK BAR (CENTER) -------- */
+
         Slider(
             value = sliderPosition,
             onValueChange = {
@@ -63,19 +75,19 @@ fun CustomSlider(
             },
             valueRange = 0f..1f,
             colors = SliderDefaults.colors(
-                thumbColor = Color.Transparent,  // Custom thumb color
-                activeTrackColor = Color.Transparent,  // Hide default red track
-                inactiveTrackColor = Color.Transparent,  // Hide default inactive track
+                thumbColor = Color.Transparent,
+                activeTrackColor = Color.Transparent,
+                inactiveTrackColor = Color.Transparent,
             ),
             modifier = Modifier
-                .fillMaxWidth()
-                .height(4.dp) // Adjust thumb area (does not affect track thickness)
+                .weight(1f)               // ⭐ CENTER FLEX
+                .height(4.dp)
                 .drawBehind {
-                    val trackHeight = 4.dp.toPx()  // Change track thickness here
-                    val redTrackHeight = 4.dp.toPx()  // Custom Red progress height
+                    val trackHeight = 4.dp.toPx()
+                    val redTrackHeight = 4.dp.toPx()
                     val trackY = size.height / 2 - trackHeight / 2
 
-                    // Draw Gray Background Track
+                    // Gray background track
                     drawRoundRect(
                         color = Color.Gray.copy(alpha = 0.5f),
                         topLeft = Offset(0f, trackY),
@@ -83,38 +95,29 @@ fun CustomSlider(
                         cornerRadius = CornerRadius(4.dp.toPx())
                     )
 
-                    // Draw Custom Red Progress Track (only up to current position)
+                    // Red progress track
                     drawRoundRect(
                         color = Color.Red,
                         topLeft = Offset(
                             0f,
                             trackY + (trackHeight - redTrackHeight) / 2
-                        ), // Align center
+                        ),
                         size = Size(
                             size.width * sliderPosition,
                             redTrackHeight
-                        ),  // Red progress width
+                        ),
                         cornerRadius = CornerRadius(4.dp.toPx())
                     )
                 }
         )
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = formatTime(currentPosition),
-                color = Color.White,
-                fontSize = 12.sp
-            )
-            Text(
-                text = formatTime(duration),
-                color = Color.White,
-                fontSize = 12.sp
-            )
-        }
+        /* -------- TOTAL DURATION (RIGHT) -------- */
+
+        Text(
+            text = formatTime(duration),
+            color = Color.White,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(start = 8.dp)
+        )
     }
 }

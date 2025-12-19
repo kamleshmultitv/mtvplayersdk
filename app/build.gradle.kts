@@ -116,7 +116,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.ui)
     implementation(libs.androidx.runtime)
-     implementation (libs.mtvplayersdk)
-   // implementation(project(":videosdk"))
+   //  implementation (libs.mtvplayersdk)
+    implementation(project(":videosdk"))
 
 }

@@ -1,7 +1,7 @@
 package com.app.videosdk.ui
 
-import android.content.Context
-import android.provider.Settings
+import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -23,74 +23,69 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.app.videosdk.utils.PlayerUtils.setScreenBrightness
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun CustomBrightnessController(
     modifier: Modifier = Modifier,
     onShowControls: (Boolean) -> Unit = {}
 ) {
-    val context = LocalContext.current
+    val activity = LocalActivity.current
 
-    // Get system brightness as default
-    val systemBrightness = remember {
-        getSystemBrightness(context) // Retrieve system brightness
-    }
-
-    val currentBrightness = remember { mutableFloatStateOf(systemBrightness) }
+    val defaultBrightness = remember { getWindowBrightness(activity) }
+    val currentBrightness = remember { mutableFloatStateOf(defaultBrightness) }
     val brightnessPercentage = (currentBrightness.floatValue * 100).toInt()
-    val isDragging = remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    val dragGesture = Modifier.pointerInput(Unit) {
+        detectVerticalDragGestures(
+            onDragStart = {
+                onShowControls(true) // Keep visible while dragging
+            },
+            onVerticalDrag = { _, dragAmount ->
+                val newBrightness = (currentBrightness.floatValue - dragAmount / 500)
+                    .coerceIn(0f, 1f)
+                currentBrightness.floatValue = newBrightness
+                setWindowBrightness(activity, newBrightness)
 
-    // Detect touch gestures to increase/decrease brightness
-    val dragGesture = remember {
-        Modifier.pointerInput(Unit) {
-            detectVerticalDragGestures(
-                onDragStart = {
-                    isDragging.value = true
-                    onShowControls(true) // Keep controller visible
-                },
-                onDragEnd = {
-                    isDragging.value = false
-                    onShowControls(false) // Hide only after dragging stops
-                },
-                onVerticalDrag = { _, dragAmount ->
-                    val newBrightness =
-                        (currentBrightness.floatValue - dragAmount / 500).coerceIn(0f, 1f)
-                    currentBrightness.floatValue = newBrightness
-                    setScreenBrightness(context, newBrightness)
+                // Refresh visibility during continuous drag
+                onShowControls(true)
+            },
+            onDragEnd = {
+                // Delay hiding slightly after drag ends
+                coroutineScope.launch {
+                    delay(800L)
+                    onShowControls(false)
                 }
-            )
-        }
+            }
+        )
     }
 
+    // UI — unchanged
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = modifier
             .background(Color.Transparent)
             .padding(16.dp)
-            .size(60.dp, 200.dp) // Custom slider size
-            .then(dragGesture) // Attach gesture detector
+            .size(60.dp, 200.dp)
+            .then(dragGesture)
     ) {
-
         IconButton(
             modifier = Modifier
                 .wrapContentSize()
                 .size(24.dp),
-            onClick = {
-
-            }
+            onClick = {}
         ) {
             Icon(
                 imageVector = Icons.Default.Brightness6,
@@ -102,25 +97,24 @@ fun CustomBrightnessController(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Custom Brightness Indicator Bar
         Box(
             modifier = Modifier
                 .width(4.dp)
                 .height(120.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color.Yellow)
+                .background(Color.Gray)
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(1f - currentBrightness.floatValue)
-                    .background(Color.Gray, shape = RoundedCornerShape(4.dp))
+                    .fillMaxHeight(currentBrightness.floatValue)
+                    .align(Alignment.BottomCenter)
+                    .background(Color.Yellow)
             )
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Brightness Percentage
         Text(
             text = "$brightnessPercentage%",
             color = Color.White,
@@ -132,15 +126,13 @@ fun CustomBrightnessController(
     }
 }
 
-/**
- * Retrieves the system screen brightness and converts it to a float (0f - 1f).
- */
-fun getSystemBrightness(context: Context): Float {
-    return try {
-        val brightnessInt =
-            Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS)
-        brightnessInt / 255f // Convert to range 0f - 1f
-    } catch (e: Exception) {
-        0.5f // Default to 50% if retrieval fails
+fun getWindowBrightness(activity: Activity?): Float {
+    val attr = activity?.window?.attributes
+    return attr?.screenBrightness?.takeIf { it >= 0f } ?: 0.5f
+}
+
+fun setWindowBrightness(activity: Activity?, brightness: Float) {
+    activity?.window?.attributes = activity?.window?.attributes?.apply {
+        screenBrightness = brightness.coerceIn(0f, 1f)
     }
 }
