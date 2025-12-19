@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("maven-publish")
 }
 
 android {
@@ -50,7 +51,9 @@ android {
         compose = true
         buildConfig = true
     }
+
 }
+
 
 dependencies {
     implementation(libs.androidx.core.ktx)
@@ -96,3 +99,23 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
+
+/* ============================================================
+   👇 THIS MUST BE AT THE VERY END OF THE FILE
+   ============================================================ */
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+
+                groupId = "com.github.kamleshmultitv"
+                artifactId = "mtvplayersdk"
+                version = "v1.0.11"
+            }
+        }
+    }
+}
+
+

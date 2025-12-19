@@ -129,5 +129,5 @@ dependencies {
 
     // SDK
     implementation(project(":videosdk"))
-    // implementation(libs.mtvplayersdk) // enable after publishing
+  //   implementation(libs.mtvplayersdk) // enable after publishing
 }

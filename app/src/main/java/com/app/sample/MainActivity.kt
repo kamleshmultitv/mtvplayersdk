@@ -8,12 +8,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
 import com.app.sample.composable.ContentScreen
 import com.app.sample.viewModel.ContentViewModel
 import com.app.videosdk.listener.PipListener
 
-class MainActivity : AppCompatActivity(), PipListener {
+class MainActivity : ComponentActivity(), PipListener {
     private val viewModel: ContentViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
