@@ -18,7 +18,7 @@ fun PipButton(pipListener: PipListener? = null, isPipEnabled: (Boolean) -> Unit 
         onClick = {
             isPipEnabled(true)
             pipListener?.onPipRequested()
-        } // Notify the main app
+        }
     ) {
         Icon(
             imageVector = Icons.Default.PictureInPicture,

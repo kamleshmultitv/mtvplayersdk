@@ -37,7 +37,7 @@ fun CustomPlayerController(
     isFullScreen: (Boolean) -> Unit,
     isCurrentlyFullScreen: Boolean,
     exoPlayer: ExoPlayer,
-    modifier: Modifier = Modifier,
+    modifier: Modifier,
     onShowControls: (Boolean) -> Unit,
     isPipEnabled: (Boolean) -> Unit = {},
     onSettingsButtonClick: (Boolean) -> Unit = {},
@@ -149,7 +149,6 @@ fun CustomPlayerController(
                 /* ---- CENTER CONTROLS ---- */
                 Box(modifier = Modifier.weight(0.8f)) {
                     CenterControls(
-                        isFullScreen = true,
                         isLoading = isLoading,
                         exoPlayer = exoPlayer,
                         castUtils = castUtils,
@@ -184,7 +183,6 @@ fun CustomPlayerController(
 
             /* ---- NON FULLSCREEN CENTER ---- */
             CenterControls(
-                isFullScreen = false,
                 isLoading = isLoading,
                 exoPlayer = exoPlayer,
                 castUtils = castUtils,
@@ -210,8 +208,6 @@ fun CustomPlayerController(
             isFullScreen = isCurrentlyFullScreen,
             currentPosition = currentPosition,
             duration = duration,
-            castUtils = castUtils,
-            isCasting = isCasting,
             exoPlayer = exoPlayer,
             onSeek = {
                 showControlsState.value(true)
@@ -225,4 +221,3 @@ fun CustomPlayerController(
         )
     }
 }
-

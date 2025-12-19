@@ -1,13 +1,15 @@
 package com.app.videosdk.utils
 
+import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
 import android.util.Log
-import android.widget.Toast
 import androidx.annotation.OptIn
-import androidx.media3.common.*
+import androidx.core.net.toUri
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider
@@ -21,7 +23,6 @@ import com.google.common.collect.ImmutableList
 import com.google.common.reflect.TypeToken
 import com.google.gson.Gson
 import kotlin.math.pow
-import androidx.core.net.toUri
 
 object PlayerUtils {
     @OptIn(UnstableApi::class)
@@ -95,7 +96,6 @@ object PlayerUtils {
         val exoPlayerInstance = exoPlayer ?: return emptyList()
         val trackSelector = exoPlayerInstance.trackSelector as? DefaultTrackSelector ?: return emptyList()
         val trackGroups = trackSelector.currentMappedTrackInfo?.getTrackGroups(1) ?: run {
-            Toast.makeText(context, "No audio tracks available", Toast.LENGTH_SHORT).show()
             return emptyList()
         }
         val audioTracks = (0 until trackGroups.length).mapNotNull { index ->
@@ -107,7 +107,6 @@ object PlayerUtils {
         return if (audioTracks.isNotEmpty()) {
             getAudioTrack(context, audioTracks)
         } else {
-            Toast.makeText(context, "No audio tracks available", Toast.LENGTH_SHORT).show()
             emptyList()
         }
     }
@@ -154,7 +153,7 @@ object PlayerUtils {
         }
 
         if (subTitleFormatList.isEmpty()) {
-            exoPlayer?.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
                 .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                 .build()
         }
@@ -184,10 +183,6 @@ object PlayerUtils {
         return videoQuality
     }
 
-/*    fun getMimeTypeFromExtension(videoUrl: String): Boolean {
-        return getUrlExtension(videoUrl).equals("mpd", ignoreCase = true)
-    }*/
-
     fun getMimeTypeFromExtension(videoUrl: String): Boolean {
         val cleanUrl = videoUrl.substringBefore("?")
         return getUrlExtension(cleanUrl).equals("mpd", ignoreCase = true)
@@ -201,13 +196,6 @@ object PlayerUtils {
         val basePitch = 1.0f
         val pitchChangeRatio = 0.05f
         return basePitch / speed.pow(pitchChangeRatio)
-    }
-
-    fun secondsToMinutes(milliseconds: Long): String {
-        val totalSeconds = milliseconds / 1000
-        val minutes = totalSeconds / 60
-        val seconds = totalSeconds % 60
-        return String.format("%02d:%02d", minutes, seconds)
     }
 
     @OptIn(UnstableApi::class)
@@ -254,35 +242,8 @@ object PlayerUtils {
         }
     }
 
-    fun setScreenBrightness(context: Context, brightness: Float) {
-        val contentResolver = context.contentResolver
-
-        if (Settings.System.canWrite(context)) {
-            // Permission is granted, set the brightness
-            Settings.System.putInt(
-                contentResolver,
-                Settings.System.SCREEN_BRIGHTNESS,
-                (brightness * 255).toInt()
-            )
-        } else {
-            // Permission is not granted, show a toast and guide the user to settings
-            Toast.makeText(
-                context,
-                "Allow write permissions to change brightness",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            // Create an intent to open the settings page for write permissions
-            val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                data = Uri.parse("package:${context.packageName}")
-            }
-
-            // Start the activity to request permission
-            context.startActivity(intent)
-        }
-    }
-
     // Function to Format Time
+    @SuppressLint("DefaultLocale")
     fun formatTime(milliseconds: Long): String {
         val totalSeconds = (milliseconds / 1000).toInt()
         val minutes = totalSeconds / 60

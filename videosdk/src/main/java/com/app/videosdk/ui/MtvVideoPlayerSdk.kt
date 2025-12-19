@@ -45,10 +45,11 @@ fun MtvVideoPlayerSdk(
     setFullScreen: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    /* ---------------- SAFE INDEX HANDLING ---------------- */
+    /* ---------------- SAFE INDEX ---------------- */
 
-    val safeInitialIndex = remember(index, contentList) {
+    val safeIndex = remember(contentList, index) {
         val size = contentList?.size ?: 0
         when {
             size == 0 -> 0
@@ -59,7 +60,7 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-    val selectedIndex = remember { mutableIntStateOf(safeInitialIndex) }
+    val selectedIndex = remember { mutableIntStateOf(safeIndex) }
 
     LaunchedEffect(index, contentList) {
         val size = contentList?.size ?: return@LaunchedEffect
@@ -71,11 +72,7 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-    val playerModel by remember(contentList, selectedIndex.intValue) {
-        derivedStateOf {
-            contentList?.getOrNull(selectedIndex.intValue)
-        }
-    }
+    val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
     /* ---------------- PLAYER STATE ---------------- */
 
@@ -89,23 +86,27 @@ fun MtvVideoPlayerSdk(
     var showRewindIcon by remember { mutableStateOf(false) }
     var isZoomed by remember { mutableStateOf(false) }
 
-    val subtitleUri by remember(playerModel) {
-        derivedStateOf {
-            if (getMimeTypeFromExtension(playerModel?.hlsUrl.toString())) ""
-            else playerModel?.srt
-        }
+    /* ---------------- SUBTITLE ---------------- */
+
+    val subtitleUri = remember(playerModel) {
+        if (getMimeTypeFromExtension(playerModel?.hlsUrl.toString())) ""
+        else playerModel?.srt.orEmpty()
     }
 
-    val exoPlayer = remember(playerModel?.mpdUrl) {
+    /* ---------------- EXOPLAYER ---------------- */
+
+    val exoPlayer = remember(playerModel?.mpdUrl, subtitleUri) {
         createExoPlayer(
             context,
             playerModel?.mpdUrl.orEmpty(),
             playerModel?.drmToken,
-            subtitleUri.orEmpty()
+            subtitleUri
         )
     }
 
-    val castUtils = remember { CastUtils(context, exoPlayer) }
+    val castUtils = remember(context, exoPlayer) {
+        CastUtils(context, exoPlayer)
+    }
     val isCasting by remember { derivedStateOf { castUtils.isCasting() } }
 
     /* ---------------- PLAYER LISTENER ---------------- */
@@ -133,6 +134,7 @@ fun MtvVideoPlayerSdk(
 
                     Player.STATE_IDLE -> keepScreenOn = false
                     Player.STATE_BUFFERING -> {
+                        isLoading = true
                     }
                 }
             }
@@ -153,7 +155,6 @@ fun MtvVideoPlayerSdk(
 
     /* ---------------- LIFECYCLE ---------------- */
 
-    val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
@@ -164,19 +165,23 @@ fun MtvVideoPlayerSdk(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    /* ---------------- UI ---------------- */
+    /* ---------------- UI HELPERS ---------------- */
 
     keepScreenOn =
         exoPlayer.playWhenReady && exoPlayer.playbackState == Player.STATE_READY
 
-    ScreenRotationExample {
+    ScreenRotation {
         isFullScreen = it
         setFullScreen(it)
     }
     FullScreenHandler(isFullScreen)
 
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-    val aspectRatioHeight = screenWidth * 9 / 16
+    val configuration = LocalConfiguration.current
+    val aspectRatioHeight = remember(configuration) {
+        configuration.screenWidthDp.dp * 9 / 16
+    }
+
+    /* ---------------- UI ---------------- */
 
     Box(
         modifier = Modifier
@@ -189,6 +194,7 @@ fun MtvVideoPlayerSdk(
                 }
             }
     ) {
+
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
@@ -227,43 +233,41 @@ fun MtvVideoPlayerSdk(
             }
         )
 
-        if (!pipEnabled || isControllerVisible) {
-            AnimatedVisibility(
-                visible = isControllerVisible,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                CustomPlayerController(
-                    playerModelList = contentList,
-                    index = selectedIndex.intValue,
-                    pipListener = pipListener,
-                    isFullScreen = {
-                        isFullScreen = it
-                        setFullScreen(it)
-                    },
-                    isCurrentlyFullScreen = isFullScreen,
-                    exoPlayer = exoPlayer,
-                    modifier = Modifier.fillMaxSize(),
-                    onShowControls = { isControllerVisible = it },
-                    isPipEnabled = { pipEnabled = it },
-                    onSettingsButtonClick = { isSettingsClick = it },
-                    isLoading = isLoading,
-                    onBackPressed = {
-                        if (isFullScreen) {
-                            isFullScreen = false
-                            setFullScreen(false)
-                        } else {
-                            onPlayerBack(true)
-                        }
-                    },
-                    playContent = { newIndex ->
-                        val size = contentList?.size ?: return@CustomPlayerController
-                        if (newIndex in 0 until size) {
-                            selectedIndex.intValue = newIndex
-                        }
+        AnimatedVisibility(
+            visible = !pipEnabled && isControllerVisible,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            CustomPlayerController(
+                playerModelList = contentList,
+                index = selectedIndex.intValue,
+                pipListener = pipListener,
+                isFullScreen = {
+                    isFullScreen = it
+                    setFullScreen(it)
+                },
+                isCurrentlyFullScreen = isFullScreen,
+                exoPlayer = exoPlayer,
+                modifier = Modifier.fillMaxSize(),
+                onShowControls = { isControllerVisible = it },
+                isPipEnabled = { pipEnabled = it },
+                onSettingsButtonClick = { isSettingsClick = it },
+                isLoading = isLoading,
+                onBackPressed = {
+                    if (isFullScreen) {
+                        isFullScreen = false
+                        setFullScreen(false)
+                    } else {
+                        onPlayerBack(true)
                     }
-                )
-            }
+                },
+                playContent = { newIndex ->
+                    val size = contentList?.size ?: return@CustomPlayerController
+                    if (newIndex in 0 until size) {
+                        selectedIndex.intValue = newIndex
+                    }
+                }
+            )
         }
 
         ForwardBackwardButtonsOverlay(

@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -9,39 +10,40 @@ android {
 
     defaultConfig {
         minSdk = 24
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // ✅ Required: rules applied automatically to consuming apps
         consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
+
+        // ✅ Release build for SDK
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+
+            // ❌ Do NOT shrink resources in libraries
+            isShrinkResources = false
+
+            // Only default optimized rules
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                getDefaultProguardFile("proguard-android-optimize.txt")
             )
         }
+
+        // ✅ Debug build: no ProGuard
         debug {
             isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
         }
     }
-
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
     }
 
     buildFeatures {
@@ -50,22 +52,25 @@ android {
     }
 }
 
-
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.material3.android)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+
+    // Compose
+    implementation(libs.ui)
+    implementation(libs.androidx.runtime)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.material.icons.core)
     implementation(libs.androidx.material.icons.extended)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.runtime.livedata)
+    implementation(libs.androidx.paging.compose)
     implementation(libs.ui.tooling.preview)
-    implementation(libs.google.accompanist.systemuicontroller)
     debugImplementation(libs.ui.tooling)
 
-    // media3
+    // Media3 / ExoPlayer
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.exoplayer.hls)
@@ -73,19 +78,21 @@ dependencies {
     implementation(libs.androidx.media3.cast)
     implementation(libs.androidx.media3.session)
 
-    implementation(libs.ui)
-    implementation(libs.androidx.runtime)
-
-    implementation(libs.google.gson)
-
-    implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation(libs.androidx.lifecycle.livedata.ktx)
-    implementation(libs.androidx.runtime.livedata)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.paging.compose)
-    implementation(libs.coil.compose)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-
+    // Cast
     implementation(libs.androidx.mediarouter)
     implementation(libs.play.services.cast.framework)
+
+    // Others
+    implementation(libs.google.gson)
+    implementation(libs.google.accompanist.systemuicontroller)
+    implementation(libs.coil.compose)
+
+    // Lifecycle
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+
+    // Tests
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 }

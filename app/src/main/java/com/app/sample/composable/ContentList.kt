@@ -2,7 +2,6 @@ package com.app.sample.composable
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
-
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.paging.compose.LazyPagingItems
@@ -30,4 +29,3 @@ fun ContentList(
         }
     }
 }
-

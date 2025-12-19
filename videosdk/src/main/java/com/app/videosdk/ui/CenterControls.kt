@@ -19,7 +19,6 @@ import com.app.videosdk.utils.CastUtils
 
 @Composable
 fun CenterControls(
-    isFullScreen: Boolean,
     isLoading: Boolean,
     exoPlayer: ExoPlayer,
     castUtils: CastUtils,

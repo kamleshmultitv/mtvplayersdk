@@ -25,21 +25,21 @@ open class ContentViewModel : ViewModel() {
 
     fun setContent() {
         getContentModel = GetContentModel(
-           /* url = "https://api.artofliving.app/artoflivingapi/v10/content/list",
+            url = "https://api.artofliving.app/artoflivingapi/v10/content/list",
             contentId = "114080",
             token = TOKEN,
             seasonId = "2171",
             offset = "0",
-            limit = "10",
-            isGroup = "1"*/
+            limit = "5",
+            isGroup = "1"
 
-            url = "https://api.artofliving.app/artoflivingapi/v10/content/list",
+           /* url = "https://api.artofliving.app/artoflivingapi/v10/content/list",
             contentId = "113742",
             token = TOKEN,
             seasonId = "2159",
             offset = "0",
             limit = "5",
-            isGroup = "1"
+            isGroup = "1"*/
         )
     }
 }

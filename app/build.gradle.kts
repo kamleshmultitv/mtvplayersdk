@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -10,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.app.sample"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -18,12 +19,16 @@ android {
     }
 
     buildTypes {
+
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
             buildConfigField(
                 "String",
                 "BASE_URL",
@@ -45,7 +50,11 @@ android {
                 "\"abd07061a3dd9851e3c9dd551e68e26838b29e87b2baa479c0eb53c95cac2e6bd701b5588ca7a85de55c6504e0c84c44edc468ae6fdb7a48cf170ee055cd7b3a5960795cf0c3d2989f1aedec0d93fd9d\""
             )
         }
+
         debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+
             buildConfigField(
                 "String",
                 "BASE_URL",
@@ -68,55 +77,57 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
         buildConfig = true
     }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }
 }
 
-
 dependencies {
-    implementation(libs.androidx.appcompat)
+
+    // Core
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+
+    // Compose
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.core)
+    implementation(libs.androidx.runtime)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.paging.compose)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
+
+    // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
 
-    //Retrofit ------------------------------------------------------------------
+    // Networking
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.adapter.rxjava2)
-    //Okhttp-------------------------
     implementation(libs.logging.interceptor)
-    // paging
-    implementation(libs.androidx.paging.compose)
-    implementation(libs.androidx.paging)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.ui)
-    implementation(libs.androidx.runtime)
-   //  implementation (libs.mtvplayersdk)
-    implementation(project(":videosdk"))
 
+    // SDK
+    implementation(project(":videosdk"))
+    // implementation(libs.mtvplayersdk) // enable after publishing
 }
