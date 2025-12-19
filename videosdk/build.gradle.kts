@@ -1,3 +1,5 @@
+import org.gradle.api.publish.maven.MavenPublication
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
@@ -11,28 +13,17 @@ android {
 
     defaultConfig {
         minSdk = 24
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // ✅ Required: rules applied automatically to consuming apps
         consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
-
-        // ✅ Release build for SDK
         release {
             isMinifyEnabled = true
-
-            // ❌ Do NOT shrink resources in libraries
             isShrinkResources = false
-
-            // Only default optimized rules
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt")
             )
         }
-
-        // ✅ Debug build: no ProGuard
         debug {
             isMinifyEnabled = false
         }
@@ -52,8 +43,13 @@ android {
         buildConfig = true
     }
 
+    // ✅ THIS IS MANDATORY FOR JITPACK
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
 }
-
 
 dependencies {
     implementation(libs.androidx.core.ktx)
@@ -89,33 +85,19 @@ dependencies {
     implementation(libs.google.gson)
     implementation(libs.google.accompanist.systemuicontroller)
     implementation(libs.coil.compose)
-
-    // Lifecycle
-    implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation(libs.androidx.lifecycle.livedata.ktx)
-
-    // Tests
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
 }
 
-/* ============================================================
-   👇 THIS MUST BE AT THE VERY END OF THE FILE
-   ============================================================ */
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+            groupId = "com.github.kamleshmultitv"
+            artifactId = "mtvplayersdk"
+            version = "v1.0.11"
 
-afterEvaluate {
-    publishing {
-        publications {
-            create<MavenPublication>("release") {
+            afterEvaluate {
                 from(components["release"])
-
-                groupId = "com.github.kamleshmultitv"
-                artifactId = "mtvplayersdk"
-                version = "v1.0.11"
             }
         }
     }
 }
-
 
