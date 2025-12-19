@@ -166,7 +166,7 @@ onEnterPip = {
 
 ---
 
-## 🛡️ Proguard
+## 🛡️ Proguard (App-specific)
 
 ```proguard
 # App-specific ProGuard rules only
