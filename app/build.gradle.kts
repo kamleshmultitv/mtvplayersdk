@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
+   // alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -91,6 +91,10 @@ android {
         compose = true
         buildConfig = true
     }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
+    }
 }
 
 dependencies {
@@ -128,6 +132,6 @@ dependencies {
     implementation(libs.logging.interceptor)
 
     // SDK
-  //  implementation(project(":videosdk"))
-     implementation(libs.mtvplayersdk) // enable after publishing
+    implementation(project(":videosdk"))
+   //  implementation(libs.mtvplayersdk) // enable after publishing
 }

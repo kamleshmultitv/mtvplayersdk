@@ -3,8 +3,8 @@ import org.gradle.api.publish.maven.MavenPublication
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    id("maven-publish")
+ //   alias(libs.plugins.kotlin.compose)
+  //  id("maven-publish")
 }
 
 android {
@@ -36,6 +36,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "11"
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
     }
 
     buildFeatures {
@@ -87,7 +91,7 @@ dependencies {
     implementation(libs.coil.compose)
 }
 
-publishing {
+/*publishing {
     publications {
         create<MavenPublication>("release") {
             groupId = "com.github.kamleshmultitv"
@@ -99,5 +103,5 @@ publishing {
             }
         }
     }
-}
+}*/
 
