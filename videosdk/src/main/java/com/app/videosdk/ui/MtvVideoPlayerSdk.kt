@@ -34,6 +34,7 @@ import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.createExoPlayer
 import com.app.videosdk.utils.PlayerUtils.getMimeTypeFromExtension
+import com.google.android.gms.cast.framework.CastContext
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -46,6 +47,8 @@ fun MtvVideoPlayerSdk(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    CastContext.getSharedInstance(context)
 
     /* ---------------- SAFE INDEX ---------------- */
 

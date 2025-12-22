@@ -10,9 +10,7 @@
         android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
 
-    <application
-        android:name=".base.MyApp">
-
+    <application>
         <activity android:name="com.google.android.gms.cast.framework.media.widget.ExpandedControllerActivity"
             android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"/>
 
