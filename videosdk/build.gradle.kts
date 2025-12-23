@@ -3,6 +3,7 @@ import org.gradle.api.publish.maven.MavenPublication
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     id("maven-publish")
 }
 
@@ -33,18 +34,16 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = "11"
-    }
+
 
     buildFeatures {
         compose = true
         buildConfig = true
     }
 
-    composeOptions {
+    /*composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
-    }
+    }*/
 
     // ✅ REQUIRED for JitPack + AGP 8+
     publishing {

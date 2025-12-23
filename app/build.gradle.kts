@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    // alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -83,18 +83,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    kotlinOptions {
-        jvmTarget = "11"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
     }
 
-    composeOptions {
+   /* composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
+    }*/
+
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
+
 }
 
 dependencies {
@@ -133,6 +136,6 @@ dependencies {
 
     // SDK
     //  implementation(project(":videosdk"))
-    //  implementation(libs.mtvplayersdk) // enable after publishing
-  //  implementation("com.github.kamleshmultitv:mtvplayersdk:v1.0.34")
+      implementation(libs.mtvplayersdk)
+
 }
