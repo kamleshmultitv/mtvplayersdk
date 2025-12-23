@@ -17,4 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Sample"
 // include(":app", ":videosdk")
-include(":app")
+include(":videosdk")
