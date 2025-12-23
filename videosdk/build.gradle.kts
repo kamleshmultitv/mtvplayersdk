@@ -18,8 +18,7 @@ android {
 
     buildTypes {
         release {
-           // isMinifyEnabled = true
-          //  isShrinkResources = false
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt")
             )
@@ -29,11 +28,13 @@ android {
         }
     }
 
+    // ✅ Java target (must match Kotlin)
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // ✅ Kotlin 2.x compiler options
     kotlin {
         compilerOptions {
             jvmTarget.set(
@@ -42,14 +43,12 @@ android {
         }
     }
 
-
-
     buildFeatures {
         compose = true
         buildConfig = true
     }
 
-    // ✅ REQUIRED for JitPack + AGP 8+
+    // ✅ REQUIRED for AGP 8+ + JitPack
     publishing {
         singleVariant("release") {
             withSourcesJar()
@@ -58,22 +57,26 @@ android {
 }
 
 /**
- * ✅ Maven Publish (KEEP THIS OUTSIDE android {})
+ * ✅ Maven Publish (KEEP OUTSIDE android {})
+ * This publishes ONLY videosdk (not app)
  */
 afterEvaluate {
     publishing {
         publications {
             create<MavenPublication>("release") {
                 from(components["release"])
+
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "mtvplayersdk"
-                version = project.version.toString()
+                version = "1.0.40"   // 🔴 CHANGE VERSION HERE
             }
         }
     }
 }
 
 dependencies {
+
+    // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

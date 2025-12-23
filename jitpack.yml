@@ -1,8 +1,7 @@
 jdk:
   - openjdk17
 
-before_install:
-  - chmod +x ./gradlew
+build:
+  commands:
+    - ./gradlew :videosdk:publishToMavenLocal
 
-install:
-  - ./gradlew :videosdk:publishToMavenLocal
