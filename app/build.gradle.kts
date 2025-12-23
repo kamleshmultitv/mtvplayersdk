@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-   // alias(libs.plugins.kotlin.compose)
+    // alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -21,8 +21,8 @@ android {
     buildTypes {
 
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+          //  isMinifyEnabled = true
+         //   isShrinkResources = true
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -132,7 +132,7 @@ dependencies {
     implementation(libs.logging.interceptor)
 
     // SDK
-  //  implementation(project(":videosdk"))
-   //  implementation(libs.mtvplayersdk) // enable after publishing
-    implementation("com.github.kamleshmultitv:mtvplayersdk:v1.0.32")
+    //  implementation(project(":videosdk"))
+    //  implementation(libs.mtvplayersdk) // enable after publishing
+    implementation("com.github.kamleshmultitv:mtvplayersdk:v1.0.33")
 }
