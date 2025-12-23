@@ -132,7 +132,7 @@ dependencies {
     implementation(libs.logging.interceptor)
 
     // SDK
-    implementation(project(":videosdk"))
+  //  implementation(project(":videosdk"))
    //  implementation(libs.mtvplayersdk) // enable after publishing
-  //  implementation("com.github.kamleshmultitv:mtvplayersdk:v1.0.31")
+    implementation("com.github.kamleshmultitv:mtvplayersdk:v1.0.32")
 }

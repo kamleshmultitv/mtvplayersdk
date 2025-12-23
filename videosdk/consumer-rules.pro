@@ -29,4 +29,6 @@
 
 -keep class com.app.videosdk.** { *; }
 
+-keep interface com.app.videosdk.listener.PipListener { *; }
+
 

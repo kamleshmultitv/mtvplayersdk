@@ -38,7 +38,7 @@ import com.google.android.gms.cast.framework.CastContext
 
 @OptIn(UnstableApi::class)
 @Composable
-fun MtvVideoPlayerSdk(
+public fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
     pipListener: PipListener? = null,
