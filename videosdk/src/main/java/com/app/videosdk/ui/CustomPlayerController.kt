@@ -26,7 +26,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.utils.CastUtils
 import kotlinx.coroutines.delay
 
 @Composable
@@ -51,10 +50,6 @@ fun CustomPlayerController(
     val showControlsState = rememberUpdatedState(onShowControls)
     val fullScreenState = rememberUpdatedState(isFullScreen)
 
-    val castUtils = remember(context, exoPlayer) {
-        CastUtils(context, exoPlayer)
-    }
-    val isCasting by remember { mutableStateOf(castUtils.isCasting()) }
 
     var isZoomed by remember { mutableStateOf(false) }
     var showForwardIcon by remember { mutableStateOf(false) }
@@ -66,15 +61,13 @@ fun CustomPlayerController(
 
     /* ---------- PLAYBACK OBSERVER ---------- */
 
-    LaunchedEffect(exoPlayer, isCasting) {
+    LaunchedEffect(exoPlayer) {
         while (true) {
             currentPosition =
-                if (isCasting) castUtils.getCastPosition()
-                else exoPlayer.currentPosition
+                exoPlayer.currentPosition
 
             duration =
-                if (isCasting) castUtils.getCastDuration()
-                else exoPlayer.duration.takeIf { it > 0 } ?: 0L
+                exoPlayer.duration.takeIf { it > 0 } ?: 0L
 
             isPlaying = exoPlayer.isPlaying
             delay(1000)
@@ -117,7 +110,6 @@ fun CustomPlayerController(
             title = playerModelList?.getOrNull(index)?.title.orEmpty(),
             isFullScreen = isCurrentlyFullScreen,
             context = context,
-            castUtils = castUtils,
             pipListener = pipListener,
             isPipEnabled = isPipEnabled,
             onBackPressed = onBackPressed,
@@ -151,8 +143,6 @@ fun CustomPlayerController(
                     CenterControls(
                         isLoading = isLoading,
                         exoPlayer = exoPlayer,
-                        castUtils = castUtils,
-                        isCasting = isCasting,
                         onShowControls = showControlsState.value,
                         showForwardIcon = showForwardIcon,
                         showRewindIcon = showRewindIcon,
@@ -185,8 +175,6 @@ fun CustomPlayerController(
             CenterControls(
                 isLoading = isLoading,
                 exoPlayer = exoPlayer,
-                castUtils = castUtils,
-                isCasting = isCasting,
                 onShowControls = showControlsState.value,
                 showForwardIcon = showForwardIcon,
                 showRewindIcon = showRewindIcon,
@@ -211,8 +199,7 @@ fun CustomPlayerController(
             exoPlayer = exoPlayer,
             onSeek = {
                 showControlsState.value(true)
-                if (isCasting) castUtils.seekOnCast(it)
-                else exoPlayer.seekTo(it)
+                exoPlayer.seekTo(it)
             },
             onNext = playContent,
             onFullScreenToggle = {

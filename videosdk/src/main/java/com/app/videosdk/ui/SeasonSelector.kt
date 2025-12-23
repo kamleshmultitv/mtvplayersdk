@@ -38,7 +38,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,7 +45,6 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.rememberAsyncImagePainter
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.utils.CastUtils
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,9 +59,6 @@ fun SeasonSelector(
     val sheetState = rememberModalBottomSheetState()
     var showSheet by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val castUtils = remember { CastUtils(context, exoPlayer) }
-    val isCasting = castUtils.isCasting()
 
     Box(
         modifier = Modifier
@@ -84,9 +79,7 @@ fun SeasonSelector(
                             coroutineScope.launch {
                                 sheetState.hide()
                                 showSheet = false
-                                if (!isCasting) {
-                                    exoPlayer.play()
-                                }
+                                exoPlayer.play()
                                 onShowControls(false)
                                 pausePlayer(false)
                             }
@@ -130,9 +123,7 @@ fun SeasonSelector(
                 coroutineScope.launch {
                     sheetState.hide()
                     showSheet = false
-                    if (!isCasting) {
-                        exoPlayer.play()
-                    }
+                    exoPlayer.play()
                     onShowControls(false)
                     pausePlayer(false)
                 }
@@ -169,9 +160,7 @@ fun SeasonSelector(
                                             coroutineScope.launch {
                                                 sheetState.hide()
                                                 showSheet = false
-                                                if (!isCasting) {
-                                                    exoPlayer.play()
-                                                }
+                                                exoPlayer.play()
                                                 onShowControls(false)
                                             }
 

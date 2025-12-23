@@ -11,12 +11,6 @@
         tools:ignore="ProtectedPermissions" />
 
     <application>
-        <activity android:name="com.google.android.gms.cast.framework.media.widget.ExpandedControllerActivity"
-            android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"/>
-
-        <meta-data
-            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="com.app.videosdk.cast.CastOptionsProvider" />
 
     </application>
 

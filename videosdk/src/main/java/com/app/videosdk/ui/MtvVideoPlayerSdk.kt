@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -31,14 +37,12 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.createExoPlayer
 import com.app.videosdk.utils.PlayerUtils.getMimeTypeFromExtension
-import com.google.android.gms.cast.framework.CastContext
 
 @OptIn(UnstableApi::class)
 @Composable
-public fun MtvVideoPlayerSdk(
+fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
     pipListener: PipListener? = null,
@@ -47,8 +51,6 @@ public fun MtvVideoPlayerSdk(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
-    CastContext.getSharedInstance(context)
 
     /* ---------------- SAFE INDEX ---------------- */
 
@@ -100,17 +102,12 @@ public fun MtvVideoPlayerSdk(
 
     val exoPlayer = remember(playerModel?.mpdUrl, subtitleUri) {
         createExoPlayer(
-            context,
-            playerModel?.mpdUrl.orEmpty(),
-            playerModel?.drmToken,
-            subtitleUri
+            context = context,
+            videoUrl = playerModel?.mpdUrl.orEmpty(),
+            drmToken = playerModel?.drmToken,
+            srt = subtitleUri
         )
     }
-
-    val castUtils = remember(context, exoPlayer) {
-        CastUtils(context, exoPlayer)
-    }
-    val isCasting by remember { derivedStateOf { castUtils.isCasting() } }
 
     /* ---------------- PLAYER LISTENER ---------------- */
 
@@ -122,28 +119,23 @@ public fun MtvVideoPlayerSdk(
 
                 when (state) {
                     Player.STATE_READY -> {
-                        if (!isCasting && exoPlayer.playWhenReady) {
-                            exoPlayer.play()
-                        }
+                        if (exoPlayer.playWhenReady) exoPlayer.play()
                     }
 
                     Player.STATE_ENDED -> {
                         keepScreenOn = false
                         val lastIndex = contentList?.lastIndex ?: 0
                         if (selectedIndex.intValue < lastIndex) {
-                            selectedIndex.intValue += 1
+                            selectedIndex.intValue++
                         }
                     }
 
                     Player.STATE_IDLE -> keepScreenOn = false
-                    Player.STATE_BUFFERING -> {
-                        isLoading = true
-                    }
                 }
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                Log.e("ExoPlayer", "Error: ${error.message}")
+                Log.e("MtvPlayer", "Playback error: ${error.message}")
             }
         }
 
@@ -168,8 +160,6 @@ public fun MtvVideoPlayerSdk(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    /* ---------------- UI HELPERS ---------------- */
-
     keepScreenOn =
         exoPlayer.playWhenReady && exoPlayer.playbackState == Player.STATE_READY
 
@@ -180,9 +170,7 @@ public fun MtvVideoPlayerSdk(
     FullScreenHandler(isFullScreen)
 
     val configuration = LocalConfiguration.current
-    val aspectRatioHeight = remember(configuration) {
-        configuration.screenWidthDp.dp * 9 / 16
-    }
+    val aspectRatioHeight = configuration.screenWidthDp.dp * 9 / 16
 
     /* ---------------- UI ---------------- */
 
@@ -191,6 +179,39 @@ public fun MtvVideoPlayerSdk(
             .fillMaxWidth()
             .then(if (isFullScreen) Modifier.fillMaxSize() else Modifier.height(aspectRatioHeight))
             .background(Color.Black)
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+
+                val seekBy = 10_000L
+
+                when (event.key) {
+                    Key.DirectionCenter,
+                    Key.Enter,
+                    Key.NumPadEnter,
+                    Key.MediaPlayPause -> {
+                        if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+                        isControllerVisible = true
+                        true
+                    }
+
+                    Key.DirectionLeft -> {
+                        exoPlayer.seekTo(
+                            (exoPlayer.currentPosition - seekBy).coerceAtLeast(0)
+                        )
+                        isControllerVisible = true
+                        true
+                    }
+
+                    Key.DirectionRight -> {
+                        exoPlayer.seekTo(exoPlayer.currentPosition + seekBy)
+                        isControllerVisible = true
+                        true
+                    }
+
+                    else -> false
+                }
+            }
+            .focusable()
             .pointerInput(Unit) {
                 detectTransformGestures { _, _, zoom, _ ->
                     isZoomed = zoom > 1f
@@ -214,15 +235,10 @@ public fun MtvVideoPlayerSdk(
                         onTap = { isControllerVisible = !isControllerVisible },
                         onDoubleTap = { offset ->
                             val isLeft = offset.x < size.width / 2
-                            val seekBy = if (isLeft) -10_000 else 10_000
-                            val position =
-                                if (isCasting) castUtils.getCastPosition()
-                                else exoPlayer.currentPosition
-
-                            val newPosition = (position + seekBy).coerceAtLeast(0)
-                            if (isCasting) castUtils.seekOnCast(newPosition)
-                            else exoPlayer.seekTo(newPosition)
-
+                            val seek = if (isLeft) -10_000 else 10_000
+                            exoPlayer.seekTo(
+                                (exoPlayer.currentPosition + seek).coerceAtLeast(0)
+                            )
                             if (isLeft) showRewindIcon = true else showForwardIcon = true
                         }
                     )
@@ -231,8 +247,10 @@ public fun MtvVideoPlayerSdk(
                 it.player = exoPlayer
                 it.keepScreenOn = keepScreenOn
                 it.resizeMode =
-                    if (isZoomed) AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    else AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    if (isZoomed)
+                        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                    else
+                        AspectRatioFrameLayout.RESIZE_MODE_FIT
             }
         )
 
@@ -274,13 +292,12 @@ public fun MtvVideoPlayerSdk(
         }
 
         ForwardBackwardButtonsOverlay(
-            exoPlayer,
-            context,
-            showRewindIcon,
-            showForwardIcon,
-            { showRewindIcon = false },
-            { showForwardIcon = false },
-            false
+            exoPlayer = exoPlayer,
+            showRewindIcon = showRewindIcon,
+            showForwardIcon = showForwardIcon,
+            onRewindIconHide = { showRewindIcon = false },
+            onForwardIconHide = { showForwardIcon = false },
+            isControllerVisible = false
         )
 
         if (!isControllerVisible && isLoading) {

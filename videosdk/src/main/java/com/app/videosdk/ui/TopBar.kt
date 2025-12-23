@@ -18,16 +18,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.fragment.app.FragmentActivity
 import com.app.videosdk.listener.PipListener
-import com.app.videosdk.utils.CastUtils
 
 @Composable
 fun TopBar(
     title: String,
     isFullScreen: Boolean,
     context: android.content.Context,
-    castUtils: CastUtils,
     pipListener: PipListener?,
     isPipEnabled: (Boolean) -> Unit,
     onBackPressed: () -> Unit,
@@ -58,10 +55,6 @@ fun TopBar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-
-        if (castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
-            CastButton()
-        }
 
         if (isFullScreen) {
             PipButton(

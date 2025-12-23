@@ -44,7 +44,6 @@ import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.OptionItemModel
-import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.calculatePitch
 import com.app.videosdk.utils.PlayerUtils.changeVideoResolution
 import com.app.videosdk.utils.PlayerUtils.getAudioTrack
@@ -60,8 +59,6 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
     val selectedItems = remember { mutableStateMapOf<Int, Int>() }
-    val castUtils = remember { CastUtils(context, exoPlayer) }
-    val isCasting = castUtils.isCasting()
     val options by viewModel.options.collectAsState()
     var selectedOption by remember { mutableStateOf(options.firstOrNull()?.id) }
 
@@ -94,9 +91,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
             }
             IconButton(
                 onClick = {
-                    if (!isCasting) {
-                        exoPlayer.play()
-                    }
+                    exoPlayer.play()
                     closeOptionCard(false)
                 }
             ) {

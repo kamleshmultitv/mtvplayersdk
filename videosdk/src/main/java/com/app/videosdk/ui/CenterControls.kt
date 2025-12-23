@@ -15,14 +15,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
-import com.app.videosdk.utils.CastUtils
 
 @Composable
 fun CenterControls(
     isLoading: Boolean,
     exoPlayer: ExoPlayer,
-    castUtils: CastUtils,
-    isCasting: Boolean,
     onShowControls: (Boolean) -> Unit,
     showForwardIcon: Boolean,
     showRewindIcon: Boolean,
@@ -46,14 +43,12 @@ fun CenterControls(
                 onDoubleTap = { offset ->
                     val isLeft = offset.x < size.width / 2
                     val current =
-                        if (isCasting) castUtils.getCastPosition()
-                        else exoPlayer.currentPosition
+                        exoPlayer.currentPosition
 
                     val newPosition =
                         maxOf(current + if (isLeft) -10_000 else 10_000, 0)
 
-                    if (isCasting) castUtils.seekOnCast(newPosition)
-                    else exoPlayer.seekTo(newPosition)
+                    exoPlayer.seekTo(newPosition)
 
                     if (isLeft) onRewind() else onForward()
                 }
@@ -68,7 +63,6 @@ fun CenterControls(
     ) {
         ForwardBackwardButtonsOverlay(
             exoPlayer = exoPlayer,
-            context = LocalContext.current,
             showRewindIcon = showRewindIcon,
             showForwardIcon = showForwardIcon,
             onRewindIconHide = onRewindHide,

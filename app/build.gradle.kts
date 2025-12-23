@@ -116,6 +116,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.core)
     implementation(libs.androidx.runtime)
+    implementation(libs.androidx.tv.foundation)
+    implementation(libs.androidx.tv.material)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.paging.compose)
     debugImplementation(libs.androidx.ui.tooling)
@@ -135,7 +137,7 @@ dependencies {
     implementation(libs.logging.interceptor)
 
     // SDK
-    //  implementation(project(":videosdk"))
-      implementation(libs.mtvplayersdk)
+      implementation(project(":videosdk"))
+    //  implementation(libs.mtvplayersdk)
 
 }

@@ -1,6 +1,5 @@
 package com.app.videosdk.ui
 
-import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
@@ -28,21 +27,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
-import com.app.videosdk.utils.CastUtils
 import kotlinx.coroutines.delay
 
 @Composable
 fun ForwardBackwardButtonsOverlay(
     exoPlayer: ExoPlayer,
-    context: Context,
     showRewindIcon: Boolean,
     showForwardIcon: Boolean,
     onRewindIconHide: () -> Unit,
     onForwardIconHide: () -> Unit,
     isControllerVisible: Boolean
 ) {
-    val castUtils = remember { CastUtils(context, exoPlayer) }
-    val isCasting = castUtils.isCasting()
 
     val rewindRotation by animateFloatAsState(
         targetValue = if (showRewindIcon) -90f else 0f,
@@ -80,13 +75,8 @@ fun ForwardBackwardButtonsOverlay(
             IconButton(
                 modifier = Modifier.size(60.dp),
                 onClick = {
-                    val newPosition = maxOf(
-                        (if (isCasting) castUtils.getCastPosition() else exoPlayer.currentPosition) - 10_000,
-                        0
-                    )
-                    if (isCasting) castUtils.seekOnCast(newPosition) else exoPlayer.seekTo(
-                        newPosition
-                    )
+                    val newPosition = maxOf(exoPlayer.currentPosition - 10_000, 0)
+                    exoPlayer.seekTo(newPosition)
                 }
             ) {
                 Icon(
@@ -106,17 +96,9 @@ fun ForwardBackwardButtonsOverlay(
                     modifier = Modifier.size(70.dp),
                     onClick = {
                         if (isPlaying) {
-                            if (isCasting) {
-                                castUtils.pauseCasting() // Pause casting
-                            } else {
-                                exoPlayer.pause() // Pause local playback
-                            }
+                        exoPlayer.pause()
                         } else {
-                            if (isCasting) {
-                                castUtils.playCasting() // Play casting
-                            } else {
-                                exoPlayer.play() // Play local playback
-                            }
+                        exoPlayer.play()
                         }
                         isPlaying = !isPlaying
                     }
@@ -136,15 +118,9 @@ fun ForwardBackwardButtonsOverlay(
             IconButton(
                 modifier = Modifier.size(60.dp),
                 onClick = {
-                    val duration =
-                        if (isCasting) castUtils.getCastDuration() else exoPlayer.duration
-                    val newPosition = minOf(
-                        (if (isCasting) castUtils.getCastPosition() else exoPlayer.currentPosition) + 10_000,
-                        duration
-                    )
-                    if (isCasting) castUtils.seekOnCast(newPosition) else exoPlayer.seekTo(
-                        newPosition
-                    )
+                    val duration = exoPlayer.duration
+                    val newPosition = minOf(exoPlayer.currentPosition + 10_000, duration)
+                    exoPlayer.seekTo(newPosition)
                 }
             ) {
                 Icon(
