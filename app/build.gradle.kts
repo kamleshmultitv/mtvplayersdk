@@ -134,5 +134,5 @@ dependencies {
     // SDK
     //  implementation(project(":videosdk"))
     //  implementation(libs.mtvplayersdk) // enable after publishing
-    implementation("com.github.kamleshmultitv:mtvplayersdk:v1.0.33")
+  //  implementation("com.github.kamleshmultitv:mtvplayersdk:v1.0.34")
 }
