@@ -3,7 +3,6 @@ import org.gradle.api.publish.maven.MavenPublication
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
- //   alias(libs.plugins.kotlin.compose)
     id("maven-publish")
 }
 
@@ -38,19 +37,35 @@ android {
         jvmTarget = "11"
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }
-
     buildFeatures {
         compose = true
         buildConfig = true
     }
 
-    // ✅ THIS IS MANDATORY FOR JITPACK
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.1"
+    }
+
+    // ✅ REQUIRED for JitPack + AGP 8+
     publishing {
         singleVariant("release") {
             withSourcesJar()
+        }
+    }
+}
+
+/**
+ * ✅ Maven Publish (KEEP THIS OUTSIDE android {})
+ */
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = "com.github.kamleshmultitv"
+                artifactId = "mtvplayersdk"
+                version = project.version.toString()
+            }
         }
     }
 }
@@ -90,18 +105,3 @@ dependencies {
     implementation(libs.google.accompanist.systemuicontroller)
     implementation(libs.coil.compose)
 }
-
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            groupId = "com.github.kamleshmultitv"
-            artifactId = "mtvplayersdk"
-            version = "v1.0.30"
-
-            afterEvaluate {
-                from(components["release"])
-            }
-        }
-    }
-}
-
