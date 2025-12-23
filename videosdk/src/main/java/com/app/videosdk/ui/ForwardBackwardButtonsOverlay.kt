@@ -1,18 +1,15 @@
 package com.app.videosdk.ui
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
@@ -23,8 +20,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.delay
@@ -36,111 +41,83 @@ fun ForwardBackwardButtonsOverlay(
     showForwardIcon: Boolean,
     onRewindIconHide: () -> Unit,
     onForwardIconHide: () -> Unit,
-    isControllerVisible: Boolean
+    isControllerVisible: Boolean,
+    backButtonFocusRequester: FocusRequester,
+    playFocusRequester: FocusRequester,
+    sliderFocusRequester: FocusRequester // Add this for Down navigation
 ) {
-
-    val rewindRotation by animateFloatAsState(
-        targetValue = if (showRewindIcon) -90f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "Rewind Rotation"
-    )
-
-    val forwardRotation by animateFloatAsState(
-        targetValue = if (showForwardIcon) 90f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "Forward Rotation"
-    )
-
-    val rewindAlpha by animateFloatAsState(
-        targetValue = if (showRewindIcon || isControllerVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "Rewind Alpha"
-    )
-
-    val forwardAlpha by animateFloatAsState(
-        targetValue = if (showForwardIcon || isControllerVisible) 1f else 0f,
-        animationSpec = tween(durationMillis = 300),
-        label = "Forward Alpha"
-    )
+    LaunchedEffect(isControllerVisible) {
+        if (isControllerVisible) {
+            playFocusRequester.requestFocus()
+        }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Row(
-            modifier = Modifier.align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Rewind Icon
-            IconButton(
-                modifier = Modifier.size(60.dp),
-                onClick = {
-                    val newPosition = maxOf(exoPlayer.currentPosition - 10_000, 0)
-                    exoPlayer.seekTo(newPosition)
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Replay10,
-                    contentDescription = "Rewind 10s",
-                    tint = Color.White.copy(alpha = rewindAlpha),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .graphicsLayer(rotationZ = rewindRotation)
-                )
-            }
+        var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
+        var isPlayFocused by remember { mutableStateOf(false) }
 
-            // Play/Pause Button
-            if (isControllerVisible) {
-                var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
-                IconButton(
-                    modifier = Modifier.size(70.dp),
-                    onClick = {
-                        if (isPlaying) {
-                        exoPlayer.pause()
-                        } else {
-                        exoPlayer.play()
-                        }
-                        isPlaying = !isPlaying
-                    }
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = "Play/Pause",
-                        tint = Color.White,
-                        modifier = Modifier.size(50.dp)
-                    )
+        LaunchedEffect(exoPlayer) {
+            while (true) {
+                if (isPlaying != exoPlayer.isPlaying) {
+                    isPlaying = exoPlayer.isPlaying
                 }
-            } else {
-                Spacer(modifier = Modifier.size(70.dp))
-            }
-
-            // Forward Icon
-            IconButton(
-                modifier = Modifier.size(60.dp),
-                onClick = {
-                    val duration = exoPlayer.duration
-                    val newPosition = minOf(exoPlayer.currentPosition + 10_000, duration)
-                    exoPlayer.seekTo(newPosition)
-                }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Forward10,
-                    contentDescription = "Forward 10s",
-                    tint = Color.White.copy(alpha = forwardAlpha),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .graphicsLayer(rotationZ = forwardRotation)
-                )
+                delay(500)
             }
         }
-    }
 
-    // Hide icons after a delay
-    LaunchedEffect(showRewindIcon, showForwardIcon) {
-        if (showRewindIcon || showForwardIcon) {
-            delay(500)
-            if (showRewindIcon) onRewindIconHide()
-            if (showForwardIcon) onForwardIconHide()
+        IconButton(
+            modifier = Modifier
+                .size(70.dp)
+                .focusRequester(playFocusRequester)
+                .onFocusChanged { isPlayFocused = it.isFocused }
+                .background(
+                    if (isPlayFocused) Color.White.copy(alpha = 0.2f) else Color.Transparent,
+                    CircleShape
+                )
+                .border(
+                    width = if (isPlayFocused) 2.dp else 0.dp,
+                    color = if (isPlayFocused) Color.White else Color.Transparent,
+                    shape = CircleShape
+                )
+                .focusable()
+                .graphicsLayer {
+                    alpha = if (isControllerVisible) 1f else 0.5f
+                }
+                .onKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        when (event.key) {
+                            Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                                if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+                                isPlaying = exoPlayer.isPlaying
+                                true
+                            }
+                            Key.DirectionUp -> {
+                                backButtonFocusRequester.requestFocus()
+                                true
+                            }
+                            Key.DirectionDown -> {
+                                // Explicitly move focus to the slider when Down is pressed from Play/Pause
+                                sliderFocusRequester.requestFocus()
+                                true
+                            }
+                            else -> false
+                        }
+                    } else false
+                },
+            onClick = {
+                if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+                isPlaying = exoPlayer.isPlaying
+            }
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = "Play Pause",
+                tint = Color.White,
+                modifier = Modifier.size(50.dp)
+            )
         }
     }
 }

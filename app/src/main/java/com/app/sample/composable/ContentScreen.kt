@@ -12,12 +12,10 @@ import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.app.sample.model.OverrideContent
 import com.app.sample.viewModel.ContentViewModel
-import com.app.videosdk.listener.PipListener
 
 @Composable
 fun ContentScreen(
-    viewModel: ContentViewModel,
-    pipListener: PipListener
+    viewModel: ContentViewModel
 ) {
     val context = LocalContext.current
     val pagingItems = viewModel.contentListData.collectAsLazyPagingItems()
@@ -39,7 +37,6 @@ fun ContentScreen(
             pagingItems = pagingItems,
             selectedIndex = selectedIndex,
             overrideContent = overrideContent,
-            pipListener = pipListener,
             isFullScreen = isFullScreen,
             onFullScreenChange = { isFullScreen = it },
             onOverrideContent = { overrideContent = it }

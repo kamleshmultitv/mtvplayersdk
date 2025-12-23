@@ -10,9 +10,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
 
@@ -28,7 +28,10 @@ fun CenterControls(
     onForwardHide: () -> Unit,
     onRewindHide: () -> Unit,
     isZoomed: Boolean,
-    onZoomChange: (Boolean) -> Unit
+    onZoomChange: (Boolean) -> Unit,
+    backButtonFocusRequester: FocusRequester,
+    playFocusRequester: FocusRequester,
+    sliderFocusRequester: FocusRequester
 ) {
     val gestureModifier = Modifier
         .pointerInput(Unit) {
@@ -67,7 +70,10 @@ fun CenterControls(
             showForwardIcon = showForwardIcon,
             onRewindIconHide = onRewindHide,
             onForwardIconHide = onForwardHide,
-            isControllerVisible = true
+            isControllerVisible = true,
+            backButtonFocusRequester = backButtonFocusRequester,
+            playFocusRequester = playFocusRequester,
+            sliderFocusRequester = sliderFocusRequester
         )
 
         if (isLoading) {

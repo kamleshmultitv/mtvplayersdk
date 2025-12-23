@@ -2,8 +2,6 @@ package com.app.videosdk.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -17,14 +15,15 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
-import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
 import kotlinx.coroutines.delay
 
@@ -32,13 +31,11 @@ import kotlinx.coroutines.delay
 fun CustomPlayerController(
     playerModelList: List<PlayerModel>? = null,
     index: Int,
-    pipListener: PipListener? = null,
     isFullScreen: (Boolean) -> Unit,
     isCurrentlyFullScreen: Boolean,
     exoPlayer: ExoPlayer,
     modifier: Modifier,
     onShowControls: (Boolean) -> Unit,
-    isPipEnabled: (Boolean) -> Unit = {},
     onSettingsButtonClick: (Boolean) -> Unit = {},
     isLoading: Boolean,
     onBackPressed: () -> Unit = {},
@@ -48,8 +45,11 @@ fun CustomPlayerController(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val showControlsState = rememberUpdatedState(onShowControls)
-    val fullScreenState = rememberUpdatedState(isFullScreen)
 
+    // Focus requesters for TV navigation
+    val backButtonFocusRequester = remember { FocusRequester() }
+    val playFocusRequester = remember { FocusRequester() }
+    val sliderFocusRequester = remember { FocusRequester() }
 
     var isZoomed by remember { mutableStateOf(false) }
     var showForwardIcon by remember { mutableStateOf(false) }
@@ -75,8 +75,10 @@ fun CustomPlayerController(
     }
 
     LaunchedEffect(isPlaying) {
-        delay(3000)
-        showControlsState.value(!isPlaying)
+        if (isPlaying) {
+            delay(3000)
+            showControlsState.value(false)
+        }
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -96,6 +98,11 @@ fun CustomPlayerController(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
+            .onKeyEvent {
+                // Show controls on any key press if they are hidden
+                showControlsState.value(true)
+                false
+            }
             .padding(
                 start = 16.dp,
                 end = 16.dp,
@@ -108,70 +115,14 @@ fun CustomPlayerController(
 
         TopBar(
             title = playerModelList?.getOrNull(index)?.title.orEmpty(),
-            isFullScreen = isCurrentlyFullScreen,
-            context = context,
-            pipListener = pipListener,
-            isPipEnabled = isPipEnabled,
             onBackPressed = onBackPressed,
-            onSettingsClick = {
-                exoPlayer.pause()
-                showControlsState.value(true)
-                onSettingsButtonClick(true)
-            }
+            backButtonFocusRequester = backButtonFocusRequester,
+            playFocusRequester = playFocusRequester
         )
 
         /* ---------- CENTER AREA ---------- */
 
-        if (isCurrentlyFullScreen) {
-
-            Row(modifier = Modifier.fillMaxSize()) {
-
-                /* ---- BRIGHTNESS (LEFT) ---- */
-                Box(
-                    modifier = Modifier
-                        .weight(0.1f)
-                        .fillMaxHeight(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CustomBrightnessController(
-                        onShowControls = showControlsState.value
-                    )
-                }
-
-                /* ---- CENTER CONTROLS ---- */
-                Box(modifier = Modifier.weight(0.8f)) {
-                    CenterControls(
-                        isLoading = isLoading,
-                        exoPlayer = exoPlayer,
-                        onShowControls = showControlsState.value,
-                        showForwardIcon = showForwardIcon,
-                        showRewindIcon = showRewindIcon,
-                        onForward = { showForwardIcon = true },
-                        onRewind = { showRewindIcon = true },
-                        onForwardHide = { showForwardIcon = false },
-                        onRewindHide = { showRewindIcon = false },
-                        isZoomed = isZoomed,
-                        onZoomChange = { isZoomed = it }
-                    )
-                }
-
-                /* ---- VOLUME (RIGHT) ---- */
-                Box(
-                    modifier = Modifier
-                        .weight(0.1f)
-                        .fillMaxHeight(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CustomVolumeController(
-                        exoPlayer = exoPlayer,
-                        onShowControls = showControlsState.value
-                    )
-                }
-            }
-
-        } else {
-
-            /* ---- NON FULLSCREEN CENTER ---- */
+        Box(modifier = Modifier.fillMaxSize()) {
             CenterControls(
                 isLoading = isLoading,
                 exoPlayer = exoPlayer,
@@ -181,9 +132,12 @@ fun CustomPlayerController(
                 onForward = { showForwardIcon = true },
                 onRewind = { showRewindIcon = true },
                 onForwardHide = { showForwardIcon = false },
-                onRewindHide = { showRewindIcon = false },
+                onRewindHide = { showForwardIcon = false },
                 isZoomed = isZoomed,
-                onZoomChange = { isZoomed = it }
+                onZoomChange = { isZoomed = it },
+                backButtonFocusRequester = backButtonFocusRequester,
+                playFocusRequester = playFocusRequester,
+                sliderFocusRequester = sliderFocusRequester
             )
         }
 
@@ -202,9 +156,13 @@ fun CustomPlayerController(
                 exoPlayer.seekTo(it)
             },
             onNext = playContent,
-            onFullScreenToggle = {
-                fullScreenState.value(!isCurrentlyFullScreen)
-            }
+            onSettingsClick = {
+                exoPlayer.pause()
+                showControlsState.value(true)
+                onSettingsButtonClick(true)
+            },
+            sliderFocusRequester = sliderFocusRequester,
+            playFocusRequester = playFocusRequester
         )
     }
 }

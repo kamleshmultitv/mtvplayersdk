@@ -2,7 +2,9 @@ package com.app.videosdk.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyRow
@@ -35,7 +38,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -50,18 +59,20 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeasonSelector(
+    modifier: Modifier = Modifier,
     playerModelList: List<PlayerModel>? = null,
     exoPlayer: ExoPlayer,
     onShowControls: (Boolean) -> Unit,
     pausePlayer: (Boolean) -> Unit,
-    playContent: (Int) -> Unit
+    playContent: (Int) -> Unit,
+    focusRequester: FocusRequester = remember { FocusRequester() }
 ) {
     val sheetState = rememberModalBottomSheetState()
     var showSheet by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .wrapContentSize()
             .background(color = Color.Transparent)
             .pointerInput(Unit) {
@@ -75,32 +86,51 @@ fun SeasonSelector(
                                 onShowControls(true)
                                 pausePlayer(true)
                             }
-                        } else if (dragAmount > 50 && showSheet) { // Swipe down → Close Bottom Sheet
-                            coroutineScope.launch {
-                                sheetState.hide()
-                                showSheet = false
-                                exoPlayer.play()
-                                onShowControls(false)
-                                pausePlayer(false)
-                            }
                         }
                     }
                 )
             },
         contentAlignment = Alignment.BottomCenter
     ) {
+        var isFocused by remember { mutableStateOf(false) }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.clickable {
-                coroutineScope.launch {
-                    showSheet = true
-                    sheetState.show()
-                    exoPlayer.pause()
-                    onShowControls(true)
-                    pausePlayer(true)
+            modifier = Modifier
+                .focusRequester(focusRequester)
+                .onFocusChanged { isFocused = it.isFocused }
+                .background(
+                    if (isFocused) Color.White.copy(alpha = 0.2f) else Color.Transparent,
+                    RoundedCornerShape(8.dp)
+                )
+                .border(
+                    if (isFocused) 2.dp else 0.dp,
+                    if (isFocused) Color.White else Color.Transparent,
+                    RoundedCornerShape(8.dp)
+                )
+                .clickable {
+                    coroutineScope.launch {
+                        showSheet = true
+                        sheetState.show()
+                        exoPlayer.pause()
+                        onShowControls(true)
+                        pausePlayer(true)
+                    }
                 }
-            }
+                .onKeyEvent {
+                    if (it.key == Key.DirectionCenter || it.key == Key.DirectionUp) {
+                        coroutineScope.launch {
+                            showSheet = true
+                            sheetState.show()
+                            exoPlayer.pause()
+                            onShowControls(true)
+                            pausePlayer(true)
+                        }
+                        true
+                    } else false
+                }
+                .focusable()
+                .padding(8.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardDoubleArrowUp,
@@ -152,10 +182,17 @@ fun SeasonSelector(
                     ) {
                         if (playerModelList != null) {
                             items(playerModelList.size) { index ->
+                                var isItemFocused by remember { mutableStateOf(false) }
                                 Card(
                                     modifier = Modifier
                                         .width(120.dp)
                                         .height(160.dp)
+                                        .onFocusChanged { isItemFocused = it.isFocused }
+                                        .border(
+                                            if (isItemFocused) 4.dp else 0.dp,
+                                            if (isItemFocused) Color.White else Color.Transparent,
+                                            RoundedCornerShape(12.dp)
+                                        )
                                         .clickable {
                                             coroutineScope.launch {
                                                 sheetState.hide()
@@ -165,7 +202,20 @@ fun SeasonSelector(
                                             }
 
                                             playContent(index)
-                                        },
+                                        }
+                                        .onKeyEvent {
+                                            if (it.key == Key.DirectionCenter) {
+                                                coroutineScope.launch {
+                                                    sheetState.hide()
+                                                    showSheet = false
+                                                    exoPlayer.play()
+                                                    onShowControls(false)
+                                                }
+                                                playContent(index)
+                                                true
+                                            } else false
+                                        }
+                                        .focusable(),
                                     shape = RoundedCornerShape(12.dp),
                                     elevation = CardDefaults.cardElevation(4.dp)
                                 ) {

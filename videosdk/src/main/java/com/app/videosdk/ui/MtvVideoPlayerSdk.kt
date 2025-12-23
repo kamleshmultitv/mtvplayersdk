@@ -35,7 +35,6 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils.createExoPlayer
 import com.app.videosdk.utils.PlayerUtils.getMimeTypeFromExtension
@@ -45,7 +44,6 @@ import com.app.videosdk.utils.PlayerUtils.getMimeTypeFromExtension
 fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
-    pipListener: PipListener? = null,
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit
 ) {
@@ -83,7 +81,6 @@ fun MtvVideoPlayerSdk(
 
     var isFullScreen by remember { mutableStateOf(false) }
     var isControllerVisible by remember { mutableStateOf(false) }
-    var pipEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var keepScreenOn by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
@@ -182,6 +179,12 @@ fun MtvVideoPlayerSdk(
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
+                // If controls are visible, allow them to handle D-Pad navigation
+                if (isControllerVisible) {
+                    // Show controls on any interaction if hidden, but don't seek here
+                    return@onPreviewKeyEvent false 
+                }
+
                 val seekBy = 10_000L
 
                 when (event.key) {
@@ -255,14 +258,13 @@ fun MtvVideoPlayerSdk(
         )
 
         AnimatedVisibility(
-            visible = !pipEnabled && isControllerVisible,
+            visible = isControllerVisible,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
             CustomPlayerController(
                 playerModelList = contentList,
                 index = selectedIndex.intValue,
-                pipListener = pipListener,
                 isFullScreen = {
                     isFullScreen = it
                     setFullScreen(it)
@@ -271,7 +273,6 @@ fun MtvVideoPlayerSdk(
                 exoPlayer = exoPlayer,
                 modifier = Modifier.fillMaxSize(),
                 onShowControls = { isControllerVisible = it },
-                isPipEnabled = { pipEnabled = it },
                 onSettingsButtonClick = { isSettingsClick = it },
                 isLoading = isLoading,
                 onBackPressed = {
@@ -290,15 +291,6 @@ fun MtvVideoPlayerSdk(
                 }
             )
         }
-
-        ForwardBackwardButtonsOverlay(
-            exoPlayer = exoPlayer,
-            showRewindIcon = showRewindIcon,
-            showForwardIcon = showForwardIcon,
-            onRewindIconHide = { showRewindIcon = false },
-            onForwardIconHide = { showForwardIcon = false },
-            isControllerVisible = false
-        )
 
         if (!isControllerVisible && isLoading) {
             CircularProgressIndicator(

@@ -30,7 +30,6 @@ fun ContentBody(
     pagingItems: LazyPagingItems<ContentItem>,
     selectedIndex: MutableIntState,
     overrideContent: OverrideContent?,
-    pipListener: PipListener,
     isFullScreen: Boolean,
     onFullScreenChange: (Boolean) -> Unit,
     onOverrideContent: (OverrideContent?) -> Unit
@@ -57,7 +56,6 @@ fun ContentBody(
             MtvVideoPlayerSdk(
                 contentList = contentList,
                 index = selectedIndex.intValue,
-                pipListener = pipListener,
                 onPlayerBack = { },
                 setFullScreen = onFullScreenChange
             )
@@ -76,7 +74,6 @@ fun ContentBody(
                     MtvVideoPlayerSdk(
                         contentList = contentList,
                         index = selectedIndex.intValue,
-                        pipListener = pipListener,
                         onPlayerBack = { },
                         setFullScreen = onFullScreenChange
                     )

@@ -1,23 +1,37 @@
 package com.app.videosdk.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.PlayerModel
@@ -33,41 +47,35 @@ fun BottomControls(
     exoPlayer: ExoPlayer,
     onSeek: (Long) -> Unit,
     onNext: (Int) -> Unit,
-    onFullScreenToggle: () -> Unit
+    onSettingsClick: () -> Unit,
+    sliderFocusRequester: FocusRequester,
+    playFocusRequester: FocusRequester
 ) {
     val spriteUrl = remember(playerModelList, index) {
         playerModelList?.getOrNull(index)?.spriteUrl
     }
 
+    val nextEpFocusRequester = remember { FocusRequester() }
+    val seasonSelectorFocusRequester = remember { FocusRequester() }
+    val settingsFocusRequester = remember { FocusRequester() }
+
     Column(modifier = modifier.fillMaxWidth()) {
-
-        /* ---------- FULLSCREEN ---------- */
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(4.dp), contentAlignment = Alignment.CenterEnd
-        ) {
-            IconButton(onClick = onFullScreenToggle) {
-                Icon(
-                    imageVector = if (isFullScreen)
-                        Icons.Default.FullscreenExit
-                    else
-                        Icons.Default.Fullscreen,
-                    contentDescription = "Toggle Fullscreen",
-                    tint = Color.White
-                )
-            }
-        }
 
         /* ---------- SEEK BAR ---------- */
 
         CustomSlider(
+            modifier = Modifier.focusRequester(sliderFocusRequester),
             spriteUrl = spriteUrl,
             currentPosition = currentPosition,
             duration = duration,
             onSeek = onSeek,
-            showControls = {}
+            showControls = {},
+            onDownPressed = {
+                nextEpFocusRequester.requestFocus()
+            },
+            onUpPressed = {
+                playFocusRequester.requestFocus()
+            }
         )
 
         /* ---------- BOTTOM ACTION BAR ---------- */
@@ -84,13 +92,45 @@ fun BottomControls(
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
                     val isLastItem = index >= playerModelList.lastIndex
+                    var isNextFocused by remember { mutableStateOf(false) }
 
                     Row(
                         modifier = Modifier
+                            .focusRequester(nextEpFocusRequester)
+                            .onFocusChanged { isNextFocused = it.isFocused }
+                            .background(
+                                if (isNextFocused) Color.White.copy(alpha = 0.2f) else Color.Transparent,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                if (isNextFocused) 2.dp else 0.dp,
+                                if (isNextFocused) Color.White else Color.Transparent,
+                                RoundedCornerShape(8.dp)
+                            )
                             .clickable(enabled = !isLastItem) {
                                 if (!isLastItem) onNext(index + 1)
                             }
-                            .padding(4.dp),
+                            .onKeyEvent { event ->
+                                if (event.type == KeyEventType.KeyDown) {
+                                    when (event.key) {
+                                        Key.DirectionCenter -> {
+                                            if (!isLastItem) onNext(index + 1)
+                                            true
+                                        }
+                                        Key.DirectionRight -> {
+                                            seasonSelectorFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        Key.DirectionUp -> {
+                                            sliderFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        else -> false
+                                    }
+                                } else false
+                            }
+                            .focusable()
+                            .padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -115,12 +155,77 @@ fun BottomControls(
                         exoPlayer = exoPlayer,
                         onShowControls = {},
                         pausePlayer = {},
-                        playContent = onNext
+                        playContent = onNext,
+                        focusRequester = seasonSelectorFocusRequester,
+                        modifier = Modifier.onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown) {
+                                when (event.key) {
+                                    Key.DirectionRight -> {
+                                        settingsFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    Key.DirectionLeft -> {
+                                        nextEpFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    Key.DirectionUp -> {
+                                        sliderFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else false
+                        }
                     )
                 }
             }
 
-            Box(modifier = Modifier.weight(1f))
+            /* ---------- END : SETTINGS ---------- */
+
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                var isSettingsFocused by remember { mutableStateOf(false) }
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier
+                        .focusRequester(settingsFocusRequester)
+                        .onFocusChanged { isSettingsFocused = it.isFocused }
+                        .background(
+                            if (isSettingsFocused) Color.White.copy(alpha = 0.2f) else Color.Transparent,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .border(
+                            if (isSettingsFocused) 2.dp else 0.dp,
+                            if (isSettingsFocused) Color.White else Color.Transparent,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown) {
+                                when (event.key) {
+                                    Key.DirectionCenter -> {
+                                        onSettingsClick()
+                                        true
+                                    }
+                                    Key.DirectionLeft -> {
+                                        seasonSelectorFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    Key.DirectionUp -> {
+                                        sliderFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    else -> false
+                                }
+                            } else false
+                        }
+                        .focusable()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = Color.White
+                    )
+                }
+            }
         }
     }
 }
