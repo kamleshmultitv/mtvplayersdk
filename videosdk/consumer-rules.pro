@@ -26,3 +26,7 @@
 
 # Compose safety
 -dontwarn androidx.compose.**
+
+-keep class com.app.videosdk.** { *; }
+
+
