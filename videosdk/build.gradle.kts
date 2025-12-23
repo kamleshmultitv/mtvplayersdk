@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
  //   alias(libs.plugins.kotlin.compose)
-  //  id("maven-publish")
+    id("maven-publish")
 }
 
 android {
@@ -91,17 +91,17 @@ dependencies {
     implementation(libs.coil.compose)
 }
 
-/*publishing {
+publishing {
     publications {
         create<MavenPublication>("release") {
             groupId = "com.github.kamleshmultitv"
             artifactId = "mtvplayersdk"
-            version = "v1.0.23"
+            version = "v1.0.30"
 
             afterEvaluate {
                 from(components["release"])
             }
         }
     }
-}*/
+}
 
