@@ -1,4 +1,4 @@
-version = "v1.0.36"
+version = "v1.0.40"
 
 plugins {
     alias(libs.plugins.android.library) apply false
