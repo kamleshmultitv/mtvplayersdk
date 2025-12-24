@@ -23,7 +23,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -52,30 +51,17 @@ fun MtvVideoPlayerSdk(
 
     /* ---------------- SAFE INDEX ---------------- */
 
-    val safeIndex = remember(contentList, index) {
-        val size = contentList?.size ?: 0
-        when {
-            size == 0 -> 0
-            index == null -> 0
-            index < 0 -> 0
-            index >= size -> size - 1
-            else -> index
+    val selectedIndex = remember { mutableIntStateOf(index ?: 0) }
+
+    LaunchedEffect(index) {
+        if (index != null) {
+            selectedIndex.intValue = index
         }
     }
 
-    val selectedIndex = remember { mutableIntStateOf(safeIndex) }
-
-    LaunchedEffect(index, contentList) {
-        val size = contentList?.size ?: return@LaunchedEffect
-        selectedIndex.intValue = when {
-            index == null -> 0
-            index < 0 -> 0
-            index >= size -> size - 1
-            else -> index
-        }
+    val playerModel = remember(selectedIndex.intValue, contentList) {
+        contentList?.getOrNull(selectedIndex.intValue)
     }
-
-    val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
     /* ---------------- PLAYER STATE ---------------- */
 
@@ -166,22 +152,16 @@ fun MtvVideoPlayerSdk(
     }
     FullScreenHandler(isFullScreen)
 
-    val configuration = LocalConfiguration.current
-    val aspectRatioHeight = configuration.screenWidthDp.dp * 9 / 16
-
     /* ---------------- UI ---------------- */
 
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isFullScreen) Modifier.fillMaxSize() else Modifier.height(aspectRatioHeight))
+            .fillMaxSize() // Fill the weight-assigned container
             .background(Color.Black)
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
 
-                // If controls are visible, allow them to handle D-Pad navigation
                 if (isControllerVisible) {
-                    // Show controls on any interaction if hidden, but don't seek here
                     return@onPreviewKeyEvent false 
                 }
 

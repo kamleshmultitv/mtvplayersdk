@@ -77,14 +77,17 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
     val closeButtonFocusRequester = remember { FocusRequester() }
     val listFocusRequester = remember { FocusRequester() }
     
+    // Unique focus requesters for each header option
     val optionFocusRequesters = remember(options) {
         options.associate { it.id to FocusRequester() }
     }
 
-    LaunchedEffect(Unit) {
-        if (options.isNotEmpty()) {
-            optionFocusRequesters[options.first().id]?.requestFocus()
+    LaunchedEffect(options) {
+        if (options.isNotEmpty() && selectedOption == null) {
+            selectedOption = options.first().id
         }
+        // Force focus to current or first option on open
+        optionFocusRequesters[selectedOption ?: options.firstOrNull()?.id]?.requestFocus()
     }
 
     Column(
@@ -121,15 +124,13 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                             .onKeyEvent { event ->
                                 if (event.type == KeyEventType.KeyDown) {
                                     when (event.key) {
+                                        Key.DirectionLeft -> {
+                                            if (index == 0) true // Do nothing on first item
+                                            else false
+                                        }
                                         Key.DirectionRight -> {
                                             if (index == options.lastIndex) {
                                                 closeButtonFocusRequester.requestFocus()
-                                                true
-                                            } else false
-                                        }
-                                        Key.DirectionLeft -> {
-                                            if (index == 0) {
-                                                // Restriction: Do not move left from the first item
                                                 true
                                             } else false
                                         }
@@ -168,7 +169,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                         if (event.type == KeyEventType.KeyDown) {
                             when (event.key) {
                                 Key.DirectionDown -> {
-                                    optionFocusRequesters[selectedOption ?: options.first().id]?.requestFocus()
+                                    optionFocusRequesters[selectedOption ?: options.firstOrNull()?.id]?.requestFocus()
                                     true
                                 }
                                 Key.DirectionLeft -> {
@@ -178,8 +179,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                                     true
                                 }
                                 Key.DirectionRight -> {
-                                    // Restriction: Do not move right from the close button
-                                    true
+                                    true // Do nothing on right click
                                 }
                                 Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
                                     exoPlayer.play()
@@ -209,13 +209,12 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
             color = Color.Gray
         )
 
-        val handleNavigateLR: (Boolean) -> Unit = { isRight ->
+        val onNavigateLR: (Boolean) -> Unit = { isRight ->
             val currentIndex = options.indexOfFirst { it.id == selectedOption }
             if (isRight) {
                 if (currentIndex < options.lastIndex) {
                     optionFocusRequesters[options[currentIndex + 1].id]?.requestFocus()
                 } else {
-                    // Logic for jumping from the last list category to Close button
                     closeButtonFocusRequester.requestFocus()
                 }
             } else {
@@ -233,7 +232,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                     selectedIndex = selectedItems[selectedOption] ?: -1,
                     focusRequester = listFocusRequester,
                     onUp = { optionFocusRequesters[selectedOption!!]?.requestFocus() },
-                    onNavigateLR = handleNavigateLR
+                    onNavigateLR = onNavigateLR
                 ) { index ->
                     selectedItems[selectedOption!!] = index
                     selectAudioTrack(audioTrackList[index].id.toString(), exoPlayer)
@@ -251,7 +250,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                     selectedIndex = selectedItems[selectedOption] ?: -1,
                     focusRequester = listFocusRequester,
                     onUp = { optionFocusRequesters[selectedOption!!]?.requestFocus() },
-                    onNavigateLR = handleNavigateLR
+                    onNavigateLR = onNavigateLR
                 ) { index ->
                     selectedItems[selectedOption!!] = index
                     exoPlayer.trackSelectionParameters =
@@ -281,7 +280,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                     selectedIndex = selectedItems[selectedOption] ?: -1,
                     focusRequester = listFocusRequester,
                     onUp = { optionFocusRequesters[selectedOption!!]?.requestFocus() },
-                    onNavigateLR = handleNavigateLR
+                    onNavigateLR = onNavigateLR
                 ) { index ->
                     selectedItems[selectedOption!!] = index
                     val param = PlaybackParameters(
@@ -300,7 +299,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                     selectedIndex = selectedItems[selectedOption] ?: -1,
                     focusRequester = listFocusRequester,
                     onUp = { optionFocusRequesters[selectedOption!!]?.requestFocus() },
-                    onNavigateLR = handleNavigateLR
+                    onNavigateLR = onNavigateLR
                 ) { index ->
                     selectedItems[selectedOption!!] = index
                     if (index == 0) {
