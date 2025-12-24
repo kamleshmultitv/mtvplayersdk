@@ -44,7 +44,7 @@ fun ForwardBackwardButtonsOverlay(
     isControllerVisible: Boolean,
     backButtonFocusRequester: FocusRequester,
     playFocusRequester: FocusRequester,
-    sliderFocusRequester: FocusRequester // Add this for Down navigation
+    sliderFocusRequester: FocusRequester
 ) {
     LaunchedEffect(isControllerVisible) {
         if (isControllerVisible) {
@@ -99,8 +99,16 @@ fun ForwardBackwardButtonsOverlay(
                                 true
                             }
                             Key.DirectionDown -> {
-                                // Explicitly move focus to the slider when Down is pressed from Play/Pause
                                 sliderFocusRequester.requestFocus()
+                                true
+                            }
+                            // Seek if no buttons on the side
+                            Key.DirectionLeft -> {
+                                exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0))
+                                true
+                            }
+                            Key.DirectionRight -> {
+                                exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
                                 true
                             }
                             else -> false

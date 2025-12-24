@@ -25,19 +25,23 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.media3.exoplayer.ExoPlayer
 
 @Composable
 fun TopBar(
     title: String,
     onBackPressed: () -> Unit,
     backButtonFocusRequester: FocusRequester,
-    playFocusRequester: FocusRequester
+    playFocusRequester: FocusRequester,
+    exoPlayer: ExoPlayer // Added to handle seeking
 ) {
     Row(
         modifier = Modifier
@@ -62,18 +66,30 @@ fun TopBar(
                     color = if (isBackFocused) Color.White else Color.Transparent,
                     shape = RoundedCornerShape(8.dp)
                 )
-                .onKeyEvent {
-                    when (it.key) {
-                        Key.DirectionCenter -> {
-                            onBackPressed()
-                            true
+                .onKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown) {
+                        when (event.key) {
+                            Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                                onBackPressed()
+                                true
+                            }
+                            Key.DirectionDown -> {
+                                playFocusRequester.requestFocus()
+                                true
+                            }
+                            Key.DirectionLeft -> {
+                                // Seek backward since no button to the left
+                                exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0))
+                                true
+                            }
+                            Key.DirectionRight -> {
+                                // Seek forward since no button to the right (Settings was moved)
+                                exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
+                                true
+                            }
+                            else -> false
                         }
-                        Key.DirectionDown -> {
-                            playFocusRequester.requestFocus()
-                            true
-                        }
-                        else -> false
-                    }
+                    } else false
                 }
                 .focusable()
         ) {

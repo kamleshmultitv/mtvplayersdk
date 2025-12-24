@@ -113,12 +113,12 @@ fun BottomControls(
                             .onKeyEvent { event ->
                                 if (event.type == KeyEventType.KeyDown) {
                                     when (event.key) {
-                                        Key.DirectionCenter -> {
-                                            if (!isLastItem) onNext(index + 1)
-                                            true
-                                        }
                                         Key.DirectionRight -> {
                                             seasonSelectorFocusRequester.requestFocus()
+                                            true
+                                        }
+                                        Key.DirectionLeft -> {
+                                            exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0))
                                             true
                                         }
                                         Key.DirectionUp -> {
@@ -201,8 +201,8 @@ fun BottomControls(
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown) {
                                 when (event.key) {
-                                    Key.DirectionCenter -> {
-                                        onSettingsClick()
+                                    Key.DirectionRight -> {
+                                        exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
                                         true
                                     }
                                     Key.DirectionLeft -> {

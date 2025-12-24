@@ -117,7 +117,8 @@ fun CustomPlayerController(
             title = playerModelList?.getOrNull(index)?.title.orEmpty(),
             onBackPressed = onBackPressed,
             backButtonFocusRequester = backButtonFocusRequester,
-            playFocusRequester = playFocusRequester
+            playFocusRequester = playFocusRequester,
+            exoPlayer = exoPlayer
         )
 
         /* ---------- CENTER AREA ---------- */

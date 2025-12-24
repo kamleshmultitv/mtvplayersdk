@@ -118,7 +118,9 @@ fun SeasonSelector(
                     }
                 }
                 .onKeyEvent {
-                    if (it.key == Key.DirectionCenter || it.key == Key.DirectionUp) {
+                    // ONLY open sheet on Center (OK) button. 
+                    // DirectionUp is left unhandled here so it can be handled by the parent for navigation.
+                    if (it.key == Key.DirectionCenter) {
                         coroutineScope.launch {
                             showSheet = true
                             sheetState.show()
