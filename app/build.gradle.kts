@@ -137,7 +137,7 @@ dependencies {
     implementation(libs.logging.interceptor)
 
     // SDK
-      implementation(project(":videosdk"))
-    //  implementation(libs.mtvplayersdk)
+    //  implementation(project(":videosdk"))
+      implementation(libs.mtvplayersdk)
 
 }
