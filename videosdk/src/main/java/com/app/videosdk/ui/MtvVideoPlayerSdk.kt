@@ -16,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -49,8 +50,6 @@ fun MtvVideoPlayerSdk(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    /* ---------------- SAFE INDEX ---------------- */
-
     val selectedIndex = remember { mutableIntStateOf(index ?: 0) }
 
     LaunchedEffect(index) {
@@ -65,14 +64,24 @@ fun MtvVideoPlayerSdk(
 
     /* ---------------- PLAYER STATE ---------------- */
 
-    var isFullScreen by remember { mutableStateOf(false) }
-    var isControllerVisible by remember { mutableStateOf(false) }
+    var isControllerVisible by remember { mutableStateOf(true) } 
     var isLoading by remember { mutableStateOf(false) }
     var keepScreenOn by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
-    var showForwardIcon by remember { mutableStateOf(false) }
-    var showRewindIcon by remember { mutableStateOf(false) }
     var isZoomed by remember { mutableStateOf(false) }
+    var showIntroOverlay by remember { mutableStateOf(true) }
+
+    // Focus requesters managed at the SDK level to allow cross-component targeting
+    val backButtonFocusRequester = remember { FocusRequester() }
+    val playFocusRequester = remember { FocusRequester() }
+    val sliderFocusRequester = remember { FocusRequester() }
+
+    // Logic to return focus to Play button when settings menu is closed
+    LaunchedEffect(isSettingsClick) {
+        if (!isSettingsClick && !showIntroOverlay) {
+            playFocusRequester.requestFocus()
+        }
+    }
 
     /* ---------------- SUBTITLE ---------------- */
 
@@ -96,15 +105,10 @@ fun MtvVideoPlayerSdk(
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
-
             override fun onPlaybackStateChanged(state: Int) {
                 isLoading = state == Player.STATE_BUFFERING
-
                 when (state) {
-                    Player.STATE_READY -> {
-                        if (exoPlayer.playWhenReady) exoPlayer.play()
-                    }
-
+                    Player.STATE_READY -> if (exoPlayer.playWhenReady) exoPlayer.play()
                     Player.STATE_ENDED -> {
                         keepScreenOn = false
                         val lastIndex = contentList?.lastIndex ?: 0
@@ -112,19 +116,15 @@ fun MtvVideoPlayerSdk(
                             selectedIndex.intValue++
                         }
                     }
-
                     Player.STATE_IDLE -> keepScreenOn = false
                 }
             }
-
             override fun onPlayerError(error: PlaybackException) {
                 Log.e("MtvPlayer", "Playback error: ${error.message}")
             }
         }
-
         exoPlayer.addListener(listener)
         exoPlayer.repeatMode = Player.REPEAT_MODE_OFF
-
         onDispose {
             exoPlayer.removeListener(listener)
             exoPlayer.release()
@@ -143,56 +143,42 @@ fun MtvVideoPlayerSdk(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    keepScreenOn =
-        exoPlayer.playWhenReady && exoPlayer.playbackState == Player.STATE_READY
-
-    ScreenRotation {
-        isFullScreen = it
-        setFullScreen(it)
-    }
-    FullScreenHandler(isFullScreen)
+    keepScreenOn = exoPlayer.playWhenReady && exoPlayer.playbackState == Player.STATE_READY
 
     /* ---------------- UI ---------------- */
 
     Box(
         modifier = Modifier
-            .fillMaxSize() // Fill the weight-assigned container
+            .fillMaxSize()
             .background(Color.Black)
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (showIntroOverlay || isSettingsClick) return@onPreviewKeyEvent false
 
-                if (isControllerVisible) {
-                    return@onPreviewKeyEvent false 
+                if (!isControllerVisible) {
+                    when (event.key) {
+                        Key.DirectionLeft -> {
+                            exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0))
+                            isControllerVisible = true
+                            return@onPreviewKeyEvent true
+                        }
+                        Key.DirectionRight -> {
+                            exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
+                            isControllerVisible = true
+                            return@onPreviewKeyEvent true
+                        }
+                        Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                            exoPlayer.pause()
+                            isControllerVisible = true
+                            return@onPreviewKeyEvent true
+                        }
+                        Key.DirectionUp, Key.DirectionDown -> {
+                            isControllerVisible = true
+                            return@onPreviewKeyEvent true
+                        }
+                    }
                 }
-
-                val seekBy = 10_000L
-
-                when (event.key) {
-                    Key.DirectionCenter,
-                    Key.Enter,
-                    Key.NumPadEnter,
-                    Key.MediaPlayPause -> {
-                        if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
-                        isControllerVisible = true
-                        true
-                    }
-
-                    Key.DirectionLeft -> {
-                        exoPlayer.seekTo(
-                            (exoPlayer.currentPosition - seekBy).coerceAtLeast(0)
-                        )
-                        isControllerVisible = true
-                        true
-                    }
-
-                    Key.DirectionRight -> {
-                        exoPlayer.seekTo(exoPlayer.currentPosition + seekBy)
-                        isControllerVisible = true
-                        true
-                    }
-
-                    else -> false
-                }
+                false
             }
             .focusable()
             .pointerInput(Unit) {
@@ -215,60 +201,51 @@ fun MtvVideoPlayerSdk(
                 .fillMaxSize()
                 .pointerInput(Unit) {
                     detectTapGestures(
-                        onTap = { isControllerVisible = !isControllerVisible },
-                        onDoubleTap = { offset ->
-                            val isLeft = offset.x < size.width / 2
-                            val seek = if (isLeft) -10_000 else 10_000
-                            exoPlayer.seekTo(
-                                (exoPlayer.currentPosition + seek).coerceAtLeast(0)
-                            )
-                            if (isLeft) showRewindIcon = true else showForwardIcon = true
+                        onTap = { 
+                            if (!showIntroOverlay && !isSettingsClick) {
+                                isControllerVisible = !isControllerVisible 
+                            }
                         }
                     )
                 },
             update = {
                 it.player = exoPlayer
                 it.keepScreenOn = keepScreenOn
-                it.resizeMode =
-                    if (isZoomed)
-                        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    else
-                        AspectRatioFrameLayout.RESIZE_MODE_FIT
+                it.resizeMode = if (isZoomed) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
             }
         )
 
         AnimatedVisibility(
-            visible = isControllerVisible,
+            visible = isControllerVisible && !isSettingsClick,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
             CustomPlayerController(
                 playerModelList = contentList,
                 index = selectedIndex.intValue,
-                isFullScreen = {
-                    isFullScreen = it
-                    setFullScreen(it)
-                },
-                isCurrentlyFullScreen = isFullScreen,
+                isFullScreen = setFullScreen,
+                isCurrentlyFullScreen = true,
                 exoPlayer = exoPlayer,
                 modifier = Modifier.fillMaxSize(),
-                onShowControls = { isControllerVisible = it },
+                onShowControls = { 
+                    if (!showIntroOverlay) isControllerVisible = it 
+                },
                 onSettingsButtonClick = { isSettingsClick = it },
                 isLoading = isLoading,
-                onBackPressed = {
-                    if (isFullScreen) {
-                        isFullScreen = false
-                        setFullScreen(false)
-                    } else {
-                        onPlayerBack(true)
-                    }
-                },
+                onBackPressed = { onPlayerBack(true) },
                 playContent = { newIndex ->
                     val size = contentList?.size ?: return@CustomPlayerController
                     if (newIndex in 0 until size) {
                         selectedIndex.intValue = newIndex
                     }
-                }
+                },
+                showIntroOverlay = showIntroOverlay,
+                onPlayClicked = { 
+                    showIntroOverlay = false
+                },
+                backButtonFocusRequester = backButtonFocusRequester,
+                playFocusRequester = playFocusRequester,
+                sliderFocusRequester = sliderFocusRequester
             )
         }
 

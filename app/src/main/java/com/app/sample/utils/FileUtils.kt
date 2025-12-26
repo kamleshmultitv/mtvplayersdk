@@ -89,6 +89,8 @@ object FileUtils {
                     ?.url.orEmpty(),
                 title = content.title.orEmpty(),
                 description = content.shortDesc.orEmpty(),
+                season_title = content.seasonTitle,
+                season_des = content.seasonDes,
                 srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
                 playbackSpeed = 1.0f,
                 selectedSubtitle = null,

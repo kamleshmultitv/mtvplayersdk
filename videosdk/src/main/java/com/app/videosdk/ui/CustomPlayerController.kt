@@ -1,25 +1,27 @@
 package com.app.videosdk.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -39,45 +41,45 @@ fun CustomPlayerController(
     onSettingsButtonClick: (Boolean) -> Unit = {},
     isLoading: Boolean,
     onBackPressed: () -> Unit = {},
-    playContent: (Int) -> Unit
+    playContent: (Int) -> Unit,
+    showIntroOverlay: Boolean,
+    onPlayClicked: () -> Unit,
+    // Lifted focus requesters
+    backButtonFocusRequester: FocusRequester,
+    playFocusRequester: FocusRequester,
+    sliderFocusRequester: FocusRequester
 ) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-
     val showControlsState = rememberUpdatedState(onShowControls)
 
-    // Focus requesters for TV navigation
-    val backButtonFocusRequester = remember { FocusRequester() }
-    val playFocusRequester = remember { FocusRequester() }
-    val sliderFocusRequester = remember { FocusRequester() }
+    val introPlayFocusRequester = remember { FocusRequester() }
 
-    var isZoomed by remember { mutableStateOf(false) }
-    var showForwardIcon by remember { mutableStateOf(false) }
-    var showRewindIcon by remember { mutableStateOf(false) }
     var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
-
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
 
-    /* ---------- PLAYBACK OBSERVER ---------- */
-
     LaunchedEffect(exoPlayer) {
         while (true) {
-            currentPosition =
-                exoPlayer.currentPosition
-
-            duration =
-                exoPlayer.duration.takeIf { it > 0 } ?: 0L
-
+            currentPosition = exoPlayer.currentPosition
+            duration = exoPlayer.duration.takeIf { it > 0 } ?: 0L
             isPlaying = exoPlayer.isPlaying
             delay(1000)
         }
     }
 
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
+    // Auto-hide controls only when playing AND intro is gone
+    LaunchedEffect(isPlaying, showIntroOverlay) {
+        if (isPlaying && !showIntroOverlay) {
             delay(3000)
             showControlsState.value(false)
+        } else if (showIntroOverlay) {
+            showControlsState.value(true)
+        }
+    }
+
+    LaunchedEffect(showIntroOverlay) {
+        if (showIntroOverlay) {
+            introPlayFocusRequester.requestFocus()
         }
     }
 
@@ -92,78 +94,113 @@ fun CustomPlayerController(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    /* -------------------- UI -------------------- */
-
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
-            .onKeyEvent {
-                // Show controls on any key press if they are hidden
-                showControlsState.value(true)
-                false
-            }
-            .padding(
-                start = 16.dp,
-                end = 16.dp,
-                top = 16.dp,
-                bottom = if (isCurrentlyFullScreen) 8.dp else 4.dp
-            )
+            .padding(16.dp)
     ) {
+        if (showIntroOverlay) {
+            /* -------------------- INTRO SCREEN -------------------- */
+            val model = playerModelList?.getOrNull(index)
+            
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.6f)
+                    .align(Alignment.CenterStart)
+                    .padding(start = 32.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = model?.title.orEmpty(),
+                    color = Color.White,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = model?.description.orEmpty(),
+                    color = Color.LightGray,
+                    fontSize = 16.sp,
+                    maxLines = 3
+                )
+                Spacer(modifier = Modifier.height(24.dp))
 
-        /* ---------- TOP BAR ---------- */
-
-        TopBar(
-            title = playerModelList?.getOrNull(index)?.title.orEmpty(),
-            onBackPressed = onBackPressed,
-            backButtonFocusRequester = backButtonFocusRequester,
-            playFocusRequester = playFocusRequester,
-            exoPlayer = exoPlayer
-        )
-
-        /* ---------- CENTER AREA ---------- */
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            CenterControls(
-                isLoading = isLoading,
-                exoPlayer = exoPlayer,
-                onShowControls = showControlsState.value,
-                showForwardIcon = showForwardIcon,
-                showRewindIcon = showRewindIcon,
-                onForward = { showForwardIcon = true },
-                onRewind = { showRewindIcon = true },
-                onForwardHide = { showForwardIcon = false },
-                onRewindHide = { showForwardIcon = false },
-                isZoomed = isZoomed,
-                onZoomChange = { isZoomed = it },
+                var isPlayBtnFocused by remember { mutableStateOf(false) }
+                Button(
+                    onClick = onPlayClicked,
+                    modifier = Modifier
+                        .focusRequester(introPlayFocusRequester)
+                        .onFocusChanged { isPlayBtnFocused = it.isFocused }
+                        .border(
+                            width = if (isPlayBtnFocused) 2.dp else 0.dp,
+                            color = if (isPlayBtnFocused) Color.White else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .height(56.dp)
+                        .wrapContentWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isPlayBtnFocused) Color.White.copy(alpha = 0.3f) else Color.Red
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("PLAY", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        } else {
+            /* -------------------- ACTUAL PLAYER CONTROLS -------------------- */
+            
+            TopBar(
+                title = playerModelList?.getOrNull(index)?.title.orEmpty(),
+                onBackPressed = onBackPressed,
                 backButtonFocusRequester = backButtonFocusRequester,
                 playFocusRequester = playFocusRequester,
-                sliderFocusRequester = sliderFocusRequester
+                exoPlayer = exoPlayer
+            )
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                CenterControls(
+                    isLoading = isLoading,
+                    exoPlayer = exoPlayer,
+                    onShowControls = showControlsState.value,
+                    showForwardIcon = false,
+                    showRewindIcon = false,
+                    onForward = { },
+                    onRewind = { },
+                    onForwardHide = { },
+                    onRewindHide = { },
+                    isZoomed = false,
+                    onZoomChange = { },
+                    backButtonFocusRequester = backButtonFocusRequester,
+                    playFocusRequester = playFocusRequester,
+                    sliderFocusRequester = sliderFocusRequester
+                )
+            }
+
+            BottomControls(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                playerModelList = playerModelList,
+                index = index,
+                isFullScreen = isCurrentlyFullScreen,
+                currentPosition = currentPosition,
+                duration = duration,
+                exoPlayer = exoPlayer,
+                onSeek = {
+                    showControlsState.value(true)
+                    exoPlayer.seekTo(it)
+                },
+                onNext = playContent,
+                onSettingsClick = {
+                    exoPlayer.pause()
+                    showControlsState.value(true)
+                    onSettingsButtonClick(true)
+                },
+                sliderFocusRequester = sliderFocusRequester,
+                playFocusRequester = playFocusRequester
             )
         }
-
-        /* ---------- BOTTOM CONTROLS ---------- */
-
-        BottomControls(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            playerModelList = playerModelList,
-            index = index,
-            isFullScreen = isCurrentlyFullScreen,
-            currentPosition = currentPosition,
-            duration = duration,
-            exoPlayer = exoPlayer,
-            onSeek = {
-                showControlsState.value(true)
-                exoPlayer.seekTo(it)
-            },
-            onNext = playContent,
-            onSettingsClick = {
-                exoPlayer.pause()
-                showControlsState.value(true)
-                onSettingsButtonClick(true)
-            },
-            sliderFocusRequester = sliderFocusRequester,
-            playFocusRequester = playFocusRequester
-        )
     }
 }

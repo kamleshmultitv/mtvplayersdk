@@ -200,6 +200,7 @@ data class ContentItem(
 
 	@SerializedName("isVideoDownloaded")
 	var isVideoDownloaded: Boolean? = null
+
 )
 
 data class Subtitle(
