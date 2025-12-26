@@ -103,9 +103,9 @@ fun BottomControls(
                                 RoundedCornerShape(8.dp)
                             )
                             .border(
-                                if (isNextFocused) 2.dp else 0.dp,
-                                if (isNextFocused) Color.White else Color.Transparent,
-                                RoundedCornerShape(8.dp)
+                                width = if (isNextFocused) 2.dp else 0.dp,
+                                color = if (isNextFocused) Color.White else Color.Transparent,
+                                shape = RoundedCornerShape(8.dp)
                             )
                             .clickable(enabled = !isLastItem) {
                                 if (!isLastItem) onNext(index + 1)
@@ -194,19 +194,24 @@ fun BottomControls(
                             RoundedCornerShape(8.dp)
                         )
                         .border(
-                            if (isSettingsFocused) 2.dp else 0.dp,
-                            if (isSettingsFocused) Color.White else Color.Transparent,
-                            RoundedCornerShape(8.dp)
+                            width = if (isSettingsFocused) 2.dp else 0.dp,
+                            color = if (isSettingsFocused) Color.White else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
                         )
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown) {
                                 when (event.key) {
-                                    Key.DirectionRight -> {
-                                        exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
+                                    // Added Center/Enter explicitly to ensure first-click execution
+                                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                                        onSettingsClick()
                                         true
                                     }
                                     Key.DirectionLeft -> {
                                         seasonSelectorFocusRequester.requestFocus()
+                                        true
+                                    }
+                                    Key.DirectionRight -> {
+                                        exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
                                         true
                                     }
                                     Key.DirectionUp -> {

@@ -113,14 +113,14 @@ fun CustomPlayerController(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = model?.title.orEmpty(),
+                    text = model?.season_title.orEmpty(),
                     color = Color.White,
                     fontSize = 32.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = model?.description.orEmpty(),
+                    text = model?.season_des.orEmpty(),
                     color = Color.LightGray,
                     fontSize = 16.sp,
                     maxLines = 3
