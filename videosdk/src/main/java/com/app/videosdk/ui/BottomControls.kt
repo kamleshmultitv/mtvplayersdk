@@ -7,6 +7,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,9 +52,9 @@ fun BottomControls(
     sliderFocusRequester: FocusRequester,
     playFocusRequester: FocusRequester
 ) {
-    val spriteUrl = remember(playerModelList, index) {
-        playerModelList?.getOrNull(index)?.spriteUrl
-    }
+    val model = playerModelList?.getOrNull(index)
+    val spriteUrl = model?.spriteUrl
+    val isLive = model?.isLive ?: false
 
     val nextEpFocusRequester = remember { FocusRequester() }
     val seasonSelectorFocusRequester = remember { FocusRequester() }
@@ -71,11 +72,15 @@ fun BottomControls(
             onSeek = onSeek,
             showControls = {},
             onDownPressed = {
-                nextEpFocusRequester.requestFocus()
+                if (isLive) settingsFocusRequester.requestFocus()
+                else nextEpFocusRequester.requestFocus()
             },
             onUpPressed = {
                 playFocusRequester.requestFocus()
-            }
+            },
+            isLive = isLive,
+            exoPlayer = exoPlayer,
+            playFocusRequester = playFocusRequester // Passed to recover focus on OK click
         )
 
         /* ---------- BOTTOM ACTION BAR ---------- */
@@ -87,100 +92,64 @@ fun BottomControls(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            /* ---------- START : NEXT ---------- */
+            if (!isLive) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
+                        val isLastItem = index >= playerModelList.lastIndex
+                        var isNextFocused by remember { mutableStateOf(false) }
 
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
-                    val isLastItem = index >= playerModelList.lastIndex
-                    var isNextFocused by remember { mutableStateOf(false) }
+                        Row(
+                            modifier = Modifier
+                                .focusRequester(nextEpFocusRequester)
+                                .onFocusChanged { isNextFocused = it.isFocused }
+                                .background(if (isNextFocused) Color.White.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
+                                .border(width = if (isNextFocused) 2.dp else 0.dp, color = if (isNextFocused) Color.White else Color.Transparent, shape = RoundedCornerShape(8.dp))
+                                .clickable(enabled = !isLastItem) { if (!isLastItem) onNext(index + 1) }
+                                .onKeyEvent { event ->
+                                    if (event.type == KeyEventType.KeyDown) {
+                                        when (event.key) {
+                                            Key.DirectionRight -> { seasonSelectorFocusRequester.requestFocus(); true }
+                                            Key.DirectionLeft -> { exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0)); true }
+                                            Key.DirectionUp -> { sliderFocusRequester.requestFocus(); true }
+                                            else -> false
+                                        }
+                                    } else false
+                                }
+                                .focusable()
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(imageVector = Icons.Default.SkipNext, contentDescription = "Next Episode", tint = if (isLastItem) Color.Gray else Color.White)
+                            Text(text = "Next Ep.", color = if (isLastItem) Color.Gray else Color.White)
+                        }
+                    }
+                }
 
-                    Row(
-                        modifier = Modifier
-                            .focusRequester(nextEpFocusRequester)
-                            .onFocusChanged { isNextFocused = it.isFocused }
-                            .background(
-                                if (isNextFocused) Color.White.copy(alpha = 0.2f) else Color.Transparent,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .border(
-                                width = if (isNextFocused) 2.dp else 0.dp,
-                                color = if (isNextFocused) Color.White else Color.Transparent,
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .clickable(enabled = !isLastItem) {
-                                if (!isLastItem) onNext(index + 1)
-                            }
-                            .onKeyEvent { event ->
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
+                        SeasonSelector(
+                            playerModelList = playerModelList,
+                            exoPlayer = exoPlayer,
+                            onShowControls = {},
+                            pausePlayer = {},
+                            playContent = onNext,
+                            focusRequester = seasonSelectorFocusRequester,
+                            modifier = Modifier.onKeyEvent { event ->
                                 if (event.type == KeyEventType.KeyDown) {
                                     when (event.key) {
-                                        Key.DirectionRight -> {
-                                            seasonSelectorFocusRequester.requestFocus()
-                                            true
-                                        }
-                                        Key.DirectionLeft -> {
-                                            exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0))
-                                            true
-                                        }
-                                        Key.DirectionUp -> {
-                                            sliderFocusRequester.requestFocus()
-                                            true
-                                        }
+                                        Key.DirectionRight -> { settingsFocusRequester.requestFocus(); true }
+                                        Key.DirectionLeft -> { nextEpFocusRequester.requestFocus(); true }
+                                        Key.DirectionUp -> { sliderFocusRequester.requestFocus(); true }
                                         else -> false
                                     }
                                 } else false
                             }
-                            .focusable()
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SkipNext,
-                            contentDescription = "Next Episode",
-                            tint = if (isLastItem) Color.Gray else Color.White
-                        )
-                        Text(
-                            text = "Next Ep.",
-                            color = if (isLastItem) Color.Gray else Color.White
                         )
                     }
                 }
+            } else {
+                Spacer(modifier = Modifier.weight(2f))
             }
-
-            /* ---------- CENTER : EPISODES ---------- */
-
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
-                    SeasonSelector(
-                        playerModelList = playerModelList,
-                        exoPlayer = exoPlayer,
-                        onShowControls = {},
-                        pausePlayer = {},
-                        playContent = onNext,
-                        focusRequester = seasonSelectorFocusRequester,
-                        modifier = Modifier.onKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown) {
-                                when (event.key) {
-                                    Key.DirectionRight -> {
-                                        settingsFocusRequester.requestFocus()
-                                        true
-                                    }
-                                    Key.DirectionLeft -> {
-                                        nextEpFocusRequester.requestFocus()
-                                        true
-                                    }
-                                    Key.DirectionUp -> {
-                                        sliderFocusRequester.requestFocus()
-                                        true
-                                    }
-                                    else -> false
-                                }
-                            } else false
-                        }
-                    )
-                }
-            }
-
-            /* ---------- END : SETTINGS ---------- */
 
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 var isSettingsFocused by remember { mutableStateOf(false) }
@@ -189,46 +158,22 @@ fun BottomControls(
                     modifier = Modifier
                         .focusRequester(settingsFocusRequester)
                         .onFocusChanged { isSettingsFocused = it.isFocused }
-                        .background(
-                            if (isSettingsFocused) Color.White.copy(alpha = 0.2f) else Color.Transparent,
-                            RoundedCornerShape(8.dp)
-                        )
-                        .border(
-                            width = if (isSettingsFocused) 2.dp else 0.dp,
-                            color = if (isSettingsFocused) Color.White else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                        .background(if (isSettingsFocused) Color.White.copy(alpha = 0.2f) else Color.Transparent, RoundedCornerShape(8.dp))
+                        .border(width = if (isSettingsFocused) 2.dp else 0.dp, color = if (isSettingsFocused) Color.White else Color.Transparent, shape = RoundedCornerShape(8.dp))
                         .onKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown) {
                                 when (event.key) {
-                                    // Added Center/Enter explicitly to ensure first-click execution
-                                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                                        onSettingsClick()
-                                        true
-                                    }
-                                    Key.DirectionLeft -> {
-                                        seasonSelectorFocusRequester.requestFocus()
-                                        true
-                                    }
-                                    Key.DirectionRight -> {
-                                        exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
-                                        true
-                                    }
-                                    Key.DirectionUp -> {
-                                        sliderFocusRequester.requestFocus()
-                                        true
-                                    }
+                                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> { onSettingsClick(); true }
+                                    Key.DirectionLeft -> { if (isLive) true else { seasonSelectorFocusRequester.requestFocus(); true } }
+                                    Key.DirectionRight -> { if (!isLive) exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration)); true }
+                                    Key.DirectionUp -> { sliderFocusRequester.requestFocus(); true }
                                     else -> false
                                 }
                             } else false
                         }
                         .focusable()
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = Color.White
-                    )
+                    Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
                 }
             }
         }

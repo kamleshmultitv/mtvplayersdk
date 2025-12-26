@@ -14,8 +14,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -29,6 +31,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.PlayerModel
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun CustomPlayerController(
     playerModelList: List<PlayerModel>? = null,
@@ -44,15 +47,16 @@ fun CustomPlayerController(
     playContent: (Int) -> Unit,
     showIntroOverlay: Boolean,
     onPlayClicked: () -> Unit,
-    // Lifted focus requesters
     backButtonFocusRequester: FocusRequester,
     playFocusRequester: FocusRequester,
     sliderFocusRequester: FocusRequester
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val showControlsState = rememberUpdatedState(onShowControls)
-
     val introPlayFocusRequester = remember { FocusRequester() }
+
+    // Track if any child in the controller has focus
+    var isInternalFocused by remember { mutableStateOf(false) }
 
     var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
     var currentPosition by remember { mutableLongStateOf(0L) }
@@ -67,7 +71,7 @@ fun CustomPlayerController(
         }
     }
 
-    // Auto-hide controls only when playing AND intro is gone
+    // Auto-hide logic
     LaunchedEffect(isPlaying, showIntroOverlay) {
         if (isPlaying && !showIntroOverlay) {
             delay(3000)
@@ -77,9 +81,15 @@ fun CustomPlayerController(
         }
     }
 
-    LaunchedEffect(showIntroOverlay) {
-        if (showIntroOverlay) {
-            introPlayFocusRequester.requestFocus()
+    // RECOVERY LOGIC: If controls are shown but focus is lost, grab it back
+    LaunchedEffect(showIntroOverlay, isInternalFocused) {
+        if (!isInternalFocused) {
+            delay(100) // Small delay to allow layout to settle
+            if (showIntroOverlay) {
+                introPlayFocusRequester.requestFocus()
+            } else {
+                playFocusRequester.requestFocus()
+            }
         }
     }
 
@@ -98,12 +108,16 @@ fun CustomPlayerController(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
+            .onFocusChanged { isInternalFocused = it.hasFocus }
+            .focusProperties { 
+                // TRAP: Prevent focus from leaving the controller when it's visible
+                exit = { FocusRequester.Cancel } 
+            }
             .padding(16.dp)
     ) {
         if (showIntroOverlay) {
             /* -------------------- INTRO SCREEN -------------------- */
             val model = playerModelList?.getOrNull(index)
-            
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -112,19 +126,9 @@ fun CustomPlayerController(
                     .padding(start = 32.dp),
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = model?.season_title.orEmpty(),
-                    color = Color.White,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text(text = model?.season_title.orEmpty(), color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = model?.season_des.orEmpty(),
-                    color = Color.LightGray,
-                    fontSize = 16.sp,
-                    maxLines = 3
-                )
+                Text(text = model?.season_des.orEmpty(), color = Color.LightGray, fontSize = 16.sp, maxLines = 3)
                 Spacer(modifier = Modifier.height(24.dp))
 
                 var isPlayBtnFocused by remember { mutableStateOf(false) }
@@ -133,13 +137,8 @@ fun CustomPlayerController(
                     modifier = Modifier
                         .focusRequester(introPlayFocusRequester)
                         .onFocusChanged { isPlayBtnFocused = it.isFocused }
-                        .border(
-                            width = if (isPlayBtnFocused) 2.dp else 0.dp,
-                            color = if (isPlayBtnFocused) Color.White else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .height(56.dp)
-                        .wrapContentWidth(),
+                        .border(width = if (isPlayBtnFocused) 2.dp else 0.dp, color = if (isPlayBtnFocused) Color.White else Color.Transparent, shape = RoundedCornerShape(8.dp))
+                        .height(56.dp).wrapContentWidth(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isPlayBtnFocused) Color.White.copy(alpha = 0.3f) else Color.Red
                     ),
@@ -151,54 +150,42 @@ fun CustomPlayerController(
                 }
             }
         } else {
-            /* -------------------- ACTUAL PLAYER CONTROLS -------------------- */
-            
+            /* -------------------- ACTUAL CONTROLS -------------------- */
             TopBar(
-                title = playerModelList?.getOrNull(index)?.title.orEmpty(),
-                onBackPressed = onBackPressed,
-                backButtonFocusRequester = backButtonFocusRequester,
-                playFocusRequester = playFocusRequester,
-                exoPlayer = exoPlayer
+                title = playerModelList?.getOrNull(index)?.title.orEmpty()
             )
 
             Box(modifier = Modifier.fillMaxSize()) {
                 CenterControls(
-                    isLoading = isLoading,
-                    exoPlayer = exoPlayer,
-                    onShowControls = showControlsState.value,
-                    showForwardIcon = false,
-                    showRewindIcon = false,
-                    onForward = { },
-                    onRewind = { },
-                    onForwardHide = { },
-                    onRewindHide = { },
-                    isZoomed = false,
-                    onZoomChange = { },
-                    backButtonFocusRequester = backButtonFocusRequester,
-                    playFocusRequester = playFocusRequester,
+                    isLoading = isLoading, 
+                    exoPlayer = exoPlayer, 
+                    onShowControls = showControlsState.value, 
+                    showForwardIcon = false, 
+                    showRewindIcon = false, 
+                    onForward = { }, 
+                    onRewind = { }, 
+                    onForwardHide = { }, 
+                    onRewindHide = { }, 
+                    isZoomed = false, 
+                    onZoomChange = { }, 
+                    backButtonFocusRequester = backButtonFocusRequester, 
+                    playFocusRequester = playFocusRequester, 
                     sliderFocusRequester = sliderFocusRequester
                 )
             }
 
             BottomControls(
-                modifier = Modifier.align(Alignment.BottomCenter),
-                playerModelList = playerModelList,
-                index = index,
-                isFullScreen = isCurrentlyFullScreen,
-                currentPosition = currentPosition,
-                duration = duration,
-                exoPlayer = exoPlayer,
-                onSeek = {
-                    showControlsState.value(true)
-                    exoPlayer.seekTo(it)
-                },
-                onNext = playContent,
-                onSettingsClick = {
-                    exoPlayer.pause()
-                    showControlsState.value(true)
-                    onSettingsButtonClick(true)
-                },
-                sliderFocusRequester = sliderFocusRequester,
+                modifier = Modifier.align(Alignment.BottomCenter), 
+                playerModelList = playerModelList, 
+                index = index, 
+                isFullScreen = isCurrentlyFullScreen, 
+                currentPosition = currentPosition, 
+                duration = duration, 
+                exoPlayer = exoPlayer, 
+                onSeek = { showControlsState.value(true); exoPlayer.seekTo(it) }, 
+                onNext = playContent, 
+                onSettingsClick = { exoPlayer.pause(); showControlsState.value(true); onSettingsButtonClick(true) }, 
+                sliderFocusRequester = sliderFocusRequester, 
                 playFocusRequester = playFocusRequester
             )
         }

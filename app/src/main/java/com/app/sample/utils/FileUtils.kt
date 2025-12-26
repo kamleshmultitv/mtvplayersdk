@@ -72,7 +72,8 @@ object FileUtils {
                     spriteUrl = it.spriteUrl,
                     playbackSpeed = 1.0f,
                     selectedSubtitle = null,
-                    selectedVideoQuality = 1080
+                    selectedVideoQuality = 1080,
+                    isLive = false
                 )
             )
         }
@@ -81,6 +82,7 @@ object FileUtils {
             PlayerModel(
                 hlsUrl = content.hlsUrl.orEmpty(),
                 mpdUrl = content.url.orEmpty(),
+                liveUrl = "https://livesim.dashif.org/livesim/testpic_2s/Manifest.mpd",
                 drmToken = getContentStatus(context, content),
                 imageUrl = content.layoutThumbs
                     ?.firstOrNull()
@@ -94,7 +96,8 @@ object FileUtils {
                 srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
                 playbackSpeed = 1.0f,
                 selectedSubtitle = null,
-                selectedVideoQuality = 1080
+                selectedVideoQuality = 1080,
+                isLive = false
             )
         }
     }

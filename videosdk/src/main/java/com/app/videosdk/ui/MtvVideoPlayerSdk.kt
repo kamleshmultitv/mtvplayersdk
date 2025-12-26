@@ -71,12 +71,10 @@ fun MtvVideoPlayerSdk(
     var isZoomed by remember { mutableStateOf(false) }
     var showIntroOverlay by remember { mutableStateOf(true) }
 
-    // Focus requesters managed at the SDK level to allow cross-component targeting
     val backButtonFocusRequester = remember { FocusRequester() }
     val playFocusRequester = remember { FocusRequester() }
     val sliderFocusRequester = remember { FocusRequester() }
 
-    // Logic to return focus to Play button when settings menu is closed
     LaunchedEffect(isSettingsClick) {
         if (!isSettingsClick && !showIntroOverlay) {
             playFocusRequester.requestFocus()
@@ -86,18 +84,25 @@ fun MtvVideoPlayerSdk(
     /* ---------------- SUBTITLE ---------------- */
 
     val subtitleUri = remember(playerModel) {
-        if (getMimeTypeFromExtension(playerModel?.hlsUrl.toString())) ""
+        if (playerModel?.hlsUrl != null && getMimeTypeFromExtension(playerModel.hlsUrl.toString())) ""
         else playerModel?.srt.orEmpty()
     }
 
     /* ---------------- EXOPLAYER ---------------- */
 
-    val exoPlayer = remember(playerModel?.mpdUrl, subtitleUri) {
+    val exoPlayer = remember(playerModel?.liveUrl, playerModel?.mpdUrl, playerModel?.isLive, subtitleUri) {
+        val targetVideoUrl = if (playerModel?.isLive == true) {
+            playerModel.liveUrl.orEmpty()
+        } else {
+            playerModel?.mpdUrl.orEmpty()
+        }
+
         createExoPlayer(
             context = context,
-            videoUrl = playerModel?.mpdUrl.orEmpty(),
+            videoUrl = targetVideoUrl,
             drmToken = playerModel?.drmToken,
-            srt = subtitleUri
+            srt = subtitleUri,
+            isLive = playerModel?.isLive ?: false
         )
     }
 
@@ -124,7 +129,7 @@ fun MtvVideoPlayerSdk(
             }
         }
         exoPlayer.addListener(listener)
-        exoPlayer.repeatMode = Player.REPEAT_MODE_OFF
+        exoPlayer.repeatMode = if (playerModel?.isLive == true) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
         onDispose {
             exoPlayer.removeListener(listener)
             exoPlayer.release()
@@ -158,17 +163,21 @@ fun MtvVideoPlayerSdk(
                 if (!isControllerVisible) {
                     when (event.key) {
                         Key.DirectionLeft -> {
-                            exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0))
+                            if (playerModel?.isLive == false) {
+                                exoPlayer.seekTo((exoPlayer.currentPosition - 10_000).coerceAtLeast(0))
+                            }
                             isControllerVisible = true
                             return@onPreviewKeyEvent true
                         }
                         Key.DirectionRight -> {
-                            exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
+                            if (playerModel?.isLive == false) {
+                                exoPlayer.seekTo((exoPlayer.currentPosition + 10_000).coerceAtMost(exoPlayer.duration))
+                            }
                             isControllerVisible = true
                             return@onPreviewKeyEvent true
                         }
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                            exoPlayer.pause()
+                            if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                             isControllerVisible = true
                             return@onPreviewKeyEvent true
                         }
@@ -180,7 +189,7 @@ fun MtvVideoPlayerSdk(
                 }
                 false
             }
-            .focusable()
+            .focusable(!isControllerVisible) // Only focusable when controls are hidden
             .pointerInput(Unit) {
                 detectTransformGestures { _, _, zoom, _ ->
                     isZoomed = zoom > 1f

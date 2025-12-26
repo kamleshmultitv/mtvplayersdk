@@ -30,11 +30,10 @@ object PlayerUtils {
         context: Context,
         videoUrl: String,
         drmToken: String?,
-        srt: String
+        srt: String,
+        isLive: Boolean = false // Support for Live Stream configuration
     ): ExoPlayer {
-        // ✅ Strip query params only for detection
         val cleanUrl = videoUrl.substringBefore("?")
-
         val isDash = cleanUrl.endsWith(".mpd", ignoreCase = true)
         val isMp4 = cleanUrl.endsWith(".mp4", ignoreCase = true)
 
@@ -47,9 +46,17 @@ object PlayerUtils {
 
         val exoPlayer = ExoPlayer.Builder(context, mediaSourceFactory).build()
 
-        val mediaItemBuilder = MediaItem.Builder().setUri(videoUrl) // keep full URL with query
+        val mediaItemBuilder = MediaItem.Builder().setUri(videoUrl)
 
-        // ✅ Use cleanUrl for MIME detection
+        // Set Live Configuration if requested
+        if (isLive) {
+            mediaItemBuilder.setLiveConfiguration(
+                MediaItem.LiveConfiguration.Builder()
+                    .setTargetOffsetMs(5000) // Lower latency for live
+                    .build()
+            )
+        }
+
         mediaItemBuilder.setMimeType(
             when {
                 isDash -> MimeTypes.APPLICATION_MPD
@@ -67,7 +74,6 @@ object PlayerUtils {
             )
         }
 
-        // ✅ Add subtitles only if 'srt' is not blank
         if (srt.isNotBlank()) {
             val subtitleConfig = initializeSubTitleTracker(srt)
             mediaItemBuilder.setSubtitleConfigurations(ImmutableList.of(subtitleConfig))
@@ -78,7 +84,8 @@ object PlayerUtils {
             prepare()
             playWhenReady = true
             videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-            repeatMode = Player.REPEAT_MODE_ONE
+            // For live, repeat mode should be off
+            repeatMode = if (isLive) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
         }
 
         return exoPlayer
@@ -153,9 +160,9 @@ object PlayerUtils {
         }
 
         if (subTitleFormatList.isEmpty()) {
-            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                .build()
+            exoPlayer?.trackSelectionParameters = exoPlayer?.trackSelectionParameters?.buildUpon()
+                ?.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                ?.build()!!
         }
 
         return subTitleFormatList
@@ -242,7 +249,6 @@ object PlayerUtils {
         }
     }
 
-    // Function to Format Time
     @SuppressLint("DefaultLocale")
     fun formatTime(milliseconds: Long): String {
         val totalSeconds = (milliseconds / 1000).toInt()
