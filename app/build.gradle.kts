@@ -134,6 +134,6 @@ dependencies {
 
     // SDK
     //  implementation(project(":videosdk"))
-    implementation("com.github.kamleshmultitv:mtvplayersdk:tv-2.0.2")
+    implementation(libs.mtvplayersdk)
 
 }
