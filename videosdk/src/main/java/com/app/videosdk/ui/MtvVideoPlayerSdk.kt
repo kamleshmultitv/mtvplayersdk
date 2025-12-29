@@ -1,6 +1,7 @@
 package com.app.videosdk.ui
 
 import android.util.Log
+import android.view.SurfaceView
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -24,11 +25,12 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
@@ -48,39 +50,32 @@ public fun MtvVideoPlayerSdk(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    CastContext.getSharedInstance(context)
+    remember {
+        try {
+            CastContext.getSharedInstance(context)
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     /* ---------------- SAFE INDEX ---------------- */
 
-    val safeIndex = remember(contentList, index) {
-        val size = contentList?.size ?: 0
-        when {
-            size == 0 -> 0
-            index == null -> 0
-            index < 0 -> 0
-            index >= size -> size - 1
-            else -> index
+    val selectedIndex = remember { mutableIntStateOf(index ?: 0) }
+
+    LaunchedEffect(index) {
+        if (index != null) {
+            selectedIndex.intValue = index
         }
     }
 
-    val selectedIndex = remember { mutableIntStateOf(safeIndex) }
-
-    LaunchedEffect(index, contentList) {
-        val size = contentList?.size ?: return@LaunchedEffect
-        selectedIndex.intValue = when {
-            index == null -> 0
-            index < 0 -> 0
-            index >= size -> size - 1
-            else -> index
-        }
+    val playerModel = remember(selectedIndex.intValue, contentList) {
+        contentList?.getOrNull(selectedIndex.intValue)
     }
-
-    val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
     /* ---------------- PLAYER STATE ---------------- */
 
     var isFullScreen by remember { mutableStateOf(false) }
-    var isControllerVisible by remember { mutableStateOf(false) }
+    var isControllerVisible by remember { mutableStateOf(true) }
     var pipEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var keepScreenOn by remember { mutableStateOf(false) }
@@ -116,40 +111,23 @@ public fun MtvVideoPlayerSdk(
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
-
             override fun onPlaybackStateChanged(state: Int) {
                 isLoading = state == Player.STATE_BUFFERING
-
-                when (state) {
-                    Player.STATE_READY -> {
-                        if (!isCasting && exoPlayer.playWhenReady) {
-                            exoPlayer.play()
-                        }
-                    }
-
-                    Player.STATE_ENDED -> {
-                        keepScreenOn = false
-                        val lastIndex = contentList?.lastIndex ?: 0
-                        if (selectedIndex.intValue < lastIndex) {
-                            selectedIndex.intValue += 1
-                        }
-                    }
-
-                    Player.STATE_IDLE -> keepScreenOn = false
-                    Player.STATE_BUFFERING -> {
-                        isLoading = true
+                if (state == Player.STATE_READY && !isCasting && exoPlayer.playWhenReady) {
+                    exoPlayer.play()
+                }
+                if (state == Player.STATE_ENDED) {
+                    val lastIndex = contentList?.lastIndex ?: 0
+                    if (selectedIndex.intValue < lastIndex) {
+                        selectedIndex.intValue++
                     }
                 }
             }
-
             override fun onPlayerError(error: PlaybackException) {
-                Log.e("ExoPlayer", "Error: ${error.message}")
+                Log.e("MtvPlayer", "Error: ${error.message}")
             }
         }
-
         exoPlayer.addListener(listener)
-        exoPlayer.repeatMode = Player.REPEAT_MODE_OFF
-
         onDispose {
             exoPlayer.removeListener(listener)
             exoPlayer.release()
@@ -168,10 +146,16 @@ public fun MtvVideoPlayerSdk(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    /* ---------------- UI HELPERS ---------------- */
+    // Handle Zoom logic programmatically
+    LaunchedEffect(isZoomed) {
+        exoPlayer.videoScalingMode = if (isZoomed) {
+            C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+        } else {
+            C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+        }
+    }
 
-    keepScreenOn =
-        exoPlayer.playWhenReady && exoPlayer.playbackState == Player.STATE_READY
+    keepScreenOn = exoPlayer.playWhenReady && exoPlayer.playbackState == Player.STATE_READY
 
     ScreenRotation {
         isFullScreen = it
@@ -197,15 +181,27 @@ public fun MtvVideoPlayerSdk(
                 }
             }
     ) {
-
+        // FIXED: Programmatic connection to avoid resource conflicts with ExoPlayer 2
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    player = exoPlayer
-                    useController = false
-                    layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                val root = FrameLayout(ctx)
+                val surfaceView = SurfaceView(ctx)
+                val subtitleView = SubtitleView(ctx).apply {
+                    setUserDefaultStyle()
+                    setUserDefaultTextSize()
                 }
+
+                root.addView(surfaceView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+                root.addView(subtitleView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+
+                exoPlayer.setVideoSurfaceView(surfaceView)
+                exoPlayer.addListener(object : Player.Listener {
+                    override fun onCues(cueGroup: CueGroup) {
+                        subtitleView.setCues(cueGroup.cues)
+                    }
+                })
+
+                root
             },
             modifier = Modifier
                 .fillMaxSize()
@@ -215,11 +211,9 @@ public fun MtvVideoPlayerSdk(
                         onDoubleTap = { offset ->
                             val isLeft = offset.x < size.width / 2
                             val seekBy = if (isLeft) -10_000 else 10_000
-                            val position =
-                                if (isCasting) castUtils.getCastPosition()
-                                else exoPlayer.currentPosition
-
+                            val position = if (isCasting) castUtils.getCastPosition() else exoPlayer.currentPosition
                             val newPosition = (position + seekBy).coerceAtLeast(0)
+                            
                             if (isCasting) castUtils.seekOnCast(newPosition)
                             else exoPlayer.seekTo(newPosition)
 
@@ -227,17 +221,14 @@ public fun MtvVideoPlayerSdk(
                         }
                     )
                 },
-            update = {
-                it.player = exoPlayer
-                it.keepScreenOn = keepScreenOn
-                it.resizeMode =
-                    if (isZoomed) AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    else AspectRatioFrameLayout.RESIZE_MODE_FIT
+            update = { root ->
+                val surfaceView = root.getChildAt(0) as SurfaceView
+                surfaceView.keepScreenOn = keepScreenOn
             }
         )
 
         AnimatedVisibility(
-            visible = !pipEnabled && isControllerVisible,
+            visible = !pipEnabled && isControllerVisible && !isSettingsClick,
             enter = fadeIn(),
             exit = fadeOut()
         ) {

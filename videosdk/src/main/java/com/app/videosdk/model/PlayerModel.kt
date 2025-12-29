@@ -7,6 +7,8 @@ data class PlayerModel(
     val imageUrl: String? = null,
     val title: String? = null,
     val description: String? = null,
+    val season_title: String? = null,
+    val season_des: String? = null,
     val srt: String? = null,
     val spriteUrl: String? = null,
     val playbackSpeed: Float = 1.0f,  // Default to normal speed

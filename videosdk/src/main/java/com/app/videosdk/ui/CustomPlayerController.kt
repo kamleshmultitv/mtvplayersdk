@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +55,7 @@ fun CustomPlayerController(
     val castUtils = remember(context, exoPlayer) {
         CastUtils(context, exoPlayer)
     }
-    val isCasting by remember { mutableStateOf(castUtils.isCasting()) }
+    val isCasting by remember { derivedStateOf { castUtils.isCasting() } }
 
     var isZoomed by remember { mutableStateOf(false) }
     var showForwardIcon by remember { mutableStateOf(false) }
@@ -159,7 +160,7 @@ fun CustomPlayerController(
                         onForward = { showForwardIcon = true },
                         onRewind = { showRewindIcon = true },
                         onForwardHide = { showForwardIcon = false },
-                        onRewindHide = { showRewindIcon = false },
+                        onRewindHide = { showForwardIcon = false },
                         isZoomed = isZoomed,
                         onZoomChange = { isZoomed = it }
                     )
@@ -193,7 +194,7 @@ fun CustomPlayerController(
                 onForward = { showForwardIcon = true },
                 onRewind = { showRewindIcon = true },
                 onForwardHide = { showForwardIcon = false },
-                onRewindHide = { showRewindIcon = false },
+                onRewindHide = { showForwardIcon = false },
                 isZoomed = isZoomed,
                 onZoomChange = { isZoomed = it }
             )

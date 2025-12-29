@@ -30,7 +30,8 @@ object PlayerUtils {
         context: Context,
         videoUrl: String,
         drmToken: String?,
-        srt: String
+        srt: String,
+        isLive: Boolean = false
     ): ExoPlayer {
         // ✅ Strip query params only for detection
         val cleanUrl = videoUrl.substringBefore("?")

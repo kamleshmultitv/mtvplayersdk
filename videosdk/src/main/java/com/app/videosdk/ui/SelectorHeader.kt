@@ -1,7 +1,7 @@
 package com.app.videosdk.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
@@ -34,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,7 +44,6 @@ import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.OptionItemModel
-import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.calculatePitch
 import com.app.videosdk.utils.PlayerUtils.changeVideoResolution
 import com.app.videosdk.utils.PlayerUtils.getAudioTrack
@@ -60,43 +59,45 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
     val selectedItems = remember { mutableStateMapOf<Int, Int>() }
-    val castUtils = remember { CastUtils(context, exoPlayer) }
-    val isCasting = castUtils.isCasting()
     val options by viewModel.options.collectAsState()
     var selectedOption by remember { mutableStateOf(options.firstOrNull()?.id) }
+
+    // Intercept Back button to close the header and resume video
+    BackHandler(enabled = true) {
+        exoPlayer.play()
+        closeOptionCard(false)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.9f))
-            .pointerInput(Unit) {}
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 32.dp, end = 32.dp, top = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             LazyRow(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(options.size) { index ->
+                    val option = options[index]
                     OptionItem(
-                        option = options[index],
-                        isSelected = selectedOption == options[index].id
+                        option = option,
+                        isSelected = selectedOption == option.id
                     ) { clickedId ->
-                        if (selectedOption != clickedId) {
-                            selectedOption = clickedId
-                        }
+                        selectedOption = clickedId
                     }
                 }
             }
+
             IconButton(
                 onClick = {
-                    if (!isCasting) {
-                        exoPlayer.play()
-                    }
+                    exoPlayer.play()
                     closeOptionCard(false)
                 }
             ) {
@@ -109,85 +110,85 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
         }
 
         HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 32.dp),
+            modifier = Modifier.padding(horizontal = 16.dp),
             thickness = 1.dp,
             color = Color.Gray
         )
 
-        when (selectedOption) {
-            1 -> {
-                val audioTrackList = showAudioTrack(context, exoPlayer)
-                SelectionList(
-                    items = audioTrackList.map { it.name.toString() },
-                    selectedIndex = selectedItems[selectedOption] ?: -1
-                ) { index ->
-                    selectedItems[selectedOption!!] = index
-                    selectAudioTrack(audioTrackList[index].id.toString(), exoPlayer)
+        Box(modifier = Modifier.fillMaxSize().padding(top = 16.dp)) {
+            when (selectedOption) {
+                1 -> {
+                    val audioTrackList = remember(context, exoPlayer) { showAudioTrack(context, exoPlayer) }
+                    SelectionList(
+                        items = audioTrackList.map { it.name.toString() },
+                        selectedIndex = selectedItems[selectedOption] ?: -1
+                    ) { index ->
+                        selectedItems[selectedOption!!] = index
+                        selectAudioTrack(audioTrackList[index].id.toString(), exoPlayer)
+                    }
                 }
-            }
 
-            2 -> {
-                val subTitleList = getSubTitleFormats(exoPlayer)
-                val availableCloseCaptionList = getAudioTrack(
-                    context, listOf("off") + subTitleList.mapNotNull { it.language ?: it.label }
-                )
-
-                SelectionList(
-                    items = availableCloseCaptionList.map { it.name.toString() },
-                    selectedIndex = selectedItems[selectedOption] ?: -1
-                ) { index ->
-                    selectedItems[selectedOption!!] = index
-                    exoPlayer.trackSelectionParameters =
-                        exoPlayer.trackSelectionParameters.buildUpon()
-                            .setTrackTypeDisabled(
-                                C.TRACK_TYPE_TEXT,
-                                availableCloseCaptionList[index].id == "off"
-                            )
-                            .apply {
-                                if (availableCloseCaptionList[index].id != "off") {
-                                    setPreferredTextLanguages(
-                                        availableCloseCaptionList[index].id ?: "en"
-                                    )
-                                }
-                            }.build()
-                }
-            }
-
-            3 -> {
-                viewModel.getSpeedData()
-                val getSpeedControllerResponse by viewModel.speedControlData.observeAsState(
-                    emptyList()
-                )
-
-                SelectionList(
-                    items = getSpeedControllerResponse.map { it.speedTitle },
-                    selectedIndex = selectedItems[selectedOption] ?: -1
-                ) { index ->
-                    selectedItems[selectedOption!!] = index
-                    val param = PlaybackParameters(
-                        getSpeedControllerResponse[index].speed,
-                        calculatePitch(getSpeedControllerResponse[index].speed)
-                    )
-                    exoPlayer.playbackParameters = param
-                }
-            }
-
-            4 -> {
-                val videoQualityList = getVideoFormats(exoPlayer)
-
-                SelectionList(
-                    items = videoQualityList.map { if (it.id == "auto") it.title.toString() else "${it.title}p" },
-                    selectedIndex = selectedItems[selectedOption] ?: -1
-                ) { index ->
-                    selectedItems[selectedOption!!] = index
-                    if (index == 0) {
-                        setAutoVideoResolution(exoPlayer)
-                    } else {
-                        changeVideoResolution(
-                            exoPlayer,
-                            videoQualityList[index].width,
-                            videoQualityList[index].height
+                2 -> {
+                    val subTitleList = remember(exoPlayer) { getSubTitleFormats(exoPlayer) }
+                    val availableList = remember(context, subTitleList) {
+                        getAudioTrack(
+                            context, listOf("off") + subTitleList.mapNotNull { it.language ?: it.label }
                         )
+                    }
+
+                    SelectionList(
+                        items = availableList.map { it.name.toString() },
+                        selectedIndex = selectedItems[selectedOption] ?: -1
+                    ) { index ->
+                        selectedItems[selectedOption!!] = index
+                        exoPlayer.trackSelectionParameters =
+                            exoPlayer.trackSelectionParameters.buildUpon()
+                                .setTrackTypeDisabled(
+                                    C.TRACK_TYPE_TEXT,
+                                    availableList[index].id == "off"
+                                )
+                                .apply {
+                                    if (availableList[index].id != "off") {
+                                        setPreferredTextLanguages(availableList[index].id ?: "en")
+                                    }
+                                }.build()
+                    }
+                }
+
+                3 -> {
+                    viewModel.getSpeedData()
+                    val speedData by viewModel.speedControlData.observeAsState(emptyList())
+
+                    SelectionList(
+                        items = speedData.map { it.speedTitle },
+                        selectedIndex = selectedItems[selectedOption] ?: -1
+                    ) { index ->
+                        selectedItems[selectedOption!!] = index
+                        val param = PlaybackParameters(
+                            speedData[index].speed,
+                            calculatePitch(speedData[index].speed)
+                        )
+                        exoPlayer.playbackParameters = param
+                    }
+                }
+
+                4 -> {
+                    val qualityList = remember(exoPlayer) { getVideoFormats(exoPlayer) }
+
+                    SelectionList(
+                        items = qualityList.map { if (it.id == "auto") it.title.toString() else "${it.title}p" },
+                        selectedIndex = selectedItems[selectedOption] ?: -1
+                    ) { index ->
+                        selectedItems[selectedOption!!] = index
+                        if (index == 0) {
+                            setAutoVideoResolution(exoPlayer)
+                        } else {
+                            changeVideoResolution(
+                                exoPlayer,
+                                qualityList[index].width,
+                                qualityList[index].height
+                            )
+                        }
                     }
                 }
             }
@@ -196,20 +197,22 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
 }
 
 @Composable
-fun SelectionList(items: List<String>, selectedIndex: Int, onItemClick: (Int) -> Unit) {
+fun SelectionList(
+    items: List<String>,
+    selectedIndex: Int,
+    onItemClick: (Int) -> Unit
+) {
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 64.dp, end = 64.dp)
+            .padding(horizontal = 16.dp)
     ) {
         items(items.size) { index ->
             Row(
                 modifier = Modifier
-                    .wrapContentWidth()
-                    .padding(16.dp)
-                    .clickable {
-                        onItemClick(index)
-                    },
+                    .fillMaxWidth()
+                    .clickable { onItemClick(index) }
+                    .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -217,11 +220,10 @@ fun SelectionList(items: List<String>, selectedIndex: Int, onItemClick: (Int) ->
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Normal,
-                    modifier = Modifier.wrapContentWidth()
+                    modifier = Modifier.weight(1f)
                 )
 
                 if (selectedIndex == index) {
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "✔",
                         color = Color.Green,
@@ -235,27 +237,30 @@ fun SelectionList(items: List<String>, selectedIndex: Int, onItemClick: (Int) ->
 }
 
 @Composable
-fun OptionItem(option: OptionItemModel, isSelected: Boolean, onItemClick: (Int) -> Unit) {
+fun OptionItem(
+    option: OptionItemModel,
+    isSelected: Boolean,
+    onItemClick: (Int) -> Unit
+) {
     val textColor by animateColorAsState(
         targetValue = if (isSelected) Color.Yellow else Color.White,
-        animationSpec = tween(durationMillis = 300)
-    )
-
-    val fontWeight by animateFloatAsState(
-        targetValue = (if (isSelected) FontWeight.Bold.weight else FontWeight.Medium.weight).toFloat(),
         animationSpec = tween(durationMillis = 300)
     )
 
     Box(
         modifier = Modifier
             .padding(8.dp)
+            .background(
+                if (isSelected) Color.White.copy(alpha = 0.1f) else Color.Transparent,
+                RoundedCornerShape(8.dp)
+            )
             .clickable { onItemClick(option.id) }
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Text(
             text = option.title,
             fontSize = 16.sp,
-            fontWeight = FontWeight(fontWeight.toInt()),
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
             color = textColor
         )
     }
