@@ -9,7 +9,6 @@ A modern **Android Video Player SDK** built with **Media3** and **Jetpack Compos
 * ▶️ HLS & DASH playback
 * 🔐 Widevine DRM support
 * 🎨 Jetpack Compose–based UI
-* 📜 Paging 3 support (Reels / Feeds)
 * 🪟 Picture‑in‑Picture (PiP)
 * 🔳 Fullscreen playback
 * 📝 Subtitles (SRT)
@@ -33,7 +32,7 @@ repositories {
 
 ```gradle
 dependencies {
-    implementation "com.github.kamleshmultitv:mtvplayersdk:v1.0.5"
+    implementation "com.github.kamleshmultitv:mtvplayersdk:mobile-1.0.42"
 }
 ```
 
@@ -68,9 +67,7 @@ android {
     buildFeatures {
         compose true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+ 
 }
 ```
 
@@ -95,8 +92,6 @@ fun MtvVideoPlayerSdk(
 ## 📦 PlayerModel
 
 ```kotlin
-package com.app.videosdk.model
-
 data class PlayerModel(
     val hlsUrl: String? = null,
     val mpdUrl: String? = null,
