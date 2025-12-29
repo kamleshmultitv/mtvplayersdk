@@ -88,10 +88,6 @@ android {
         buildConfig = true
     }
 
-   /* composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }*/
-
     kotlin {
         compilerOptions {
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
@@ -137,7 +133,7 @@ dependencies {
     implementation(libs.logging.interceptor)
 
     // SDK
-    //  implementation(project(":videosdk"))
-      implementation(libs.mtvplayersdk)
+      implementation(project(":videosdk"))
+    //  implementation(libs.mtvplayersdk)
 
 }

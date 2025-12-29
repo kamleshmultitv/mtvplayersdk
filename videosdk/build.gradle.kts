@@ -67,7 +67,7 @@ afterEvaluate {
                 from(components["release"])
 
                 groupId = "com.github.kamleshmultitv"
-                artifactId = "mtvplayersdk"
+                artifactId = "mtvplayersdk-tv"
                 version = "1.0.40"   // 🔴 CHANGE VERSION HERE
             }
         }
