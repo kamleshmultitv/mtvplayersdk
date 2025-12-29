@@ -68,7 +68,7 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "mtvplayersdk"
-                version = "mobile-1.0.42"   // 🔴 CHANGE VERSION HERE
+                version = "mobile-1.0.43"   // 🔴 CHANGE VERSION HERE
             }
         }
     }
