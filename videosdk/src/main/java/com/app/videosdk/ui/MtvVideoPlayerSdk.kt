@@ -22,10 +22,13 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.net.toUri
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.text.CueGroup
@@ -68,9 +71,7 @@ public fun MtvVideoPlayerSdk(
         }
     }
 
-    val playerModel = remember(selectedIndex.intValue, contentList) {
-        contentList?.getOrNull(selectedIndex.intValue)
-    }
+    val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
     /* ---------------- PLAYER STATE ---------------- */
 
@@ -84,22 +85,67 @@ public fun MtvVideoPlayerSdk(
     var showRewindIcon by remember { mutableStateOf(false) }
     var isZoomed by remember { mutableStateOf(false) }
 
-    /* ---------------- SUBTITLE ---------------- */
-
-    val subtitleUri = remember(playerModel) {
-        if (getMimeTypeFromExtension(playerModel?.hlsUrl.toString())) ""
-        else playerModel?.srt.orEmpty()
-    }
-
     /* ---------------- EXOPLAYER ---------------- */
 
-    val exoPlayer = remember(playerModel?.mpdUrl, subtitleUri) {
-        createExoPlayer(
-            context,
-            playerModel?.mpdUrl.orEmpty(),
-            playerModel?.drmToken,
-            subtitleUri
-        )
+    val exoPlayer = remember {
+        createExoPlayer(context, "", null, "")
+    }
+
+    // REACTIVE MEDIA LOADING: Handles both Live and VOD URLs
+    LaunchedEffect(selectedIndex.intValue, contentList) {
+        val model = contentList?.getOrNull(selectedIndex.intValue) ?: return@LaunchedEffect
+        
+        // PRIORITY: Use liveUrl if isLive is true
+        val videoUrl = if (model.isLive) model.liveUrl.orEmpty() else model.mpdUrl.orEmpty()
+        val cleanUrl = videoUrl.substringBefore("?")
+        
+        val mediaItemBuilder = MediaItem.Builder()
+            .setUri(videoUrl)
+            .setMimeType(
+                when {
+                    cleanUrl.endsWith(".mpd", ignoreCase = true) -> MimeTypes.APPLICATION_MPD
+                    cleanUrl.endsWith(".m3u8", ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
+                    else -> MimeTypes.VIDEO_MP4
+                }
+            )
+
+        // Live Configuration
+        if (model.isLive) {
+            mediaItemBuilder.setLiveConfiguration(
+                MediaItem.LiveConfiguration.Builder()
+                    .setTargetOffsetMs(5000)
+                    .build()
+            )
+        }
+
+        // Subtitles logic
+        if (!getMimeTypeFromExtension(model.hlsUrl.toString())) {
+            val srt = model.srt.orEmpty()
+            if (srt.isNotBlank()) {
+                val subtitleConfig = MediaItem.SubtitleConfiguration.Builder(srt.toUri())
+                    .setMimeType(MimeTypes.APPLICATION_SUBRIP)
+                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                    .build()
+                mediaItemBuilder.setSubtitleConfigurations(listOf(subtitleConfig))
+            }
+        }
+
+        // DRM logic (Usually for DASH/VOD)
+        if (!model.isLive) {
+            model.drmToken?.let {
+                mediaItemBuilder.setDrmConfiguration(
+                    MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                        .setLicenseUri(it)
+                        .build()
+                )
+            }
+        }
+
+        exoPlayer.setMediaItem(mediaItemBuilder.build())
+        exoPlayer.prepare()
+        exoPlayer.playWhenReady = true
+        // Disable repeat for Live streams
+        exoPlayer.repeatMode = if (model.isLive) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_OFF
     }
 
     val castUtils = remember(context, exoPlayer) {
@@ -124,7 +170,7 @@ public fun MtvVideoPlayerSdk(
                 }
             }
             override fun onPlayerError(error: PlaybackException) {
-                Log.e("MtvPlayer", "Error: ${error.message}")
+                Log.e("MtvPlayer", "Playback error: ${error.message}")
             }
         }
         exoPlayer.addListener(listener)
@@ -146,7 +192,6 @@ public fun MtvVideoPlayerSdk(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Handle Zoom logic programmatically
     LaunchedEffect(isZoomed) {
         exoPlayer.videoScalingMode = if (isZoomed) {
             C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
@@ -181,7 +226,6 @@ public fun MtvVideoPlayerSdk(
                 }
             }
     ) {
-        // FIXED: Programmatic connection to avoid resource conflicts with ExoPlayer 2
         AndroidView(
             factory = { ctx ->
                 val root = FrameLayout(ctx)
@@ -214,10 +258,13 @@ public fun MtvVideoPlayerSdk(
                             val position = if (isCasting) castUtils.getCastPosition() else exoPlayer.currentPosition
                             val newPosition = (position + seekBy).coerceAtLeast(0)
                             
-                            if (isCasting) castUtils.seekOnCast(newPosition)
-                            else exoPlayer.seekTo(newPosition)
-
-                            if (isLeft) showRewindIcon = true else showForwardIcon = true
+                            // Prevent seeking in Live content if desired (mobile standard)
+                            val model = contentList?.getOrNull(selectedIndex.intValue)
+                            if (model?.isLive == false) {
+                                if (isCasting) castUtils.seekOnCast(newPosition)
+                                else exoPlayer.seekTo(newPosition)
+                                if (isLeft) showRewindIcon = true else showForwardIcon = true
+                            }
                         }
                     )
                 },

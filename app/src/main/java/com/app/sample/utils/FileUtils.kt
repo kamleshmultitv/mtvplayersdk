@@ -81,6 +81,8 @@ object FileUtils {
             PlayerModel(
                 hlsUrl = content.hlsUrl.orEmpty(),
                 mpdUrl = content.url.orEmpty(),
+                liveUrl = content.hlsUrl.orEmpty(),
+                isLive = true,
                 drmToken = getContentStatus(context, content),
                 imageUrl = content.layoutThumbs
                     ?.firstOrNull()
