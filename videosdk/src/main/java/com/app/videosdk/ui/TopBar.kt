@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,7 +33,8 @@ fun TopBar(
     pipListener: PipListener?,
     isPipEnabled: (Boolean) -> Unit,
     onBackPressed: () -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onFullScreenToggle: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -63,6 +66,7 @@ fun TopBar(
             CastButton()
         }
 
+        // PIP and Settings remain visible only in FullScreen (VOD context)
         if (isFullScreen) {
             PipButton(
                 pipListener = pipListener,
@@ -76,6 +80,19 @@ fun TopBar(
                     tint = Color.White
                 )
             }
+        }
+
+        // FIXED: Moved Fullscreen button OUTSIDE the if(isFullScreen) block 
+        // to make it visible in Portrait mode.
+        IconButton(onClick = onFullScreenToggle) {
+            Icon(
+                imageVector = if (isFullScreen)
+                    Icons.Default.FullscreenExit
+                else
+                    Icons.Default.Fullscreen,
+                contentDescription = "Toggle Fullscreen",
+                tint = Color.White
+            )
         }
     }
 }

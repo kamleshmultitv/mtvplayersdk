@@ -4,14 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -32,33 +30,13 @@ fun BottomControls(
     duration: Long,
     exoPlayer: ExoPlayer,
     onSeek: (Long) -> Unit,
-    onNext: (Int) -> Unit,
-    onFullScreenToggle: () -> Unit
+    onNext: (Int) -> Unit
 ) {
-    val spriteUrl = remember(playerModelList, index) {
-        playerModelList?.getOrNull(index)?.spriteUrl
-    }
+    val model = playerModelList?.getOrNull(index)
+    val spriteUrl = model?.spriteUrl
+    val isLive = model?.isLive ?: false
 
     Column(modifier = modifier.fillMaxWidth()) {
-
-        /* ---------- FULLSCREEN ---------- */
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(4.dp), contentAlignment = Alignment.CenterEnd
-        ) {
-            IconButton(onClick = onFullScreenToggle) {
-                Icon(
-                    imageVector = if (isFullScreen)
-                        Icons.Default.FullscreenExit
-                    else
-                        Icons.Default.Fullscreen,
-                    contentDescription = "Toggle Fullscreen",
-                    tint = Color.White
-                )
-            }
-        }
 
         /* ---------- SEEK BAR ---------- */
 
@@ -67,7 +45,9 @@ fun BottomControls(
             currentPosition = currentPosition,
             duration = duration,
             onSeek = onSeek,
-            showControls = {}
+            showControls = {},
+            isLive = isLive,
+            exoPlayer = exoPlayer
         )
 
         /* ---------- BOTTOM ACTION BAR ---------- */
@@ -79,45 +59,49 @@ fun BottomControls(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            /* ---------- START : NEXT ---------- */
+            if (!isLive) {
+                /* ---------- START : NEXT ---------- */
 
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
-                    val isLastItem = index >= playerModelList.lastIndex
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
+                        val isLastItem = index >= playerModelList.lastIndex
 
-                    Row(
-                        modifier = Modifier
-                            .clickable(enabled = !isLastItem) {
-                                if (!isLastItem) onNext(index + 1)
-                            }
-                            .padding(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SkipNext,
-                            contentDescription = "Next Episode",
-                            tint = if (isLastItem) Color.Gray else Color.White
-                        )
-                        Text(
-                            text = "Next Ep.",
-                            color = if (isLastItem) Color.Gray else Color.White
+                        Row(
+                            modifier = Modifier
+                                .clickable(enabled = !isLastItem) {
+                                    if (!isLastItem) onNext(index + 1)
+                                }
+                                .padding(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SkipNext,
+                                contentDescription = "Next Episode",
+                                tint = if (isLastItem) Color.Gray else Color.White
+                            )
+                            Text(
+                                text = "Next Ep.",
+                                color = if (isLastItem) Color.Gray else Color.White
+                            )
+                        }
+                    }
+                }
+
+                /* ---------- CENTER : EPISODES ---------- */
+
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
+                        SeasonSelector(
+                            playerModelList = playerModelList,
+                            exoPlayer = exoPlayer,
+                            onShowControls = {},
+                            pausePlayer = {},
+                            playContent = onNext
                         )
                     }
                 }
-            }
-
-            /* ---------- CENTER : EPISODES ---------- */
-
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
-                    SeasonSelector(
-                        playerModelList = playerModelList,
-                        exoPlayer = exoPlayer,
-                        onShowControls = {},
-                        pausePlayer = {},
-                        playContent = onNext
-                    )
-                }
+            } else {
+                Spacer(modifier = Modifier.weight(2f))
             }
 
             Box(modifier = Modifier.weight(1f))

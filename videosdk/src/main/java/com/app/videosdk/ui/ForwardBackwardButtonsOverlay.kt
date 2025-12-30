@@ -16,17 +16,13 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.utils.CastUtils
 import kotlinx.coroutines.delay
@@ -43,6 +39,22 @@ fun ForwardBackwardButtonsOverlay(
 ) {
     val castUtils = remember { CastUtils(context, exoPlayer) }
     val isCasting = castUtils.isCasting()
+
+    // FIXED: Correctly tracking the player's playing state
+    var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
+
+    // Sync state with real player listener to ensure accuracy on first launch
+    DisposableEffect(exoPlayer) {
+        val listener = object : Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+        }
+        exoPlayer.addListener(listener)
+        onDispose {
+            exoPlayer.removeListener(listener)
+        }
+    }
 
     val rewindRotation by animateFloatAsState(
         targetValue = if (showRewindIcon) -90f else 0f,
@@ -84,9 +96,7 @@ fun ForwardBackwardButtonsOverlay(
                         (if (isCasting) castUtils.getCastPosition() else exoPlayer.currentPosition) - 10_000,
                         0
                     )
-                    if (isCasting) castUtils.seekOnCast(newPosition) else exoPlayer.seekTo(
-                        newPosition
-                    )
+                    if (isCasting) castUtils.seekOnCast(newPosition) else exoPlayer.seekTo(newPosition)
                 }
             ) {
                 Icon(
@@ -101,24 +111,14 @@ fun ForwardBackwardButtonsOverlay(
 
             // Play/Pause Button
             if (isControllerVisible) {
-                var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
                 IconButton(
                     modifier = Modifier.size(70.dp),
                     onClick = {
                         if (isPlaying) {
-                            if (isCasting) {
-                                castUtils.pauseCasting() // Pause casting
-                            } else {
-                                exoPlayer.pause() // Pause local playback
-                            }
+                            if (isCasting) castUtils.pauseCasting() else exoPlayer.pause()
                         } else {
-                            if (isCasting) {
-                                castUtils.playCasting() // Play casting
-                            } else {
-                                exoPlayer.play() // Play local playback
-                            }
+                            if (isCasting) castUtils.playCasting() else exoPlayer.play()
                         }
-                        isPlaying = !isPlaying
                     }
                 ) {
                     Icon(
@@ -136,15 +136,12 @@ fun ForwardBackwardButtonsOverlay(
             IconButton(
                 modifier = Modifier.size(60.dp),
                 onClick = {
-                    val duration =
-                        if (isCasting) castUtils.getCastDuration() else exoPlayer.duration
+                    val duration = if (isCasting) castUtils.getCastDuration() else exoPlayer.duration
                     val newPosition = minOf(
                         (if (isCasting) castUtils.getCastPosition() else exoPlayer.currentPosition) + 10_000,
                         duration
                     )
-                    if (isCasting) castUtils.seekOnCast(newPosition) else exoPlayer.seekTo(
-                        newPosition
-                    )
+                    if (isCasting) castUtils.seekOnCast(newPosition) else exoPlayer.seekTo(newPosition)
                 }
             ) {
                 Icon(
@@ -159,7 +156,6 @@ fun ForwardBackwardButtonsOverlay(
         }
     }
 
-    // Hide icons after a delay
     LaunchedEffect(showRewindIcon, showForwardIcon) {
         if (showRewindIcon || showForwardIcon) {
             delay(500)

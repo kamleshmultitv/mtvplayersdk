@@ -81,8 +81,8 @@ object FileUtils {
             PlayerModel(
                 hlsUrl = content.hlsUrl.orEmpty(),
                 mpdUrl = content.url.orEmpty(),
-                liveUrl = content.hlsUrl.orEmpty(),
-                isLive = true,
+                liveUrl = "https://livesim.dashif.org/livesim/testpic_2s/Manifest.mpd",
+                isLive = false,
                 drmToken = getContentStatus(context, content),
                 imageUrl = content.layoutThumbs
                     ?.firstOrNull()

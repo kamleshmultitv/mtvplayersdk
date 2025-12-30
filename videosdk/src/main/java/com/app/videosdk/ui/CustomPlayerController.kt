@@ -126,6 +126,9 @@ fun CustomPlayerController(
                 exoPlayer.pause()
                 showControlsState.value(true)
                 onSettingsButtonClick(true)
+            },
+            onFullScreenToggle = {
+                fullScreenState.value(!isCurrentlyFullScreen)
             }
         )
 
@@ -215,10 +218,7 @@ fun CustomPlayerController(
                 if (isCasting) castUtils.seekOnCast(it)
                 else exoPlayer.seekTo(it)
             },
-            onNext = playContent,
-            onFullScreenToggle = {
-                fullScreenState.value(!isCurrentlyFullScreen)
-            }
+            onNext = playContent
         )
     }
 }
