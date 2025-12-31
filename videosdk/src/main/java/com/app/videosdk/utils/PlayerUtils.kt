@@ -2,6 +2,7 @@ package com.app.videosdk.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
@@ -11,14 +12,20 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider
+import androidx.media3.exoplayer.ima.ImaAdsLoader
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.TrackGroupArray
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector
+import androidx.media3.ui.PlayerView
+import com.app.videosdk.listener.AdsListener
+import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.SubTitleModel
 import com.app.videosdk.model.VideoQualityModel
+import com.google.ads.interactivemedia.v3.api.AdEvent
 import com.google.common.collect.ImmutableList
 import com.google.common.reflect.TypeToken
 import com.google.gson.Gson
@@ -26,61 +33,131 @@ import kotlin.math.pow
 
 object PlayerUtils {
     @OptIn(UnstableApi::class)
-    fun createExoPlayer(
+    fun createPlayer(
         context: Context,
         videoUrl: String,
-        drmToken: String?,
-        srt: String
-    ): ExoPlayer {
-        val cleanUrl = videoUrl.substringBefore("?")
-        val isDash = cleanUrl.endsWith(".mpd", ignoreCase = true)
-        val isMp4 = cleanUrl.endsWith(".mp4", ignoreCase = true)
+        drmToken: String? = null,
+        srt: String? = null,
+        playerView: PlayerView? = null,
+        adsConfig: AdsConfig? = null,
+        adsListener: AdsListener? = null
+    ): Pair<ExoPlayer, ImaAdsLoader?> {
 
-        val mediaSourceFactory = if (isDash && drmToken != null) {
-            DefaultMediaSourceFactory(context)
-                .setDrmSessionManagerProvider(DefaultDrmSessionManagerProvider())
-        } else {
-            DefaultMediaSourceFactory(context)
+        require(videoUrl.isNotBlank()) { "videoUrl cannot be blank" }
+
+        val cleanUrl = videoUrl.substringBefore("?")
+        val isDash = cleanUrl.endsWith(".mpd", true)
+
+        /* =========================================================
+           ADS LOADER (FIXED FOR COMPOSE)
+           ========================================================= */
+
+        val adsLoader =
+            if (adsConfig?.enableAds == true && adsConfig.adTagUrl.isNotBlank()) {
+                ImaAdsLoader.Builder(context)
+                    .setAdEventListener { event ->
+                        when (event.type) {
+                            AdEvent.AdEventType.LOADED -> adsListener?.onAdsLoaded()
+                            AdEvent.AdEventType.STARTED -> adsListener?.onAdStarted()
+                            AdEvent.AdEventType.COMPLETED -> adsListener?.onAdCompleted()
+                            AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener?.onAllAdsCompleted()
+                            else -> Unit
+                        }
+                    }
+                    .setAdErrorListener { error ->
+                        adsListener?.onAdError(error.error.message ?: "IMA error")
+                        Log.e("IMA", "Ad failed → content will continue")
+                    }
+                    .build()
+            } else {
+                null
+            }
+
+        /* =========================================================
+           MEDIA SOURCE FACTORY
+           ========================================================= */
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(context).apply {
+
+            if (isDash && drmToken != null) {
+                val drmProvider = DefaultDrmSessionManagerProvider().apply {
+                    setDrmHttpDataSourceFactory(DefaultHttpDataSource.Factory())
+                }
+                setDrmSessionManagerProvider(drmProvider)
+            }
+
+            if (adsLoader != null) {
+                setAdsLoaderProvider { adsLoader }
+                if (playerView != null) {
+                    setAdViewProvider { playerView }
+                }
+            }
         }
 
-        val exoPlayer = ExoPlayer.Builder(context, mediaSourceFactory).build()
+        /* =========================================================
+           PLAYER
+           ========================================================= */
 
-        val mediaItemBuilder = MediaItem.Builder().setUri(videoUrl)
+        val exoPlayer =
+            ExoPlayer.Builder(context)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
+                .apply {
+                    videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                    repeatMode = Player.REPEAT_MODE_OFF
+                }
 
-        mediaItemBuilder.setMimeType(
-            when {
-                isDash -> MimeTypes.APPLICATION_MPD
-                cleanUrl.endsWith(".m3u8", ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
-                isMp4 -> MimeTypes.VIDEO_MP4
-                else -> null
-            }
-        )
+        /* =========================================================
+           MEDIA ITEM
+           ========================================================= */
 
+        val mediaItemBuilder =
+            MediaItem.Builder()
+                .setUri(videoUrl.toUri())
+                .setMimeType(
+                    when {
+                        cleanUrl.endsWith(".mpd", true) -> MimeTypes.APPLICATION_MPD
+                        cleanUrl.endsWith(".m3u8", true) -> MimeTypes.APPLICATION_M3U8
+                        cleanUrl.endsWith(".mp4", true) -> MimeTypes.VIDEO_MP4
+                        else -> null
+                    }
+                )
+
+        // DRM
         drmToken?.takeIf { isDash }?.let {
             mediaItemBuilder.setDrmConfiguration(
                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
-                    .setLicenseUri(it)
+                    .setLicenseUri(it.toUri())
                     .build()
             )
         }
 
-        if (srt.isNotBlank()) {
-            val subtitleConfig = initializeSubTitleTracker(srt)
-            mediaItemBuilder.setSubtitleConfigurations(ImmutableList.of(subtitleConfig))
+        // Subtitles
+        if (!srt.isNullOrBlank()) {
+            mediaItemBuilder.setSubtitleConfigurations(
+                ImmutableList.of(initializeSubTitleTracker(srt))
+            )
         }
 
-        exoPlayer.apply {
-            if (videoUrl.isNotBlank()) {
-                setMediaItem(mediaItemBuilder.build())
-                prepare()
-            }
-            playWhenReady = true
-            // FIXED: Default to SCALE_TO_FIT to show normal native size without auto-stretching
-            videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-            repeatMode = Player.REPEAT_MODE_OFF
+        // Ads
+        if (adsLoader != null && adsConfig != null) {
+            mediaItemBuilder.setAdsConfiguration(
+                MediaItem.AdsConfiguration.Builder(
+                    Uri.parse(adsConfig.adTagUrl.trim())
+                ).build()
+            )
+            adsLoader.setPlayer(exoPlayer)
         }
 
-        return exoPlayer
+        /* =========================================================
+           PREPARE
+           ========================================================= */
+
+        exoPlayer.setMediaItem(mediaItemBuilder.build())
+        exoPlayer.prepare()
+        exoPlayer.playWhenReady = true
+
+        return exoPlayer to adsLoader
     }
 
     private fun initializeSubTitleTracker(srt: String): MediaItem.SubtitleConfiguration {

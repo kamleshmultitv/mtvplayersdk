@@ -8,6 +8,7 @@ import com.app.sample.extra.ApiConstant.DRM_TYPE
 import com.app.sample.extra.ApiConstant.PAID
 import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.OverrideContent
+import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.PlayerModel
 import org.json.JSONObject
 
@@ -59,17 +60,29 @@ object FileUtils {
         overrideContent: OverrideContent?
     ): List<PlayerModel> {
 
+        // 🔥 Example AdTag (replace with your real GAM tag)
+        val adTagUrl =
+            "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/single_ad_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ct%3Dlinear&correlator="
+
+        // ---------------- OVERRIDE CONTENT ----------------
         overrideContent?.let {
             return listOf(
                 PlayerModel(
                     hlsUrl = it.url,
                     liveUrl = it.url,
                     drmToken = it.drmToken.orEmpty(),
-                    isLive = it.isLive
+                    isLive = it.isLive,
+
+                    // ✅ ADS ENABLED
+                    adsConfig = AdsConfig(
+                        adTagUrl = adTagUrl,
+                        enableAds = true
+                    )
                 )
             )
         }
 
+        // ---------------- PAGED CONTENT ----------------
         return pagingItems.itemSnapshotList.items.map { content ->
             PlayerModel(
                 hlsUrl = content.hlsUrl.orEmpty(),
@@ -87,8 +100,15 @@ object FileUtils {
                 srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
                 playbackSpeed = 1.0f,
                 selectedSubtitle = null,
-                selectedVideoQuality = 1080
+                selectedVideoQuality = 1080,
+
+                // ✅ ADS ENABLED PER CONTENT
+                adsConfig = AdsConfig(
+                    adTagUrl = adTagUrl,
+                    enableAds = true
+                )
             )
         }
     }
+
 }

@@ -52,7 +52,7 @@ import com.app.videosdk.utils.PlayerUtils.showAudioTrack
 import com.app.videosdk.viewmodel.VideoViewModel
 
 @Composable
-fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}) {
+fun SelectorHeader(exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {}) {
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
     val selectedItems = remember { mutableStateMapOf<Int, Int>() }
@@ -61,7 +61,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
 
     // Intercept Back button to close the header and resume video
     BackHandler(enabled = true) {
-        exoPlayer.play()
+        exoPlayer?.play()
         closeOptionCard(false)
     }
 
@@ -94,7 +94,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
 
             IconButton(
                 onClick = {
-                    exoPlayer.play()
+                    exoPlayer?.play()
                     closeOptionCard(false)
                 }
             ) {
@@ -138,7 +138,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                         selectedIndex = selectedItems[selectedOption] ?: -1
                     ) { index ->
                         selectedItems[selectedOption!!] = index
-                        exoPlayer.trackSelectionParameters =
+                        exoPlayer?.trackSelectionParameters =
                             exoPlayer.trackSelectionParameters.buildUpon()
                                 .setTrackTypeDisabled(
                                     C.TRACK_TYPE_TEXT,
@@ -165,7 +165,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer, closeOptionCard: (Boolean) -> Unit = {}
                             speedData[index].speed,
                             calculatePitch(speedData[index].speed)
                         )
-                        exoPlayer.playbackParameters = param
+                        exoPlayer?.playbackParameters = param
                     }
                 }
 

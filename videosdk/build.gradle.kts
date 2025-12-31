@@ -32,6 +32,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+
+        isCoreLibraryDesugaringEnabled = true
     }
 
     // ✅ Kotlin 2.x compiler options
@@ -75,7 +77,7 @@ afterEvaluate {
 }
 
 dependencies {
-
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -110,4 +112,7 @@ dependencies {
     implementation(libs.google.gson)
     implementation(libs.google.accompanist.systemuicontroller)
     implementation(libs.coil.compose)
+
+    implementation("androidx.media3:media3-exoplayer-ima:1.3.1")
+    implementation("com.google.ads.interactivemedia.v3:interactivemedia:3.34.0")
 }
