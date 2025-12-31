@@ -30,8 +30,7 @@ object PlayerUtils {
         context: Context,
         videoUrl: String,
         drmToken: String?,
-        srt: String,
-        isLive: Boolean = false
+        srt: String
     ): ExoPlayer {
         val cleanUrl = videoUrl.substringBefore("?")
         val isDash = cleanUrl.endsWith(".mpd", ignoreCase = true)

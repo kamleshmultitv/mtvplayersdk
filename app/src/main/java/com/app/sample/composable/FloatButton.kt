@@ -40,7 +40,7 @@ fun PreviewFloatButton() {
 }
 
 @Composable
-fun FloatButton(playContent: (String, String, String) -> Unit = { _, _, _ -> }) {
+fun FloatButton(playContent: (String, String, Boolean) -> Unit = { _, _, _ -> }) {
     var expanded by remember { mutableStateOf(false) }
 
     // Now trigger the file picker when needed

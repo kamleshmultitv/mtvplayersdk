@@ -4,23 +4,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.app.sample.utils.StreamDetector
+import com.app.sample.utils.StreamInfo
+import com.app.sample.utils.StreamType
+import com.app.sample.utils.PlaybackMode
 
 @Composable
-fun CardWithTextFieldsAndButton(expanded: (Boolean) -> Unit,   playContent: (String, String, String) -> Unit) {
+fun CardWithTextFieldsAndButton(
+    expanded: (Boolean) -> Unit,
+    playContent: (String, String, Boolean) -> Unit
+) {
+    var textUrl by remember { mutableStateOf("") }
+    var drmToken by remember { mutableStateOf("") }
+    var streamInfo by remember { mutableStateOf<StreamInfo?>(null) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -34,35 +36,53 @@ fun CardWithTextFieldsAndButton(expanded: (Boolean) -> Unit,   playContent: (Str
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            var textUrl by remember { mutableStateOf("https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8") }
-            var sprite by remember { mutableStateOf("") }
-            var drmToken by remember { mutableStateOf("") }
 
             TextField(
                 value = textUrl,
-                onValueChange = { textUrl = it },
-                label = { Text("Please enter DASH/HLS") },
+                onValueChange = {
+                    textUrl = it
+                    streamInfo = null
+                },
+                label = { Text("Enter DASH / HLS / Live URL") },
                 modifier = Modifier.fillMaxWidth()
             )
 
-            TextField(
-                value = sprite,
-                onValueChange = { sprite = it },
-                label = { Text("Please enter Sprite Url") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            // -------- Detect stream --------
+            LaunchedEffect(textUrl) {
+                if (textUrl.isNotBlank()) {
+                    streamInfo = StreamDetector.detectStreamInfo(textUrl)
+                }
+            }
 
-            TextField(
-                value = drmToken,
-                onValueChange = { drmToken = it },
-                label = { Text("Please Enter Drm Token") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            // -------- Info --------
+            streamInfo?.let {
+                Text(
+                    text = "Detected: ${it.streamType} • ${it.playbackMode}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            // -------- DRM only for DASH --------
+            if (streamInfo?.streamType == StreamType.DASH) {
+                TextField(
+                    value = drmToken,
+                    onValueChange = { drmToken = it },
+                    label = { Text("Enter DRM Token (optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             Button(
                 onClick = {
                     expanded(false)
-                    playContent(textUrl, sprite, drmToken) },
+                    playContent(
+                        textUrl,
+                        drmToken,
+                        streamInfo?.playbackMode == PlaybackMode.LIVE
+                    )
+                },
+                enabled = streamInfo != null &&
+                        streamInfo?.streamType != StreamType.UNKNOWN,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
                 Text("Play")

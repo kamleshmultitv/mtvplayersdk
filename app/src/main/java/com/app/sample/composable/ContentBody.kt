@@ -72,10 +72,10 @@ fun ContentBody(
 
         // ➕ Floating Action Button
         if (!isFullScreen) {
-            FloatButton { url, sprite, token ->
+            FloatButton { url, token, isLive ->
                 selectedIndex.intValue = 0
                 onOverrideContent(
-                    OverrideContent(url, sprite, token)
+                    OverrideContent(url = url, drmToken = token, isLive = isLive)
                 )
             }
         }

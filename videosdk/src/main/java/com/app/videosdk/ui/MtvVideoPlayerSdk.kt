@@ -90,15 +90,49 @@ fun MtvVideoPlayerSdk(
     var isControllerVisible by remember { mutableStateOf(false) }
     var pipEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
-    var keepScreenOn by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
+
+    /* ---------------- LIVE DETECTION (DEFENSIVE) ---------------- */
+    // FileUtils always sets isLive=true, so we detect real live safely here
+    val isActuallyLive = remember(playerModel) {
+        playerModel?.isLive == true
+    }
+
+    /* ---------------- PLAYBACK URL ---------------- */
+
+    val playbackUrl = remember(playerModel) {
+        when {
+            isActuallyLive ->
+                playerModel?.liveUrl
+
+            !playerModel?.hlsUrl.isNullOrEmpty() ->
+                playerModel.hlsUrl
+
+            !playerModel?.mpdUrl.isNullOrEmpty() ->
+                playerModel.mpdUrl
+
+            else -> ""
+        }
+    }
+
+    /* ---------------- SUBTITLE ---------------- */
+
+    val subtitleUri = remember(playerModel) {
+        if (isActuallyLive) {
+            ""
+        } else if (getMimeTypeFromExtension(playerModel?.hlsUrl.toString())) {
+            ""
+        } else {
+            playerModel?.srt.orEmpty()
+        }
+    }
 
     /* ---------------- FIT ↔ FILL ZOOM STATE ---------------- */
 
     var containerSize by remember { mutableStateOf(Size.Zero) }
-    var fillScale by remember { mutableStateOf(1f) }
+    var fillScale by remember { mutableFloatStateOf(1f) }
     var isFilled by remember { mutableStateOf(false) }
-    var zoomAccumulator by remember { mutableStateOf(1f) }
+    var zoomAccumulator by remember { mutableFloatStateOf(1f) }
 
     val targetScale = if (isFilled) fillScale else 1f
 
@@ -108,32 +142,24 @@ fun MtvVideoPlayerSdk(
         label = "video-scale"
     )
 
-    /* ---------------- SUBTITLE ---------------- */
-
-    val subtitleUri = remember(playerModel) {
-        if (getMimeTypeFromExtension(playerModel?.hlsUrl.toString())) ""
-        else playerModel?.srt.orEmpty()
-    }
-
     /* ---------------- EXOPLAYER ---------------- */
 
-    val exoPlayer = remember(playerModel?.mpdUrl, subtitleUri) {
+    val exoPlayer = remember(playbackUrl, subtitleUri) {
         createExoPlayer(
             context,
-            playerModel?.mpdUrl.orEmpty(),
+            playbackUrl.toString(),
             playerModel?.drmToken,
             subtitleUri
         )
     }
 
-    /* ---------------- VIDEO SIZE → CALCULATE FILL SCALE ---------------- */
+    /* ---------------- PLAYER LISTENER ---------------- */
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
 
             override fun onVideoSizeChanged(videoSize: VideoSize) {
-                if (
-                    videoSize.width == 0 ||
+                if (videoSize.width == 0 ||
                     videoSize.height == 0 ||
                     containerSize == Size.Zero
                 ) return
@@ -149,10 +175,10 @@ fun MtvVideoPlayerSdk(
             override fun onPlaybackStateChanged(state: Int) {
                 isLoading = state == Player.STATE_BUFFERING
 
-                if (state == Player.STATE_ENDED) {
+                // ✅ Auto-next ONLY for VOD
+                if (state == Player.STATE_ENDED && !isActuallyLive) {
                     val size = contentList?.size ?: return
                     val nextIndex = selectedIndex.intValue + 1
-
                     if (nextIndex < size) {
                         selectedIndex.intValue = nextIndex
                     }
@@ -171,7 +197,6 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-
     /* ---------------- LIFECYCLE ---------------- */
 
     DisposableEffect(lifecycleOwner) {
@@ -183,8 +208,6 @@ fun MtvVideoPlayerSdk(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
-    keepScreenOn = exoPlayer.playWhenReady && exoPlayer.playbackState == Player.STATE_READY
 
     ScreenRotation {
         isFullScreen = it
@@ -206,45 +229,30 @@ fun MtvVideoPlayerSdk(
             .onSizeChanged {
                 containerSize = Size(it.width.toFloat(), it.height.toFloat())
             }
-
-            /* 🔥 SMOOTH PINCH → FIT / FILL */
             .pointerInput(Unit) {
                 awaitEachGesture {
                     zoomAccumulator = 1f
-
                     while (true) {
                         val event = awaitPointerEvent()
                         val zoomChange = event.calculateZoom()
-
                         if (zoomChange != 1f) {
                             zoomAccumulator *= zoomChange
-
-                            when {
-                                zoomAccumulator > 1.15f && !isFilled -> {
-                                    isFilled = true
-                                }
-                                zoomAccumulator < 0.85f && isFilled -> {
-                                    isFilled = false
-                                }
-                            }
+                            if (zoomAccumulator > 1.15f && !isFilled) isFilled = true
+                            if (zoomAccumulator < 0.85f && isFilled) isFilled = false
                         }
-
                         if (event.changes.all { !it.pressed }) break
                     }
                 }
             }
     ) {
 
+        // 🔥 Surface recreation fix
         key(selectedIndex.intValue) {
-
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
                         useController = false
-                        layoutParams = FrameLayout.LayoutParams(
-                            MATCH_PARENT,
-                            MATCH_PARENT
-                        )
+                        layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     }
                 },
                 modifier = Modifier
@@ -254,26 +262,20 @@ fun MtvVideoPlayerSdk(
                         scaleY = animatedScale
                     }
                     .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = {
-                                if (!isSettingsClick && !pipEnabled) {
-                                    isControllerVisible = !isControllerVisible
-                                }
+                        detectTapGestures {
+                            if (!isSettingsClick && !pipEnabled) {
+                                isControllerVisible = !isControllerVisible
                             }
-                        )
+                        }
                     },
                 update = { playerView ->
                     playerView.player = exoPlayer
-
-                    // CC padding fix
                     playerView.subtitleView?.setBottomPaddingFraction(
                         if (isFilled) 0.15f else 0.08f
                     )
                 }
             )
         }
-
-
 
         AnimatedVisibility(
             visible = !pipEnabled && isControllerVisible,
@@ -314,7 +316,9 @@ fun MtvVideoPlayerSdk(
 
         if (!isControllerVisible && isLoading) {
             CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center).size(55.dp),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(55.dp),
                 color = Color.White
             )
         }

@@ -24,7 +24,7 @@ object FileUtils {
         }
     }
 
-    fun getContentStatus(context: Context, contentItems: ContentItem?): String {
+    fun getDrmToken(context: Context, contentItems: ContentItem?): String {
         var accessType = contentItems?.accessType
         accessType = if (accessType.equals(PAID)) "1"
         else "0"
@@ -63,16 +63,9 @@ object FileUtils {
             return listOf(
                 PlayerModel(
                     hlsUrl = it.url,
-                    mpdUrl = it.url,
+                    liveUrl = it.url,
                     drmToken = it.drmToken.orEmpty(),
-                    imageUrl = "",
-                    title = "Demo Content",
-                    description = "Demo Content",
-                    srt = "",
-                    spriteUrl = it.spriteUrl,
-                    playbackSpeed = 1.0f,
-                    selectedSubtitle = null,
-                    selectedVideoQuality = 1080
+                    isLive = it.isLive
                 )
             )
         }
@@ -83,7 +76,7 @@ object FileUtils {
                 mpdUrl = content.url.orEmpty(),
                 liveUrl = "https://livesim.dashif.org/livesim/testpic_2s/Manifest.mpd",
                 isLive = false,
-                drmToken = getContentStatus(context, content),
+                drmToken = getDrmToken(context, content),
                 imageUrl = content.layoutThumbs
                     ?.firstOrNull()
                     ?.imageSize
@@ -98,5 +91,4 @@ object FileUtils {
             )
         }
     }
-
 }
