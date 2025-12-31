@@ -3,7 +3,7 @@ package com.app.videosdk.model
 data class PlayerModel(
     val hlsUrl: String? = null,
     val mpdUrl: String? = null,
-    val liveUrl: String? = null, // Added for live streams
+    val liveUrl: String? = null, 
     val drmToken: String? = null,
     val imageUrl: String? = null,
     val title: String? = null,
@@ -15,5 +15,5 @@ data class PlayerModel(
     val playbackSpeed: Float = 1.0f,  // Default to normal speed
     val selectedSubtitle: String? = null,  // Subtitle language code (e.g., "en")
     val selectedVideoQuality: Int = 1080,  // Default video quality
-    val isLive: Boolean = false // Added for live stream detection
+    val isLive: Boolean = false
 )

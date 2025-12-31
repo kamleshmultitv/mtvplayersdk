@@ -1,52 +1,50 @@
 package com.app.videosdk.ui
 
-import android.net.Uri
 import android.util.Log
-import android.view.SurfaceView
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
-import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.app.PictureInPictureModeChangedInfo
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.text.CueGroup
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.ui.SubtitleView
+import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.createExoPlayer
 import com.app.videosdk.utils.PlayerUtils.getMimeTypeFromExtension
 import com.google.android.gms.cast.framework.CastContext
-import androidx.core.util.Consumer
+import kotlin.math.max
 
 @OptIn(UnstableApi::class)
 @Composable
-public fun MtvVideoPlayerSdk(
+fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
     pipListener: PipListener? = null,
@@ -57,21 +55,30 @@ public fun MtvVideoPlayerSdk(
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
 
-    remember {
-        try {
-            CastContext.getSharedInstance(context)
-        } catch (e: Exception) {
-            null
-        }
-    }
+    CastContext.getSharedInstance(context)
 
     /* ---------------- SAFE INDEX ---------------- */
 
-    val selectedIndex = remember { mutableIntStateOf(index ?: 0) }
+    val safeIndex = remember(contentList, index) {
+        val size = contentList?.size ?: 0
+        when {
+            size == 0 -> 0
+            index == null -> 0
+            index < 0 -> 0
+            index >= size -> size - 1
+            else -> index
+        }
+    }
 
-    LaunchedEffect(index) {
-        if (index != null) {
-            selectedIndex.intValue = index
+    val selectedIndex = remember { mutableIntStateOf(safeIndex) }
+
+    LaunchedEffect(index, contentList) {
+        val size = contentList?.size ?: return@LaunchedEffect
+        selectedIndex.intValue = when {
+            index == null -> 0
+            index < 0 -> 0
+            index >= size -> size - 1
+            else -> index
         }
     }
 
@@ -80,112 +87,83 @@ public fun MtvVideoPlayerSdk(
     /* ---------------- PLAYER STATE ---------------- */
 
     var isFullScreen by remember { mutableStateOf(false) }
-    var isControllerVisible by remember { mutableStateOf(true) } 
+    var isControllerVisible by remember { mutableStateOf(false) }
     var pipEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var keepScreenOn by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
 
-    // Default to Normal (not zoomed)
-    var isZoomed by remember { mutableStateOf(false) }
+    /* ---------------- FIT ↔ FILL ZOOM STATE ---------------- */
 
-    /* ---------------- PIP LISTENER ---------------- */
+    var containerSize by remember { mutableStateOf(Size.Zero) }
+    var fillScale by remember { mutableStateOf(1f) }
+    var isFilled by remember { mutableStateOf(false) }
+    var zoomAccumulator by remember { mutableStateOf(1f) }
 
-    DisposableEffect(context) {
-        val activity = context as? ComponentActivity
-        val pipModeListener = Consumer<PictureInPictureModeChangedInfo> { info ->
-            pipEnabled = info.isInPictureInPictureMode
-            if (!info.isInPictureInPictureMode) {
-                isControllerVisible = true
-            }
-        }
+    val targetScale = if (isFilled) fillScale else 1f
 
-        activity?.addOnPictureInPictureModeChangedListener(pipModeListener)
-        onDispose {
-            activity?.removeOnPictureInPictureModeChangedListener(pipModeListener)
-        }
+    val animatedScale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = tween(220),
+        label = "video-scale"
+    )
+
+    /* ---------------- SUBTITLE ---------------- */
+
+    val subtitleUri = remember(playerModel) {
+        if (getMimeTypeFromExtension(playerModel?.hlsUrl.toString())) ""
+        else playerModel?.srt.orEmpty()
     }
 
     /* ---------------- EXOPLAYER ---------------- */
 
-    val exoPlayer = remember {
-        createExoPlayer(context, "", null, "")
+    val exoPlayer = remember(playerModel?.mpdUrl, subtitleUri) {
+        createExoPlayer(
+            context,
+            playerModel?.mpdUrl.orEmpty(),
+            playerModel?.drmToken,
+            subtitleUri
+        )
     }
 
-    LaunchedEffect(selectedIndex.intValue, contentList) {
-        val model = contentList?.getOrNull(selectedIndex.intValue) ?: return@LaunchedEffect
-        val videoUrl = if (model.isLive) model.liveUrl.orEmpty() else model.mpdUrl.orEmpty()
-        val cleanUrl = videoUrl.substringBefore("?")
-
-        val mediaItemBuilder = MediaItem.Builder()
-            .setUri(videoUrl)
-            .setMimeType(
-                when {
-                    cleanUrl.endsWith(".mpd", ignoreCase = true) -> MimeTypes.APPLICATION_MPD
-                    cleanUrl.endsWith(".m3u8", ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
-                    else -> MimeTypes.VIDEO_MP4
-                }
-            )
-
-        if (model.isLive) {
-            mediaItemBuilder.setLiveConfiguration(
-                MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(5000).build()
-            )
-        }
-
-        val srtUrl = if (getMimeTypeFromExtension(model.hlsUrl.toString())) "" else model.srt.orEmpty()
-        if (srtUrl.isNotBlank()) {
-            val subtitleConfig = MediaItem.SubtitleConfiguration.Builder(Uri.parse(srtUrl))
-                .setMimeType(MimeTypes.APPLICATION_SUBRIP)
-                .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-                .build()
-            mediaItemBuilder.setSubtitleConfigurations(listOf(subtitleConfig))
-        }
-
-        if (!model.isLive) {
-            model.drmToken?.let {
-                mediaItemBuilder.setDrmConfiguration(
-                    MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
-                        .setLicenseUri(it)
-                        .build()
-                )
-            }
-        }
-
-        exoPlayer.setMediaItem(mediaItemBuilder.build())
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
-        exoPlayer.repeatMode = Player.REPEAT_MODE_OFF
-
-        // FORCED: Reset scaling mode to Normal (Fit) whenever new content starts
-        exoPlayer.videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-    }
-
-    val castUtils = remember(context, exoPlayer) {
-        CastUtils(context, exoPlayer)
-    }
-    val isCasting by remember { derivedStateOf { castUtils.isCasting() } }
-
-    /* ---------------- PLAYER LISTENER ---------------- */
+    /* ---------------- VIDEO SIZE → CALCULATE FILL SCALE ---------------- */
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
+
+            override fun onVideoSizeChanged(videoSize: VideoSize) {
+                if (
+                    videoSize.width == 0 ||
+                    videoSize.height == 0 ||
+                    containerSize == Size.Zero
+                ) return
+
+                val scaleX = containerSize.width / videoSize.width
+                val scaleY = containerSize.height / videoSize.height
+                fillScale = max(scaleX, scaleY)
+
+                isFilled = false
+                zoomAccumulator = 1f
+            }
+
             override fun onPlaybackStateChanged(state: Int) {
                 isLoading = state == Player.STATE_BUFFERING
-                if (state == Player.STATE_READY && !isCasting && exoPlayer.playWhenReady) {
-                    exoPlayer.play()
-                }
+
                 if (state == Player.STATE_ENDED) {
-                    val lastIndex = contentList?.lastIndex ?: 0
-                    if (selectedIndex.intValue < lastIndex) {
-                        selectedIndex.intValue++
+                    val size = contentList?.size ?: return
+                    val nextIndex = selectedIndex.intValue + 1
+
+                    if (nextIndex < size) {
+                        selectedIndex.intValue = nextIndex
                     }
                 }
             }
+
             override fun onPlayerError(error: PlaybackException) {
-                Log.e("MtvPlayer", "Playback error: ${error.message}")
+                Log.e("MtvPlayer", error.message ?: "Playback error")
             }
         }
+
         exoPlayer.addListener(listener)
         onDispose {
             exoPlayer.removeListener(listener)
@@ -193,27 +171,17 @@ public fun MtvVideoPlayerSdk(
         }
     }
 
+
     /* ---------------- LIFECYCLE ---------------- */
 
     DisposableEffect(lifecycleOwner) {
         val observer = object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
                 exoPlayer.pause()
-                if (!pipEnabled) {
-                    isControllerVisible = false
-                }
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    LaunchedEffect(isZoomed) {
-        exoPlayer.videoScalingMode = if (isZoomed) {
-            C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-        } else {
-            C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-        }
     }
 
     keepScreenOn = exoPlayer.playWhenReady && exoPlayer.playbackState == Player.STATE_READY
@@ -235,68 +203,80 @@ public fun MtvVideoPlayerSdk(
             .fillMaxWidth()
             .then(if (isFullScreen) Modifier.fillMaxSize() else Modifier.height(aspectRatioHeight))
             .background(Color.Black)
+            .onSizeChanged {
+                containerSize = Size(it.width.toFloat(), it.height.toFloat())
+            }
+
+            /* 🔥 SMOOTH PINCH → FIT / FILL */
             .pointerInput(Unit) {
-                detectTransformGestures { _, _, zoom, _ ->
-                    isZoomed = zoom > 1f
+                awaitEachGesture {
+                    zoomAccumulator = 1f
+
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val zoomChange = event.calculateZoom()
+
+                        if (zoomChange != 1f) {
+                            zoomAccumulator *= zoomChange
+
+                            when {
+                                zoomAccumulator > 1.15f && !isFilled -> {
+                                    isFilled = true
+                                }
+                                zoomAccumulator < 0.85f && isFilled -> {
+                                    isFilled = false
+                                }
+                            }
+                        }
+
+                        if (event.changes.all { !it.pressed }) break
+                    }
                 }
             }
     ) {
-        AndroidView(
-            factory = { ctx ->
-                val root = FrameLayout(ctx)
-                val surfaceView = SurfaceView(ctx)
-                val subtitleView = SubtitleView(ctx).apply {
-                    setUserDefaultStyle()
-                    setUserDefaultTextSize()
-                }
 
-                root.addView(surfaceView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-                root.addView(subtitleView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        key(selectedIndex.intValue) {
 
-                exoPlayer.setVideoSurfaceView(surfaceView)
-                exoPlayer.addListener(object : Player.Listener {
-                    override fun onCues(cueGroup: CueGroup) {
-                        subtitleView.setCues(cueGroup.cues)
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        useController = false
+                        layoutParams = FrameLayout.LayoutParams(
+                            MATCH_PARENT,
+                            MATCH_PARENT
+                        )
                     }
-                })
-
-                root
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onTap = {
-                            if (!isSettingsClick && !pipEnabled) {
-                                isControllerVisible = !isControllerVisible
-                            }
-                        },
-                        onDoubleTap = { offset ->
-                            val model = contentList?.getOrNull(selectedIndex.intValue)
-                            if (!pipEnabled && model?.isLive == false) {
-                                val isLeft = offset.x < size.width / 2
-                                val seekBy = if (isLeft) -10_000 else 10_000
-                                val position = if (isCasting) castUtils.getCastPosition() else exoPlayer.currentPosition
-                                val newPosition = (position + seekBy).coerceAtLeast(0)
-
-                                if (isCasting) castUtils.seekOnCast(newPosition)
-                                else exoPlayer.seekTo(newPosition)
-                            }
-                        }
-                    )
                 },
-            update = { root ->
-                val surfaceView = root.getChildAt(0) as SurfaceView
-                surfaceView.keepScreenOn = keepScreenOn
-                // FORCED: Reset scaling mode to Normal Fit on every update if not explicitly zoomed
-                if (!isZoomed) {
-                    exoPlayer.videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = animatedScale
+                        scaleY = animatedScale
+                    }
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                if (!isSettingsClick && !pipEnabled) {
+                                    isControllerVisible = !isControllerVisible
+                                }
+                            }
+                        )
+                    },
+                update = { playerView ->
+                    playerView.player = exoPlayer
+
+                    // CC padding fix
+                    playerView.subtitleView?.setBottomPaddingFraction(
+                        if (isFilled) 0.15f else 0.08f
+                    )
                 }
-            }
-        )
+            )
+        }
+
+
 
         AnimatedVisibility(
-            visible = !pipEnabled && isControllerVisible && !isSettingsClick,
+            visible = !pipEnabled && isControllerVisible,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
@@ -311,9 +291,7 @@ public fun MtvVideoPlayerSdk(
                 isCurrentlyFullScreen = isFullScreen,
                 exoPlayer = exoPlayer,
                 modifier = Modifier.fillMaxSize(),
-                onShowControls = {
-                    if (!pipEnabled) isControllerVisible = it
-                },
+                onShowControls = { isControllerVisible = it },
                 isPipEnabled = { pipEnabled = it },
                 onSettingsButtonClick = { isSettingsClick = it },
                 isLoading = isLoading,
@@ -334,14 +312,14 @@ public fun MtvVideoPlayerSdk(
             )
         }
 
-        if (!isControllerVisible && isLoading && !pipEnabled) {
+        if (!isControllerVisible && isLoading) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center).size(55.dp),
                 color = Color.White
             )
         }
 
-        if (isSettingsClick && !pipEnabled) {
+        if (isSettingsClick) {
             SelectorHeader(exoPlayer) { isSettingsClick = it }
         }
     }
