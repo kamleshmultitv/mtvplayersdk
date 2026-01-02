@@ -29,10 +29,10 @@ fun BottomControls(
     duration: Long,
     exoPlayer: ExoPlayer,
     onSeek: (Long) -> Unit,
-    onNext: (Int) -> Unit
+    onNext: (Int) -> Unit,
+    cuePoints: List<CuePoint> = emptyList() // ✅ keep ONLY this
 ) {
     val model = playerModelList?.getOrNull(index)
-    val spriteUrl = model?.spriteUrl
     val isLive = model?.isLive ?: false
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -40,9 +40,9 @@ fun BottomControls(
         /* ---------- SEEK BAR ---------- */
 
         CustomSlider(
-            spriteUrl = spriteUrl,
             currentPosition = currentPosition,
             duration = duration,
+            cuePoints = cuePoints,   // ✅ markers only
             onSeek = onSeek,
             showControls = {},
             isLive = isLive,
@@ -59,6 +59,7 @@ fun BottomControls(
         ) {
 
             if (!isLive) {
+
                 /* ---------- START : NEXT ---------- */
 
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -99,6 +100,7 @@ fun BottomControls(
                         )
                     }
                 }
+
             } else {
                 Spacer(modifier = Modifier.weight(2f))
             }

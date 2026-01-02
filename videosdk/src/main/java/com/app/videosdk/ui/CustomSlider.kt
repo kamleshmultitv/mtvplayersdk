@@ -46,9 +46,9 @@ import com.app.videosdk.utils.PlayerUtils.formatTime
 @Composable
 fun CustomSlider(
     modifier: Modifier = Modifier,
-    spriteUrl: String? = null,
     currentPosition: Long,
     duration: Long,
+    cuePoints: List<CuePoint> = emptyList(),
     onSeek: (Long) -> Unit,
     showControls: (Boolean) -> Unit,
     isLive: Boolean = false,
@@ -57,14 +57,15 @@ fun CustomSlider(
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     var isSeeking by remember { mutableStateOf(false) }
 
-    // Check if the user is at the live edge (within 10 seconds of duration)
+    // Check if the user is at the live edge (within 10 seconds)
     val isAtLiveEdge = remember(currentPosition, duration, isLive) {
-        if (!isLive) false else (duration - currentPosition) < 10_000L
+        isLive && (duration - currentPosition) < 10_000L
     }
 
+    // Sync slider with playback
     LaunchedEffect(currentPosition, duration) {
-        if (!isSeeking) {
-            sliderPosition = if (duration > 0) currentPosition.toFloat() / duration else 0f
+        if (!isSeeking && duration > 0) {
+            sliderPosition = currentPosition.toFloat() / duration
         }
     }
 
@@ -86,7 +87,8 @@ fun CustomSlider(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Hide current time if Live
+
+        // Current time (hidden for Live)
         if (!isLive) {
             Text(
                 text = formatTime(currentPosition),
@@ -104,8 +106,7 @@ fun CustomSlider(
                 showControls(true)
             },
             onValueChangeFinished = {
-                val newSeekPosition = (sliderPosition * duration).toLong()
-                onSeek(newSeekPosition)
+                onSeek((sliderPosition * duration).toLong())
                 isSeeking = false
                 showControls(false)
             },
@@ -121,24 +122,38 @@ fun CustomSlider(
                 .drawBehind {
                     val trackHeight = 4.dp.toPx()
                     val trackY = size.height / 2 - trackHeight / 2
-                    
+
+                    // Background track
                     drawRoundRect(
                         color = Color.Gray.copy(alpha = 0.5f),
                         topLeft = Offset(0f, trackY),
                         size = Size(size.width, trackHeight),
                         cornerRadius = CornerRadius(4.dp.toPx())
                     )
-                    
+
+                    // Progress track
                     drawRoundRect(
                         color = if (isLive && isAtLiveEdge) Color.Red else Color.Red.copy(alpha = 0.7f),
                         topLeft = Offset(0f, trackY),
                         size = Size(size.width * sliderPosition, trackHeight),
                         cornerRadius = CornerRadius(4.dp.toPx())
                     )
+
+                    // Cue markers (VISUAL ONLY)
+                    if (duration > 0) {
+                        cuePoints.forEach { cue ->
+                            val x = (cue.positionMs.toFloat() / duration) * size.width
+                            drawCircle(
+                                color = Color.Yellow,
+                                radius = 4.dp.toPx(),
+                                center = Offset(x, size.height / 2)
+                            )
+                        }
+                    }
                 }
         )
 
-        // Hide duration if Live, show Go Live button instead
+        // Duration or Live button
         if (!isLive) {
             Text(
                 text = formatTime(duration),
@@ -152,7 +167,6 @@ fun CustomSlider(
                 modifier = Modifier
                     .padding(start = 12.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    // FIXED: Added transparent gray background when "Go Live" is shown
                     .background(if (isAtLiveEdge) Color.Transparent else Color.Gray.copy(alpha = 0.3f))
                     .clickable {
                         onSeek(duration)
@@ -178,3 +192,4 @@ fun CustomSlider(
         }
     }
 }
+

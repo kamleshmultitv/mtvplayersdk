@@ -66,7 +66,7 @@ object PlayerUtils {
                     }
                     .setAdErrorListener { error ->
                         adsListener?.onAdError(error.error.message ?: "IMA error")
-                        Log.e("IMA", "Ad failed → content will continue")
+                        Log.e("IMA ADS", "Ad failed → content will continue")
                     }
                     .build()
             } else {

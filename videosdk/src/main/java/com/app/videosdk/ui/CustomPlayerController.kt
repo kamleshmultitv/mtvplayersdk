@@ -98,6 +98,16 @@ fun CustomPlayerController(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val cuePoints = playerModelList
+        ?.getOrNull(index)
+        ?.cuePoints
+        ?: emptyList()
+
+    val triggeredCueIds = remember(index) {
+        mutableSetOf<String>()
+    }
+
+
     /* -------------------- UI -------------------- */
 
     Box(
@@ -218,7 +228,9 @@ fun CustomPlayerController(
                 if (isCasting) castUtils.seekOnCast(it)
                 else exoPlayer.seekTo(it)
             },
-            onNext = playContent
+            onNext = playContent,
+            cuePoints = cuePoints
         )
+
     }
 }

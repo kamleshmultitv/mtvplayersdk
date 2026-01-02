@@ -1,5 +1,7 @@
 package com.app.videosdk.model
 
+import com.app.videosdk.ui.CuePoint
+
 data class PlayerModel(
     val hlsUrl: String? = null,
     val mpdUrl: String? = null,
@@ -16,5 +18,6 @@ data class PlayerModel(
     val selectedSubtitle: String? = null,
     val selectedVideoQuality: Int = 1080,
     val isLive: Boolean = false,
-    val adsConfig: AdsConfig? = null
+    val adsConfig: AdsConfig? = null,
+    val cuePoints: List<CuePoint> = emptyList()
 )

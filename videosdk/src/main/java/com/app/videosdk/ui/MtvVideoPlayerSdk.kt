@@ -1,5 +1,7 @@
 package com.app.videosdk.ui
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import android.util.Log
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
@@ -18,16 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
@@ -64,10 +57,17 @@ fun MtvVideoPlayerSdk(
     setFullScreen: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val activity = remember(context) { context as Activity }
     val lifecycleOwner = LocalLifecycleOwner.current
     val configuration = LocalConfiguration.current
 
-    var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    // ✅ SINGLE PlayerView (VERY IMPORTANT FOR ADS)
+    val playerView = remember {
+        PlayerView(context).apply {
+            useController = false
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        }
+    }
 
     CastContext.getSharedInstance(context)
 
@@ -133,33 +133,44 @@ fun MtvVideoPlayerSdk(
 
     val adsListener = remember {
         object : AdsListener {
-            override fun onAdsLoaded() {}
-            override fun onAdStarted() {}
-            override fun onAdCompleted() {}
-            override fun onAllAdsCompleted() {}
+
+            override fun onAdsLoaded() {
+                Log.d("ADS", "Ad Loaded")
+            }
+
+            override fun onAdStarted() {
+                Log.d("ADS", "Ad Started")
+            }
+
+            override fun onAdCompleted() {
+                Log.d("ADS", "Ad Completed")
+            }
+
+            override fun onAllAdsCompleted() {
+                Log.d("ADS", "All Ads Completed")
+            }
+
             override fun onAdError(message: String) {
                 Log.e("ADS", message)
             }
         }
     }
 
-    /* ---------------- PLAYER + ADS (OWNED TOGETHER) ---------------- */
 
-    val playerWithAds = key(selectedIndex.intValue) {
-        remember(selectedIndex.intValue, playbackUrl, playerViewRef) {
-            val model = playerModel ?: return@remember null
-            val view = playerViewRef ?: return@remember null
+    /* ---------------- PLAYER + ADS ---------------- */
 
-            PlayerUtils.createPlayer(
-                context = context,
-                videoUrl = playbackUrl.toString(),
-                drmToken = model.drmToken,
-                srt = subtitleUri,
-                playerView = view,
-                adsConfig = model.adsConfig,
-                adsListener = adsListener
-            )
-        }
+    val playerWithAds = remember(selectedIndex.intValue, playbackUrl) {
+        val model = playerModel ?: return@remember null
+
+        PlayerUtils.createPlayer(
+            context = context,
+            videoUrl = playbackUrl.toString(),
+            drmToken = model.drmToken,
+            srt = subtitleUri,
+            playerView = playerView,          // ✅ SAME PlayerView
+            adsConfig = model.adsConfig,
+            adsListener = adsListener
+        )
     }
 
     val exoPlayer = playerWithAds?.first
@@ -185,18 +196,6 @@ fun MtvVideoPlayerSdk(
 
             override fun onPlaybackStateChanged(state: Int) {
                 isLoading = state == Player.STATE_BUFFERING
-
-                if (
-                    state == Player.STATE_ENDED &&
-                    !isLive &&
-                    !player.isPlayingAd
-                ) {
-                    val size = contentList?.size ?: return
-                    val next = selectedIndex.intValue + 1
-                    if (next < size) {
-                        selectedIndex.intValue = next
-                    }
-                }
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -208,34 +207,11 @@ fun MtvVideoPlayerSdk(
 
         onDispose {
             player.removeListener(listener)
-
-            // ✅ SAFE: ads loader belongs ONLY to this player
             loader?.setPlayer(null)
             loader?.release()
-
             player.release()
         }
     }
-
-    /* ---------------- LIFECYCLE ---------------- */
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = object : DefaultLifecycleObserver {
-            override fun onStop(owner: LifecycleOwner) {
-                exoPlayer?.pause()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    /* ---------------- FULLSCREEN ---------------- */
-
-    ScreenRotation {
-        isFullScreen = it
-        setFullScreen(it)
-    }
-    FullScreenHandler(isFullScreen)
 
     /* ---------------- UI ---------------- */
 
@@ -267,36 +243,26 @@ fun MtvVideoPlayerSdk(
             }
     ) {
 
-        key(selectedIndex.intValue) {
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        useController = false
-                        layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                        playerViewRef = this
-                        player = exoPlayer
-                    }
-                },
-                update = { view ->
-                    if (view.player !== exoPlayer) {
-                        view.player = exoPlayer
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = animatedScale
-                        scaleY = animatedScale
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures {
-                            if (!pipEnabled && !isSettingsClick) {
-                                isControllerVisible = !isControllerVisible
-                            }
+        // ✅ REUSE SAME PlayerView
+        AndroidView(
+            factory = { playerView },
+            update = {
+                if (it.player !== exoPlayer) it.player = exoPlayer
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = animatedScale
+                    scaleY = animatedScale
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures {
+                        if (!pipEnabled && !isSettingsClick) {
+                            isControllerVisible = !isControllerVisible
                         }
                     }
-            )
-        }
+                }
+        )
 
         if (!isControllerVisible && isLoading) {
             CircularProgressIndicator(
@@ -315,9 +281,16 @@ fun MtvVideoPlayerSdk(
                     playerModelList = contentList,
                     index = selectedIndex.intValue,
                     pipListener = pipListener,
-                    isFullScreen = {
-                        isFullScreen = it
-                        setFullScreen(it)
+                    isFullScreen = { full ->
+                        isFullScreen = full
+                        setFullScreen(full)
+
+                        activity.requestedOrientation =
+                            if (full) {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            } else {
+                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            }
                     },
                     isCurrentlyFullScreen = isFullScreen,
                     exoPlayer = it,
@@ -330,6 +303,8 @@ fun MtvVideoPlayerSdk(
                         if (isFullScreen) {
                             isFullScreen = false
                             setFullScreen(false)
+                            activity.requestedOrientation =
+                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                         } else {
                             onPlayerBack(true)
                         }
@@ -344,4 +319,3 @@ fun MtvVideoPlayerSdk(
         }
     }
 }
-

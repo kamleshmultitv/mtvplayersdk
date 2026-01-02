@@ -10,6 +10,8 @@ import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.OverrideContent
 import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.ui.CuePoint
+import com.app.videosdk.ui.CueType
 import org.json.JSONObject
 
 /**
@@ -62,7 +64,12 @@ object FileUtils {
 
         // 🔥 Example AdTag (replace with your real GAM tag)
         val adTagUrl =
-            "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/single_ad_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ct%3Dlinear&correlator="
+            "https://pubads.g.doubleclick.net/gampad/ads?\n" +
+                    "iu=/21775744923/external/ad_rule_samples&\n" +
+                    "env=vp&\n" +
+                    "gdfp_req=1&\n" +
+                    "output=vast&\n" +
+                    "correlator=\n"
 
         // ---------------- OVERRIDE CONTENT ----------------
         overrideContent?.let {
@@ -106,6 +113,14 @@ object FileUtils {
                 adsConfig = AdsConfig(
                     adTagUrl = adTagUrl,
                     enableAds = true
+                ),
+                cuePoints = listOf(
+                    CuePoint(
+                        positionMs = 120_000L,
+                        id = "midroll_1",
+                        type = CueType.AD,
+                        payload = adTagUrl
+                    )
                 )
             )
         }
