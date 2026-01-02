@@ -135,23 +135,23 @@ fun MtvVideoPlayerSdk(
         object : AdsListener {
 
             override fun onAdsLoaded() {
-                Log.d("ADS", "Ad Loaded")
+                Log.d("IMA ADS", "Ad Loaded")
             }
 
             override fun onAdStarted() {
-                Log.d("ADS", "Ad Started")
+                Log.d("IMA ADS", "Ad Started")
             }
 
             override fun onAdCompleted() {
-                Log.d("ADS", "Ad Completed")
+                Log.d("IMA ADS", "Ad Completed")
             }
 
             override fun onAllAdsCompleted() {
-                Log.d("ADS", "All Ads Completed")
+                Log.d("IMA ADS", "All Ads Completed")
             }
 
             override fun onAdError(message: String) {
-                Log.e("ADS", message)
+                Log.e("IMA ADS", message)
             }
         }
     }
