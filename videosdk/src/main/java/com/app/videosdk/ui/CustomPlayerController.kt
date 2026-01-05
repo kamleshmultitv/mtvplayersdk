@@ -44,6 +44,7 @@ fun CustomPlayerController(
     onSettingsButtonClick: (Boolean) -> Unit = {},
     isLoading: Boolean,
     onBackPressed: () -> Unit = {},
+    cuePoints: List<CuePoint>,
     playContent: (Int) -> Unit
 ) {
     val context = LocalContext.current
@@ -96,15 +97,6 @@ fun CustomPlayerController(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    val cuePoints = playerModelList
-        ?.getOrNull(index)
-        ?.cuePoints
-        ?: emptyList()
-
-    val triggeredCueIds = remember(index) {
-        mutableSetOf<String>()
     }
 
 

@@ -32,11 +32,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.DefaultLifecycleObserver
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
@@ -45,6 +45,7 @@ import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils
 import com.google.android.gms.cast.framework.CastContext
+import kotlinx.coroutines.delay
 import kotlin.math.max
 
 @OptIn(UnstableApi::class)
@@ -100,6 +101,16 @@ fun MtvVideoPlayerSdk(
     var pipEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
+
+    // ✅ ADD THIS
+    val firedCuePoints = remember {
+        mutableSetOf<String>()
+    }
+
+    val imaCuePoints = remember {
+        mutableStateListOf<CuePoint>()
+    }
+
 
     val isLive = playerModel?.isLive == true
 
@@ -176,6 +187,10 @@ fun MtvVideoPlayerSdk(
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
 
+    LaunchedEffect(selectedIndex.intValue) {
+        firedCuePoints.clear()
+    }
+
     /* ---------------- PLAYER LISTENER ---------------- */
 
     DisposableEffect(exoPlayer) {
@@ -196,11 +211,61 @@ fun MtvVideoPlayerSdk(
 
             override fun onPlaybackStateChanged(state: Int) {
                 isLoading = state == Player.STATE_BUFFERING
+
+                if (state == Player.STATE_ENDED) {
+                    val total = contentList?.size ?: 0
+                    val nextIndex = selectedIndex.intValue + 1
+
+                    if (nextIndex < total) {
+                        Log.d("MtvPlayer", "Auto-playing next index: $nextIndex")
+                        selectedIndex.intValue = nextIndex
+                    } else {
+                        Log.d("MtvPlayer", "Playlist completed")
+                    }
+                }
             }
+
 
             override fun onPlayerError(error: PlaybackException) {
                 Log.e("MtvPlayer", error.message ?: "Playback error")
             }
+
+            override fun onTimelineChanged(
+                timeline: Timeline,
+                reason: Int
+            ) {
+                if (timeline.isEmpty) return
+
+                val period = Timeline.Period()
+                timeline.getPeriod(0, period)
+
+                imaCuePoints.clear()
+
+                for (adGroupIndex in 0 until period.adGroupCount) {
+
+                    val timeUs = period.getAdGroupTimeUs(adGroupIndex)
+
+                    val positionMs =
+                        if (timeUs == C.TIME_END_OF_SOURCE) {
+                            exoPlayer.duration   // POST-ROLL
+                        } else {
+                            timeUs / 1000        // µs → ms
+                        }
+
+                    imaCuePoints.add(
+                        CuePoint(
+                            id = "ima_$adGroupIndex",
+                            positionMs = positionMs,
+                            type = CueType.AD
+                        )
+                    )
+                }
+
+                Log.d("IMA", "Updated seekbar cue points → $imaCuePoints")
+            }
+
+
+
         }
 
         player.addListener(listener)
@@ -208,7 +273,6 @@ fun MtvVideoPlayerSdk(
         onDispose {
             player.removeListener(listener)
             loader?.setPlayer(null)
-            loader?.release()
             player.release()
         }
     }
@@ -309,6 +373,7 @@ fun MtvVideoPlayerSdk(
                             onPlayerBack(true)
                         }
                     },
+                    cuePoints = imaCuePoints,
                     playContent = { selectedIndex.intValue = it }
                 )
             }

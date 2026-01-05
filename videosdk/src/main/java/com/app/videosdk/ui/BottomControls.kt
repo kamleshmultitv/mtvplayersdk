@@ -42,7 +42,7 @@ fun BottomControls(
         CustomSlider(
             currentPosition = currentPosition,
             duration = duration,
-            cuePoints = cuePoints,   // ✅ markers only
+            cuePoints = cuePoints,
             onSeek = onSeek,
             showControls = {},
             isLive = isLive,

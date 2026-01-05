@@ -2,7 +2,6 @@ package com.app.videosdk.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.core.net.toUri
@@ -25,6 +24,8 @@ import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.SubTitleModel
 import com.app.videosdk.model.VideoQualityModel
+import com.app.videosdk.ui.CuePoint
+import com.app.videosdk.ui.CueType
 import com.google.ads.interactivemedia.v3.api.AdEvent
 import com.google.common.collect.ImmutableList
 import com.google.common.reflect.TypeToken
@@ -32,6 +33,11 @@ import com.google.gson.Gson
 import kotlin.math.pow
 
 object PlayerUtils {
+
+    /* =========================================================
+       PLAYER + IMA
+       ========================================================= */
+
     @OptIn(UnstableApi::class)
     fun createPlayer(
         context: Context,
@@ -43,39 +49,44 @@ object PlayerUtils {
         adsListener: AdsListener? = null
     ): Pair<ExoPlayer, ImaAdsLoader?> {
 
-        require(videoUrl.isNotBlank()) { "videoUrl cannot be blank" }
+        require(videoUrl.isNotBlank())
 
         val cleanUrl = videoUrl.substringBefore("?")
         val isDash = cleanUrl.endsWith(".mpd", true)
 
-        /* =========================================================
-           ADS LOADER (FIXED FOR COMPOSE)
-           ========================================================= */
+        var adsLoader: ImaAdsLoader? = null
 
-        val adsLoader =
-            if (adsConfig?.enableAds == true && adsConfig.adTagUrl.isNotBlank()) {
+        /* ---------------- ADS LOADER ---------------- */
+
+        if (adsConfig?.enableAds == true && adsConfig.adTagUrl.isNotBlank()) {
+
+            adsLoader =
                 ImaAdsLoader.Builder(context)
                     .setAdEventListener { event ->
                         when (event.type) {
-                            AdEvent.AdEventType.LOADED -> adsListener?.onAdsLoaded()
-                            AdEvent.AdEventType.STARTED -> adsListener?.onAdStarted()
-                            AdEvent.AdEventType.COMPLETED -> adsListener?.onAdCompleted()
-                            AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener?.onAllAdsCompleted()
+                            AdEvent.AdEventType.LOADED ->
+                                adsListener?.onAdsLoaded()
+
+                            AdEvent.AdEventType.STARTED ->
+                                adsListener?.onAdStarted()
+
+                            AdEvent.AdEventType.COMPLETED ->
+                                adsListener?.onAdCompleted()
+
+                            AdEvent.AdEventType.ALL_ADS_COMPLETED ->
+                                adsListener?.onAllAdsCompleted()
+
                             else -> Unit
                         }
                     }
                     .setAdErrorListener { error ->
                         adsListener?.onAdError(error.error.message ?: "IMA error")
-                        Log.e("IMA ADS", "Ad failed → content will continue")
+                        Log.e("IMA", "Ad error", error.error)
                     }
                     .build()
-            } else {
-                null
-            }
+        }
 
-        /* =========================================================
-           MEDIA SOURCE FACTORY
-           ========================================================= */
+        /* ---------------- MEDIA SOURCE FACTORY ---------------- */
 
         val mediaSourceFactory = DefaultMediaSourceFactory(context).apply {
 
@@ -86,17 +97,13 @@ object PlayerUtils {
                 setDrmSessionManagerProvider(drmProvider)
             }
 
-            if (adsLoader != null) {
-                setAdsLoaderProvider { adsLoader }
-                if (playerView != null) {
-                    setAdViewProvider { playerView }
-                }
+            adsLoader?.let { loader ->
+                setAdsLoaderProvider { loader }
+                playerView?.let { setAdViewProvider { it } }
             }
         }
 
-        /* =========================================================
-           PLAYER
-           ========================================================= */
+        /* ---------------- PLAYER ---------------- */
 
         val exoPlayer =
             ExoPlayer.Builder(context)
@@ -107,9 +114,7 @@ object PlayerUtils {
                     repeatMode = Player.REPEAT_MODE_OFF
                 }
 
-        /* =========================================================
-           MEDIA ITEM
-           ========================================================= */
+        /* ---------------- MEDIA ITEM ---------------- */
 
         val mediaItemBuilder =
             MediaItem.Builder()
@@ -123,7 +128,6 @@ object PlayerUtils {
                     }
                 )
 
-        // DRM
         drmToken?.takeIf { isDash }?.let {
             mediaItemBuilder.setDrmConfiguration(
                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
@@ -132,26 +136,22 @@ object PlayerUtils {
             )
         }
 
-        // Subtitles
         if (!srt.isNullOrBlank()) {
             mediaItemBuilder.setSubtitleConfigurations(
                 ImmutableList.of(initializeSubTitleTracker(srt))
             )
         }
 
-        // Ads
-        if (adsLoader != null && adsConfig != null) {
+        adsLoader?.let { loader ->
             mediaItemBuilder.setAdsConfiguration(
                 MediaItem.AdsConfiguration.Builder(
-                    Uri.parse(adsConfig.adTagUrl.trim())
+                    adsConfig!!.adTagUrl.trim().toUri()
                 ).build()
             )
-            adsLoader.setPlayer(exoPlayer)
+            loader.setPlayer(exoPlayer)
         }
 
-        /* =========================================================
-           PREPARE
-           ========================================================= */
+        /* ---------------- PREPARE ---------------- */
 
         exoPlayer.setMediaItem(mediaItemBuilder.build())
         exoPlayer.prepare()
@@ -159,6 +159,10 @@ object PlayerUtils {
 
         return exoPlayer to adsLoader
     }
+
+
+
+
 
     private fun initializeSubTitleTracker(srt: String): MediaItem.SubtitleConfiguration {
         return MediaItem.SubtitleConfiguration.Builder(srt.toUri())

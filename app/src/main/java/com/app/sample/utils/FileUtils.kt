@@ -14,13 +14,10 @@ import com.app.videosdk.ui.CuePoint
 import com.app.videosdk.ui.CueType
 import org.json.JSONObject
 
-/**
- * Created by kamle on 19,August,2024
- */
 object FileUtils {
 
     /* ---------------------------------- */
-    /* DOWNLOAD / DRM UTILS                */
+    /* DRM TOKEN                           */
     /* ---------------------------------- */
 
     private fun getSecondFromDays(downloadDays: String?): Int {
@@ -71,9 +68,9 @@ object FileUtils {
         overrideContent: OverrideContent?
     ): List<PlayerModel> {
 
-        // ✅ VERIFIED IMA MID-ROLL (PRE + MID + POST)
+        // ✅ GUARANTEED TEST AD (PRE / MID WHEN SEEKED)
         val adTagUrl =
-            "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/ad_rule_samples&ciu_szs=300x250&ad_rule=1&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ar%3Dpremidpost&correlator=\n"
+            "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/vmap_ad_samples&sz=640x480&cust_params=sample_ar%3Dpremidpost&ciu_szs=300x250&gdfp_req=1&ad_rule=1&output=vmap&unviewed_position_start=1&env=vp&cmsid=496&vid=short_onecue&correlator="
 
         /* ---------------- OVERRIDE CONTENT ---------------- */
 
@@ -90,7 +87,7 @@ object FileUtils {
                         enableAds = true
                     ),
 
-                    // No cue points needed here
+                    // 👇 UI ONLY (seekbar marker)
                     cuePoints = emptyList()
                 )
             )
@@ -103,6 +100,7 @@ object FileUtils {
             PlayerModel(
                 hlsUrl = content.hlsUrl.orEmpty(),
                 mpdUrl = content.url.orEmpty(),
+                liveUrl = "https://livesim.dashif.org/livesim/testpic_2s/Manifest.mpd",
                 isLive = false,
                 drmToken = getDrmToken(context, content),
 
@@ -120,32 +118,30 @@ object FileUtils {
                 selectedSubtitle = null,
                 selectedVideoQuality = 1080,
 
-                // ✅ IMA AD-RULE CONTROLS REAL ADS
+                // ✅ ADS CONTROLLED BY IMA ONLY
                 adsConfig = AdsConfig(
                     adTagUrl = adTagUrl,
                     enableAds = true
                 ),
-
-                // ✅ MULTIPLE UI / ANALYTICS MARKERS
-                cuePoints = generateCuePoints(
-                    durationMs = 20 * 60 * 1000L, // 20 min
-                    intervalMs = 5 * 60 * 1000L   // every 5 min
-                )
+                cuePoints = emptyList()
             )
         }
-
     }
-}
 
-private fun generateCuePoints(
-    durationMs: Long,
-    intervalMs: Long
-): List<CuePoint> {
-    return (intervalMs until durationMs step intervalMs).mapIndexed { index, pos ->
-        CuePoint(
-            positionMs = pos,
-            id = "marker_${index + 1}",
-            type = CueType.AD
-        )
+    /* ---------------------------------- */
+    /* SEEK BAR CUE POINTS (UI ONLY)       */
+    /* ---------------------------------- */
+
+    private fun generateSeekbarCuePoints(
+        totalDurationMs: Long,
+        intervalMs: Long = 5 * 60 * 1000L // every 5 minutes
+    ): List<CuePoint> {
+        return (intervalMs until totalDurationMs step intervalMs).mapIndexed { index, position ->
+            CuePoint(
+                positionMs = position,
+                id = "ui_marker_${index + 1}",
+                type = CueType.AD // visual marker only
+            )
+        }
     }
 }
