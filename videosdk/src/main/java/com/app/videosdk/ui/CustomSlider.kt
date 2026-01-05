@@ -142,11 +142,21 @@ fun CustomSlider(
                     // Cue markers (VISUAL ONLY)
                     if (duration > 0) {
                         cuePoints.forEach { cue ->
+
                             val x = (cue.positionMs.toFloat() / duration) * size.width
-                            drawCircle(
+
+                            val markerWidth = 4.dp.toPx()
+                            val markerHeight = 4.dp.toPx()
+                            val cornerRadius = 1.dp.toPx()
+
+                            drawRoundRect(
                                 color = Color.Yellow,
-                                radius = 4.dp.toPx(),
-                                center = Offset(x, size.height / 2)
+                                topLeft = Offset(
+                                    x = x - markerWidth / 2,
+                                    y = size.height / 2 - markerHeight / 2
+                                ),
+                                size = Size(markerWidth, markerHeight),
+                                cornerRadius = CornerRadius(cornerRadius)
                             )
                         }
                     }
