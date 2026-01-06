@@ -38,13 +38,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ima.ImaAdsLoader
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils
-import com.google.ads.interactivemedia.v3.api.AdEvent
 import com.google.android.gms.cast.framework.CastContext
 import kotlin.math.max
 
@@ -104,6 +102,9 @@ fun MtvVideoPlayerSdk(
     // Persistent state for Skip Intro, tied to current video index
     var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
 
+    val firedCuePoints = remember {
+        mutableSetOf<String>()
+    }
     val imaCuePoints = remember {
         mutableStateListOf<CuePoint>()
     }
@@ -164,34 +165,6 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-    /* ---------------- STABLE ADS LOADER ---------------- */
-
-    val adsLoader = remember {
-        ImaAdsLoader.Builder(context)
-            .setAdEventListener { event ->
-                when (event.type) {
-                    AdEvent.AdEventType.LOADED -> adsListener.onAdsLoaded()
-                    AdEvent.AdEventType.STARTED -> adsListener.onAdStarted()
-                    AdEvent.AdEventType.COMPLETED -> adsListener.onAdCompleted()
-                    AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener.onAllAdsCompleted()
-                    else -> Unit
-                }
-            }
-            .setAdErrorListener { error ->
-                adsListener.onAdError(error.error.message ?: "IMA error")
-                Log.e("IMA ADS", "Ad failed → content will continue", error.error)
-            }
-            .build()
-    }
-
-    // Ensure adsLoader is released only when the SDK is fully disposed
-    DisposableEffect(Unit) {
-        onDispose {
-            adsLoader.release()
-        }
-    }
-
-
     /* ---------------- PLAYER + ADS ---------------- */
 
     val playerWithAds = remember(selectedIndex.intValue, playbackUrl) {
@@ -204,13 +177,16 @@ fun MtvVideoPlayerSdk(
             srt = subtitleUri,
             playerView = playerView,
             adsConfig = model.adsConfig,
-            adsListener = adsListener,
-            existingAdsLoader = adsLoader // Re-use the stable loader
+            adsListener = adsListener
         )
     }
 
     val exoPlayer = playerWithAds?.first
+    val adsLoader = playerWithAds?.second
 
+    LaunchedEffect(selectedIndex.intValue) {
+        firedCuePoints.clear()
+    }
     /* ---------------- PLAYER LISTENER ---------------- */
 
     DisposableEffect(exoPlayer) {
@@ -291,7 +267,7 @@ fun MtvVideoPlayerSdk(
 
         onDispose {
             player.removeListener(listener)
-            adsLoader.setPlayer(null)
+            adsLoader?.setPlayer(null)
             player.release()
         }
     }

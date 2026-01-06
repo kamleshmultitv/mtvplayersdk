@@ -106,30 +106,13 @@ object FileUtils {
                 srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
                 adsConfig = AdsConfig(
                     adTagUrl = adTagUrl,
-                    enableAds = false
+                    enableAds = true
                 ),
                 skipIntro = SkipIntro(
                     startTime = 5000L,
                     endTime = 95000L,
                     enableSkipIntro = true
                 )
-            )
-        }
-    }
-
-    /* ---------------------------------- */
-    /* SEEK BAR CUE POINTS (UI ONLY)       */
-    /* ---------------------------------- */
-
-    private fun generateSeekbarCuePoints(
-        totalDurationMs: Long,
-        intervalMs: Long = 5 * 60 * 1000L // every 5 minutes
-    ): List<CuePoint> {
-        return (intervalMs until totalDurationMs step intervalMs).mapIndexed { index, position ->
-            CuePoint(
-                positionMs = position,
-                id = "ui_marker_${index + 1}",
-                type = CueType.AD // visual marker only
             )
         }
     }
