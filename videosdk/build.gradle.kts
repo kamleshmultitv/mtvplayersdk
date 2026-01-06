@@ -32,8 +32,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-
-        isCoreLibraryDesugaringEnabled = true
     }
 
     // ✅ Kotlin 2.x compiler options
@@ -70,14 +68,13 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "mtvplayersdk"
-                version = "mobile-1.0.46"   // 🔴 CHANGE VERSION HERE
+                version = "mobile-1.0.46"
             }
         }
     }
 }
 
 dependencies {
-    coreLibraryDesugaring(libs.desugar.jdk.libs)
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
