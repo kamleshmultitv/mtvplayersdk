@@ -132,7 +132,7 @@ fun getWindowBrightness(activity: Activity?): Float {
 }
 
 fun setWindowBrightness(activity: Activity?, brightness: Float) {
-    activity?.window?.attributes = activity?.window?.attributes?.apply {
+    activity?.window?.attributes = activity.window?.attributes?.apply {
         screenBrightness = brightness.coerceIn(0f, 1f)
     }
 }

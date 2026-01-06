@@ -10,6 +10,7 @@ import com.app.sample.model.ContentItem
 import com.app.sample.model.OverrideContent
 import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.model.SkipIntro
 import com.app.videosdk.ui.CuePoint
 import com.app.videosdk.ui.CueType
 import org.json.JSONObject
@@ -69,7 +70,8 @@ object FileUtils {
     ): List<PlayerModel> {
 
         // ✅ GUARANTEED TEST AD (PRE / MID WHEN SEEKED)
-        val adTagUrl = "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/vmap_ad_samples&sz=640x480&cust_params=sample_ar%3Dpremidpost&ciu_szs=300x250&gdfp_req=1&ad_rule=1&output=vmap&unviewed_position_start=1&env=vp&cmsid=496&vid=short_onecue&correlator="
+        val adTagUrl =
+            "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/vmap_ad_samples&sz=640x480&cust_params=sample_ar%3Dpremidpost&ciu_szs=300x250&gdfp_req=1&ad_rule=1&output=vmap&unviewed_position_start=1&env=vp&cmsid=496&vid=short_onecue&correlator="
 
         /* ---------------- OVERRIDE CONTENT ---------------- */
 
@@ -79,15 +81,7 @@ object FileUtils {
                     hlsUrl = it.url,
                     liveUrl = it.url,
                     drmToken = it.drmToken.orEmpty(),
-                    isLive = it.isLive,
-
-                    adsConfig = AdsConfig(
-                        adTagUrl = adTagUrl,
-                        enableAds = true
-                    ),
-
-                    // 👇 UI ONLY (seekbar marker)
-                    cuePoints = emptyList()
+                    isLive = it.isLive
                 )
             )
         }
@@ -95,14 +89,12 @@ object FileUtils {
         /* ---------------- PAGED CONTENT ---------------- */
 
         return pagingItems.itemSnapshotList.items.map { content ->
-
             PlayerModel(
                 hlsUrl = content.hlsUrl.orEmpty(),
                 mpdUrl = content.url.orEmpty(),
                 liveUrl = "https://livesim.dashif.org/livesim/testpic_2s/Manifest.mpd",
                 isLive = false,
                 drmToken = getDrmToken(context, content),
-
                 imageUrl = content.layoutThumbs
                     ?.firstOrNull()
                     ?.imageSize
@@ -112,17 +104,15 @@ object FileUtils {
                 title = content.title.orEmpty(),
                 description = content.shortDesc.orEmpty(),
                 srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
-
-                playbackSpeed = 1.0f,
-                selectedSubtitle = null,
-                selectedVideoQuality = 1080,
-
-                // ✅ ADS CONTROLLED BY IMA ONLY
                 adsConfig = AdsConfig(
                     adTagUrl = adTagUrl,
-                    enableAds = true
+                    enableAds = false
                 ),
-                cuePoints = emptyList()
+                skipIntro = SkipIntro(
+                    startTime = 5000L,
+                    endTime = 95000L,
+                    enableSkipIntro = true
+                )
             )
         }
     }

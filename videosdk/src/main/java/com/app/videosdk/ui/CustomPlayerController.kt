@@ -1,11 +1,17 @@
 package com.app.videosdk.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -20,7 +26,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -44,8 +52,10 @@ fun CustomPlayerController(
     onSettingsButtonClick: (Boolean) -> Unit = {},
     isLoading: Boolean,
     onBackPressed: () -> Unit = {},
-    cuePoints: List<CuePoint>,
-    playContent: (Int) -> Unit
+    cuePoints: List<CuePoint> = emptyList(),
+    playContent: (Int) -> Unit,
+    isSkipIntroClicked: Boolean,
+    onSkipIntroClicked: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -65,6 +75,24 @@ fun CustomPlayerController(
 
     var currentPosition by remember { mutableLongStateOf(0L) }
     var duration by remember { mutableLongStateOf(0L) }
+
+    val currentPlayerModel = playerModelList?.getOrNull(index)
+
+    val showSkipIntro by remember(currentPosition, currentPlayerModel, isSkipIntroClicked) {
+        derivedStateOf {
+            currentPlayerModel?.let { model ->
+                val intro = model.skipIntro
+                intro != null &&
+                        !model.isLive &&
+                        intro.enableSkipIntro &&
+                        !isSkipIntroClicked &&
+                        (intro.startTime ?: 0L) > 0 &&
+                        (intro.endTime ?: 0L) > 0 &&
+                        currentPosition >= (intro.startTime ?: 0L) &&
+                        currentPosition <= (intro.endTime ?: 0L)
+            } ?: false
+        }
+    }
 
     /* ---------- PLAYBACK OBSERVER ---------- */
 
@@ -117,7 +145,7 @@ fun CustomPlayerController(
         /* ---------- TOP BAR ---------- */
 
         TopBar(
-            title = playerModelList?.getOrNull(index)?.title.orEmpty(),
+            title = currentPlayerModel?.title.orEmpty(),
             isFullScreen = isCurrentlyFullScreen,
             context = context,
             castUtils = castUtils,
@@ -203,6 +231,37 @@ fun CustomPlayerController(
                 isZoomed = isZoomed,
                 onZoomChange = { isZoomed = it }
             )
+        }
+
+        /* ---------- SKIP INTRO BUTTON ---------- */
+
+        AnimatedVisibility(
+            visible = showSkipIntro,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp, start = 8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
+                    .clickable {
+                        onSkipIntroClicked(true)
+                        currentPlayerModel?.skipIntro?.endTime?.let { endTime ->
+                            if (isCasting) castUtils.seekOnCast(endTime)
+                            else exoPlayer.seekTo(endTime)
+                        }
+                    }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = "Skip Intro",
+                    color = Color.Black,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
 
         /* ---------- BOTTOM CONTROLS ---------- */

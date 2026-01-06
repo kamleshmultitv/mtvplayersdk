@@ -46,7 +46,8 @@ object PlayerUtils {
         srt: String? = null,
         playerView: PlayerView? = null,
         adsConfig: AdsConfig? = null,
-        adsListener: AdsListener? = null
+        adsListener: AdsListener? = null,
+        existingAdsLoader: ImaAdsLoader? = null
     ): Pair<ExoPlayer, ImaAdsLoader?> {
 
         require(videoUrl.isNotBlank())
@@ -54,36 +55,26 @@ object PlayerUtils {
         val cleanUrl = videoUrl.substringBefore("?")
         val isDash = cleanUrl.endsWith(".mpd", true)
 
-        var adsLoader: ImaAdsLoader? = null
-
         /* ---------------- ADS LOADER ---------------- */
 
-        if (adsConfig?.enableAds == true && adsConfig.adTagUrl.isNotBlank()) {
-
-            adsLoader =
-                ImaAdsLoader.Builder(context)
-                    .setAdEventListener { event ->
-                        when (event.type) {
-                            AdEvent.AdEventType.LOADED ->
-                                adsListener?.onAdsLoaded()
-
-                            AdEvent.AdEventType.STARTED ->
-                                adsListener?.onAdStarted()
-
-                            AdEvent.AdEventType.COMPLETED ->
-                                adsListener?.onAdCompleted()
-
-                            AdEvent.AdEventType.ALL_ADS_COMPLETED ->
-                                adsListener?.onAllAdsCompleted()
-
-                            else -> Unit
-                        }
+        val adsLoader = existingAdsLoader ?: if (adsConfig?.enableAds == true && adsConfig.adTagUrl.isNotBlank()) {
+            ImaAdsLoader.Builder(context)
+                .setAdEventListener { event ->
+                    when (event.type) {
+                        AdEvent.AdEventType.LOADED -> adsListener?.onAdsLoaded()
+                        AdEvent.AdEventType.STARTED -> adsListener?.onAdStarted()
+                        AdEvent.AdEventType.COMPLETED -> adsListener?.onAdCompleted()
+                        AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener?.onAllAdsCompleted()
+                        else -> Unit
                     }
-                    .setAdErrorListener { error ->
-                        adsListener?.onAdError(error.error.message ?: "IMA error")
-                        Log.e("IMA", "Ad error", error.error)
-                    }
-                    .build()
+                }
+                .setAdErrorListener { error ->
+                    adsListener?.onAdError(error.error.message ?: "IMA error")
+                    Log.e("IMA", "Ad error", error.error)
+                }
+                .build()
+        } else {
+            null
         }
 
         /* ---------------- MEDIA SOURCE FACTORY ---------------- */
@@ -142,13 +133,13 @@ object PlayerUtils {
             )
         }
 
-        adsLoader?.let { loader ->
+        if (adsLoader != null && adsConfig != null && adsConfig.enableAds) {
             mediaItemBuilder.setAdsConfiguration(
                 MediaItem.AdsConfiguration.Builder(
-                    adsConfig!!.adTagUrl.trim().toUri()
+                    adsConfig.adTagUrl.trim().toUri()
                 ).build()
             )
-            loader.setPlayer(exoPlayer)
+            adsLoader.setPlayer(exoPlayer)
         }
 
         /* ---------------- PREPARE ---------------- */
