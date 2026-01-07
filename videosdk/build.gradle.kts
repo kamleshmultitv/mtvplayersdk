@@ -68,7 +68,7 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "mtvplayersdk"
-                version = "mobile-1.0.46"
+                version = "mobile-1.0.48"
             }
         }
     }
@@ -110,6 +110,6 @@ dependencies {
     implementation(libs.google.accompanist.systemuicontroller)
     implementation(libs.coil.compose)
 
-    implementation("androidx.media3:media3-exoplayer-ima:1.3.1")
+    implementation("androidx.media3:media3-exoplayer-ima:1.9.0")
     implementation("com.google.ads.interactivemedia.v3:interactivemedia:3.34.0")
 }

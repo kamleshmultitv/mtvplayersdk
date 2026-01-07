@@ -12,10 +12,7 @@ import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.NextEpisode
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.model.SkipIntro
-import com.app.videosdk.ui.CuePoint
-import com.app.videosdk.ui.CueType
 import org.json.JSONObject
-import kotlin.time.Duration.Companion.minutes
 
 object FileUtils {
 
