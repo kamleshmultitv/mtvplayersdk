@@ -117,7 +117,6 @@ object FileUtils {
                 ),
                 nextEpisode = NextEpisode(
                     showBeforeEndMs = (2 * 60 + 40) * 1000L,
-
                     enableNextEpisode = true
                 )
             )
