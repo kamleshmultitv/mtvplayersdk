@@ -9,11 +9,13 @@ import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.ContentItem
 import com.app.sample.model.OverrideContent
 import com.app.videosdk.model.AdsConfig
+import com.app.videosdk.model.NextEpisode
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.model.SkipIntro
 import com.app.videosdk.ui.CuePoint
 import com.app.videosdk.ui.CueType
 import org.json.JSONObject
+import kotlin.time.Duration.Companion.minutes
 
 object FileUtils {
 
@@ -106,14 +108,20 @@ object FileUtils {
                 srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
                 adsConfig = AdsConfig(
                     adTagUrl = adTagUrl,
-                    enableAds = true
+                    enableAds = false
                 ),
                 skipIntro = SkipIntro(
                     startTime = 5000L,
                     endTime = 95000L,
                     enableSkipIntro = true
+                ),
+                nextEpisode = NextEpisode(
+                    showBeforeEndMs = (2 * 60 + 40) * 1000L,
+
+                    enableNextEpisode = true
                 )
             )
         }
     }
+
 }

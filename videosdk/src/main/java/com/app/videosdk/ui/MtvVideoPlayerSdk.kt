@@ -44,6 +44,7 @@ import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils
 import com.google.android.gms.cast.framework.CastContext
+import kotlinx.coroutines.delay
 import kotlin.math.max
 
 @OptIn(UnstableApi::class)
@@ -59,7 +60,8 @@ fun MtvVideoPlayerSdk(
     val activity = remember(context) { context as Activity }
     val configuration = LocalConfiguration.current
 
-    // ✅ SINGLE PlayerView (VERY IMPORTANT FOR ADS)
+    var contentDuration by remember { mutableLongStateOf(0L) }
+
     val playerView = remember {
         PlayerView(context).apply {
             useController = false
@@ -68,8 +70,6 @@ fun MtvVideoPlayerSdk(
     }
 
     CastContext.getSharedInstance(context)
-
-    /* ---------------- SAFE INDEX ---------------- */
 
     val safeIndex = remember(contentList, index) {
         val size = contentList?.size ?: 0
@@ -91,28 +91,19 @@ fun MtvVideoPlayerSdk(
 
     val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
-    /* ---------------- STATE ---------------- */
-
     var isFullScreen by remember { mutableStateOf(false) }
     var isControllerVisible by remember { mutableStateOf(false) }
     var pipEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
 
-    // Persistent state for Skip Intro, tied to current video index
     var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
 
-    val firedCuePoints = remember {
-        mutableSetOf<String>()
-    }
     val imaCuePoints = remember {
         mutableStateListOf<CuePoint>()
     }
 
-
     val isLive = playerModel?.isLive == true
-
-    /* ---------------- URL ---------------- */
 
     val playbackUrl = remember(playerModel) {
         when {
@@ -125,8 +116,6 @@ fun MtvVideoPlayerSdk(
 
     val subtitleUri = if (isLive) "" else playerModel?.srt.orEmpty()
 
-    /* ---------------- ZOOM ---------------- */
-
     var containerSize by remember { mutableStateOf(Size.Zero) }
     var fillScale by remember { mutableFloatStateOf(1f) }
     var isFilled by remember { mutableStateOf(false) }
@@ -138,38 +127,18 @@ fun MtvVideoPlayerSdk(
         label = "scale"
     )
 
-    /* ---------------- ADS LISTENER ---------------- */
-
     val adsListener = remember {
         object : AdsListener {
-
-            override fun onAdsLoaded() {
-                Log.d("IMA ADS", "Ad Loaded")
-            }
-
-            override fun onAdStarted() {
-                Log.d("IMA ADS", "Ad Started")
-            }
-
-            override fun onAdCompleted() {
-                Log.d("IMA ADS", "Ad Completed")
-            }
-
-            override fun onAllAdsCompleted() {
-                Log.d("IMA ADS", "All Ads Completed")
-            }
-
-            override fun onAdError(message: String) {
-                Log.e("IMA ADS", message)
-            }
+            override fun onAdsLoaded() {}
+            override fun onAdStarted() {}
+            override fun onAdCompleted() {}
+            override fun onAllAdsCompleted() {}
+            override fun onAdError(message: String) {}
         }
     }
 
-    /* ---------------- PLAYER + ADS ---------------- */
-
     val playerWithAds = remember(selectedIndex.intValue, playbackUrl) {
         val model = playerModel ?: return@remember null
-
         PlayerUtils.createPlayer(
             context = context,
             videoUrl = playbackUrl.toString(),
@@ -184,16 +153,14 @@ fun MtvVideoPlayerSdk(
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
 
-    LaunchedEffect(selectedIndex.intValue) {
-        firedCuePoints.clear()
-    }
-    /* ---------------- PLAYER LISTENER ---------------- */
+    // 🔥 Position Tracker for Auto-Show Controls (Intro / Next Episode)
+    var hasShownNextEpisodeControls by remember(selectedIndex.intValue) { mutableStateOf(false) }
+    var hasShownSkipIntroControls by remember(selectedIndex.intValue) { mutableStateOf(false) }
 
     DisposableEffect(exoPlayer) {
         val player = exoPlayer ?: return@DisposableEffect onDispose {}
 
         val listener = object : Player.Listener {
-
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 if (videoSize.width == 0 || containerSize == Size.Zero) return
                 fillScale = max(
@@ -206,61 +173,43 @@ fun MtvVideoPlayerSdk(
 
             override fun onPlaybackStateChanged(state: Int) {
                 isLoading = state == Player.STATE_BUFFERING
+                // ✅ Duration becomes reliable here
+                if (state == Player.STATE_READY) {
+                    val d = player.duration
+                    if (d > 0) {
+                        contentDuration = d
+                    }
+                }
 
                 if (state == Player.STATE_ENDED) {
                     val total = contentList?.size ?: 0
                     val nextIndex = selectedIndex.intValue + 1
-
                     if (nextIndex < total) {
-                        Log.d("MtvPlayer", "Auto-playing next index: $nextIndex")
                         selectedIndex.intValue = nextIndex
-                    } else {
-                        Log.d("MtvPlayer", "Playlist completed")
                     }
                 }
             }
 
+            override fun onPlayerError(error: PlaybackException) {}
 
-            override fun onPlayerError(error: PlaybackException) {
-                Log.e("MtvPlayer", error.message ?: "Playback error")
-            }
-
-            override fun onTimelineChanged(
-                timeline: Timeline,
-                reason: Int
-            ) {
-                if (timeline.isEmpty) return
-
-                val period = Timeline.Period()
-                timeline.getPeriod(0, period)
-
-                imaCuePoints.clear()
-
-                for (adGroupIndex in 0 until period.adGroupCount) {
-
-                    val timeUs = period.getAdGroupTimeUs(adGroupIndex)
-
-                    val positionMs =
-                        if (timeUs == C.TIME_END_OF_SOURCE) {
-                            exoPlayer.duration   // POST-ROLL
-                        } else {
-                            timeUs / 1000        // µs → ms
-                        }
-
-                    imaCuePoints.add(
-                        CuePoint(
-                            id = "ima_$adGroupIndex",
-                            positionMs = positionMs,
-                            type = CueType.AD
-                        )
-                    )
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                if (!timeline.isEmpty) {
+                    val d = player.duration
+                    if (d > 0) {
+                        contentDuration = d
+                    }
                 }
 
-                Log.d("IMA", "Updated seekbar cue points → $imaCuePoints")
+                if (timeline.isEmpty) return
+                val period = Timeline.Period()
+                timeline.getPeriod(0, period)
+                imaCuePoints.clear()
+                for (adGroupIndex in 0 until period.adGroupCount) {
+                    val timeUs = period.getAdGroupTimeUs(adGroupIndex)
+                    val positionMs = if (timeUs == C.TIME_END_OF_SOURCE) exoPlayer.duration else timeUs / 1000
+                    imaCuePoints.add(CuePoint(id = "ima_$adGroupIndex", positionMs = positionMs, type = CueType.AD))
+                }
             }
-
-
-
         }
 
         player.addListener(listener)
@@ -272,19 +221,49 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-    /* ---------------- UI ---------------- */
+    LaunchedEffect(exoPlayer) {
+        val player = exoPlayer ?: return@LaunchedEffect
+        while (true) {
+            val currentPos = player.currentPosition
+            val model = playerModel
+
+            if (model != null && !model.isLive) {
+                // Skip Intro Auto-Show
+                model.skipIntro?.let { intro ->
+                    if (!isSkipIntroClicked && !hasShownSkipIntroControls && intro.enableSkipIntro) {
+                        val startTime = intro.startTime ?: 0L
+                        if (currentPos >= startTime && currentPos < startTime + 2000) {
+                            hasShownSkipIntroControls = true
+                            isControllerVisible = true
+                        }
+                    }
+                }
+
+                // Next Episode Auto-Show
+                model.nextEpisode?.let { next ->
+                    if (
+                        !hasShownNextEpisodeControls &&
+                        next.enableNextEpisode &&
+                        contentDuration > 0
+                    ) {
+                        val triggerTime = (contentDuration - next.showBeforeEndMs).coerceAtLeast(0L)
+                        if (currentPos >= triggerTime) {
+                            hasShownNextEpisodeControls = true
+                            isControllerVisible = true
+                        }
+                    }
+                }
+            }
+            delay(1000)
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (isFullScreen) Modifier.fillMaxSize()
-                else Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
-            )
+            .then(if (isFullScreen) Modifier.fillMaxSize() else Modifier.height(configuration.screenWidthDp.dp * 9 / 16))
             .background(Color.Black)
-            .onSizeChanged {
-                containerSize = Size(it.width.toFloat(), it.height.toFloat())
-            }
+            .onSizeChanged { containerSize = Size(it.width.toFloat(), it.height.toFloat()) }
             .pointerInput(Unit) {
                 awaitEachGesture {
                     zoomAccumulator = 1f
@@ -301,13 +280,9 @@ fun MtvVideoPlayerSdk(
                 }
             }
     ) {
-
-        // ✅ REUSE SAME PlayerView
         AndroidView(
             factory = { playerView },
-            update = {
-                if (it.player !== exoPlayer) it.player = exoPlayer
-            },
+            update = { if (it.player !== exoPlayer) it.player = exoPlayer },
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
@@ -324,10 +299,7 @@ fun MtvVideoPlayerSdk(
         )
 
         if (!isControllerVisible && isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = Color.White
-            )
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
         }
 
         AnimatedVisibility(
@@ -339,17 +311,12 @@ fun MtvVideoPlayerSdk(
                 CustomPlayerController(
                     playerModelList = contentList,
                     index = selectedIndex.intValue,
+                    totalDuration = contentDuration,
                     pipListener = pipListener,
                     isFullScreen = { full ->
                         isFullScreen = full
                         setFullScreen(full)
-
-                        activity.requestedOrientation =
-                            if (full) {
-                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                            } else {
-                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                            }
+                        activity.requestedOrientation = if (full) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                     },
                     isCurrentlyFullScreen = isFullScreen,
                     exoPlayer = it,
@@ -362,8 +329,7 @@ fun MtvVideoPlayerSdk(
                         if (isFullScreen) {
                             isFullScreen = false
                             setFullScreen(false)
-                            activity.requestedOrientation =
-                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                         } else {
                             onPlayerBack(true)
                         }
@@ -371,7 +337,8 @@ fun MtvVideoPlayerSdk(
                     cuePoints = imaCuePoints,
                     playContent = { selectedIndex.intValue = it },
                     isSkipIntroClicked = isSkipIntroClicked,
-                    onSkipIntroClicked = { isSkipIntroClicked = it }
+                    onSkipIntroClicked = { isSkipIntroClicked = it },
+                    onNextEpisodeClick = { selectedIndex.intValue = it }
                 )
             }
         }

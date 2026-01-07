@@ -320,4 +320,35 @@ object PlayerUtils {
         val seconds = totalSeconds % 60
         return String.format("%02d:%02d", minutes, seconds)
     }
+
+    fun timeToMillis(
+        time: String?,
+        offsetMs: Long = (2 * 60 + 40) * 1000L
+    ): Long {
+        if (time.isNullOrEmpty()) return 0L
+
+        // Case 1: Already milliseconds
+        time.toLongOrNull()?.let { durationMs ->
+            return (durationMs - offsetMs).coerceAtLeast(0L)
+        }
+
+        val parts = time.split(":").map { it.trim() }
+
+        val durationMs = when (parts.size) {
+            3 -> { // HH:mm:ss
+                val h = parts[0].toLongOrNull() ?: 0L
+                val m = parts[1].toLongOrNull() ?: 0L
+                val s = parts[2].toLongOrNull() ?: 0L
+                (h * 3600 + m * 60 + s) * 1000
+            }
+            2 -> { // mm:ss
+                val m = parts[0].toLongOrNull() ?: 0L
+                val s = parts[1].toLongOrNull() ?: 0L
+                (m * 60 + s) * 1000
+            }
+            else -> 0L
+        }
+
+        return (durationMs - offsetMs).coerceAtLeast(0L)
+    }
 }
