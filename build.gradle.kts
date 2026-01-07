@@ -1,4 +1,4 @@
-version = "mobile-1.0.50"
+version = "mobile-1.0.51"
 
 plugins {
     alias(libs.plugins.android.library) apply false
