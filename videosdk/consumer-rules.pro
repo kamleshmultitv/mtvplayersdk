@@ -1,34 +1,55 @@
-# Keep SDK public API
--keep public class com.app.videosdk.** {
-    public *;
-}
+####################################
+# KEEP GENERIC TYPE INFORMATION (CRITICAL)
+####################################
+-keepattributes Signature
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
+-keepattributes *Annotation*
 
-# Keep models
+####################################
+# KEEP SDK PUBLIC API
+####################################
+-keep class com.app.videosdk.** { *; }
+
+####################################
+# KEEP SDK MODELS (Gson-safe)
+####################################
 -keep class com.app.videosdk.model.** {
+    <fields>;
     <init>(...);
 }
--keepclassmembers class com.app.videosdk.model.** {
-    <fields>;
-}
 
-# Media3
+####################################
+# GOOGLE IMA SDK (MANDATORY)
+####################################
+-keep class com.google.ads.interactivemedia.** { *; }
+-dontwarn com.google.ads.interactivemedia.**
+
+####################################
+# MEDIA3 / EXOPLAYER
+####################################
 -keep class androidx.media3.** { *; }
 -dontwarn androidx.media3.**
 
-# Cast
+####################################
+# GOOGLE CAST
+####################################
 -keep class com.google.android.gms.cast.** { *; }
 -dontwarn com.google.android.gms.cast.**
 
-# Gson
--keep class com.google.gson.** { *; }
--keepattributes Signature
--keepattributes *Annotation*
+####################################
+# GSON (minimal & safe)
+####################################
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-dontwarn com.google.gson.**
 
-# Compose safety
+####################################
+# KOTLIN METADATA (SAFE)
+####################################
+-keep class kotlin.Metadata { *; }
+
+####################################
+# COMPOSE (SDK SAFETY)
+####################################
 -dontwarn androidx.compose.**
-
--keep class com.app.videosdk.** { *; }
-
--keep interface com.app.videosdk.listener.PipListener { *; }
-
-

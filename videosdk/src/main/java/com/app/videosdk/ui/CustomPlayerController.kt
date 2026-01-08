@@ -86,7 +86,8 @@ fun CustomPlayerController(
         if (totalDuration > 0) totalDuration else 0L
     )
     var nextEpisodeClicked by remember(index) { mutableStateOf(false) }
-
+    var isDraggingSeekbar by remember { mutableStateOf(false) }
+    var onSeek by remember { mutableStateOf(false) }
     val currentPlayerModel = playerModelList?.getOrNull(index)
 
     /* ---------------- SKIP INTRO ---------------- */
@@ -110,7 +111,10 @@ fun CustomPlayerController(
                 !currentPlayerModel.isLive &&
                         next.enableNextEpisode &&
                         !nextEpisodeClicked &&
-                        currentPosition in (timeToMillis(duration.toString(), next.showBeforeEndMs))..timeToMillis(duration.toString(), next.showBeforeEndMs).plus(100_00L)
+                        currentPosition in (timeToMillis(
+                    duration.toString(),
+                    next.showBeforeEndMs
+                ))..timeToMillis(duration.toString(), next.showBeforeEndMs).plus(100_00L)
             } ?: false
         }
     }
@@ -126,7 +130,10 @@ fun CustomPlayerController(
                 !currentPlayerModel.isLive &&
                         next.enableNextEpisode &&
                         !nextEpisodeClicked &&
-                        currentPosition in (timeToMillis(duration.toString(), next.showBeforeEndMs))..timeToMillis(duration.toString(), next.showBeforeEndMs).plus(100_00L)
+                        currentPosition in (timeToMillis(
+                    duration.toString(),
+                    next.showBeforeEndMs
+                ))..timeToMillis(duration.toString(), next.showBeforeEndMs).plus(100_00L)
             } ?: false
         }
     }
@@ -143,7 +150,10 @@ fun CustomPlayerController(
     val animationDurationMs by remember(currentPosition, currentPlayerModel) {
         derivedStateOf {
             currentPlayerModel?.nextEpisode?.let { next ->
-                ((timeToMillis(duration.toString(), next.showBeforeEndMs).plus(100_00L)) - currentPosition).coerceIn(0L, 10_000L)
+                ((timeToMillis(
+                    duration.toString(),
+                    next.showBeforeEndMs
+                ).plus(100_00L)) - currentPosition).coerceIn(0L, 10_000L)
             } ?: 0L
         }
     }
@@ -182,10 +192,14 @@ fun CustomPlayerController(
 
 
     /* ⭐ FIX 3: AUTO-SHOW / AUTO-HIDE CONTROLS (FINAL LOGIC) */
-    LaunchedEffect(isPlaying, shouldForceShowControls) {
-
+    LaunchedEffect(
+        isPlaying,
+        shouldForceShowControls,
+        isDraggingSeekbar,
+        onSeek
+    ) {
         // ✅ While skip intro OR next episode window → NEVER auto hide
-        if (shouldForceShowControls) {
+        if (shouldForceShowControls || isDraggingSeekbar || onSeek) {
             showControlsState.value(true)
             return@LaunchedEffect
         }
@@ -193,6 +207,13 @@ fun CustomPlayerController(
         // ⏱ Normal behavior
         delay(3000)
         showControlsState.value(!isPlaying)
+    }
+
+    LaunchedEffect(onSeek) {
+        if (onSeek) {
+            delay(500)
+            onSeek = false
+        }
     }
 
 
@@ -421,12 +442,20 @@ fun CustomPlayerController(
             duration = duration,
             exoPlayer = exoPlayer,
             onSeek = {
+                onSeek = true
                 showControlsState.value(true)
                 if (isCasting) castUtils.seekOnCast(it)
                 else exoPlayer.seekTo(it)
             },
             onNext = playContent,
-            cuePoints = cuePoints
+            cuePoints = cuePoints,
+            onDragStateChange = { dragging ->
+                isDraggingSeekbar = dragging
+                if (dragging) {
+                    showControlsState.value(true)
+                }
+            }
         )
+
     }
 }

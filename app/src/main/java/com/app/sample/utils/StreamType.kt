@@ -1,5 +1,6 @@
 package com.app.sample.utils
 
+import com.app.sample.model.StreamInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
@@ -17,11 +18,6 @@ enum class PlaybackMode {
     LIVE,
     VOD
 }
-
-data class StreamInfo(
-    val streamType: StreamType,
-    val playbackMode: PlaybackMode
-)
 
 // ---------------- DETECTOR ----------------
 

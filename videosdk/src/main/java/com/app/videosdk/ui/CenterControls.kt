@@ -4,7 +4,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -61,28 +62,34 @@ fun CenterControls(
         }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 80.dp, bottom = 80.dp)
-            .then(gestureModifier)
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        ForwardBackwardButtonsOverlay(
-            exoPlayer = exoPlayer,
-            context = LocalContext.current,
-            showRewindIcon = showRewindIcon,
-            showForwardIcon = showForwardIcon,
-            onRewindIconHide = onRewindHide,
-            onForwardIconHide = onForwardHide,
-            isControllerVisible = true
-        )
-
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(55.dp),
-                color = Color.White
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(70.dp)
+                .then(gestureModifier)
+        ) {
+            ForwardBackwardButtonsOverlay(
+                exoPlayer = exoPlayer,
+                context = LocalContext.current,
+                showRewindIcon = showRewindIcon,
+                showForwardIcon = showForwardIcon,
+                onRewindIconHide = onRewindHide,
+                onForwardIconHide = onForwardHide,
+                isControllerVisible = true
             )
+
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(55.dp),
+                    color = Color.White
+                )
+            }
         }
     }
 }

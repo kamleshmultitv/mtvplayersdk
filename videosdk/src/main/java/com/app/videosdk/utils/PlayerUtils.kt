@@ -24,11 +24,8 @@ import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.SubTitleModel
 import com.app.videosdk.model.VideoQualityModel
-import com.app.videosdk.ui.CuePoint
-import com.app.videosdk.ui.CueType
 import com.google.ads.interactivemedia.v3.api.AdEvent
 import com.google.common.collect.ImmutableList
-import com.google.common.reflect.TypeToken
 import com.google.gson.Gson
 import kotlin.math.pow
 
@@ -57,25 +54,26 @@ object PlayerUtils {
 
         /* ---------------- ADS LOADER ---------------- */
 
-        val adsLoader = existingAdsLoader ?: if (adsConfig?.enableAds == true && adsConfig.adTagUrl.isNotBlank()) {
-            ImaAdsLoader.Builder(context)
-                .setAdEventListener { event ->
-                    when (event.type) {
-                        AdEvent.AdEventType.LOADED -> adsListener?.onAdsLoaded()
-                        AdEvent.AdEventType.STARTED -> adsListener?.onAdStarted()
-                        AdEvent.AdEventType.COMPLETED -> adsListener?.onAdCompleted()
-                        AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener?.onAllAdsCompleted()
-                        else -> Unit
+        val adsLoader = existingAdsLoader
+            ?: if (adsConfig?.enableAds == true && adsConfig.adTagUrl.isNotBlank()) {
+                ImaAdsLoader.Builder(context)
+                    .setAdEventListener { event ->
+                        when (event.type) {
+                            AdEvent.AdEventType.LOADED -> adsListener?.onAdsLoaded()
+                            AdEvent.AdEventType.STARTED -> adsListener?.onAdStarted()
+                            AdEvent.AdEventType.COMPLETED -> adsListener?.onAdCompleted()
+                            AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener?.onAllAdsCompleted()
+                            else -> Unit
+                        }
                     }
-                }
-                .setAdErrorListener { error ->
-                    adsListener?.onAdError(error.error.message ?: "IMA error")
-                    Log.e("IMA", "Ad error", error.error)
-                }
-                .build()
-        } else {
-            null
-        }
+                    .setAdErrorListener { error ->
+                        adsListener?.onAdError(error.error.message)
+                        Log.e("IMA", "Ad error", error.error)
+                    }
+                    .build()
+            } else {
+                null
+            }
 
         /* ---------------- MEDIA SOURCE FACTORY ---------------- */
 
@@ -152,9 +150,6 @@ object PlayerUtils {
     }
 
 
-
-
-
     private fun initializeSubTitleTracker(srt: String): MediaItem.SubtitleConfiguration {
         return MediaItem.SubtitleConfiguration.Builder(srt.toUri())
             .setMimeType(MimeTypes.APPLICATION_SUBRIP)
@@ -165,7 +160,8 @@ object PlayerUtils {
     @OptIn(UnstableApi::class)
     fun showAudioTrack(context: Context, exoPlayer: ExoPlayer?): List<SubTitleModel> {
         val exoPlayerInstance = exoPlayer ?: return emptyList()
-        val trackSelector = exoPlayerInstance.trackSelector as? DefaultTrackSelector ?: return emptyList()
+        val trackSelector =
+            exoPlayerInstance.trackSelector as? DefaultTrackSelector ?: return emptyList()
         val trackGroups = trackSelector.currentMappedTrackInfo?.getTrackGroups(1) ?: run {
             return emptyList()
         }
@@ -182,22 +178,39 @@ object PlayerUtils {
         }
     }
 
-    fun getAudioTrack(context: Context, audioTracks: List<String>): List<SubTitleModel> {
-        val json = context.assets.open("hls.json").bufferedReader().use { it.readText() }
+    fun getAudioTrack(
+        context: Context,
+        audioTracks: List<String>
+    ): List<SubTitleModel> {
+
+        val json = context.assets
+            .open("hls.json")
+            .bufferedReader()
+            .use { it.readText() }
+
         val gson = Gson()
-        val type = object : TypeToken<List<SubTitleModel>>() {}.type
-        val subtitleDataList: List<SubTitleModel> = gson.fromJson(json, type)
-        val newList = mutableListOf<SubTitleModel>()
+
+        // ✅ RELEASE-SAFE: no generics, no reflection
+        val subtitleArray =
+            gson.fromJson(json, Array<SubTitleModel>::class.java)
+                ?: emptyArray()
+
+        val subtitleDataList = subtitleArray.toList()
+
+        val result = mutableListOf<SubTitleModel>()
+
         for (audioTrack in audioTracks) {
             for (subtitleData in subtitleDataList) {
                 if (audioTrack == subtitleData.id) {
-                    newList.add(subtitleData)
+                    result.add(subtitleData)
                     break
                 }
             }
         }
-        return newList
+
+        return result
     }
+
 
     @OptIn(UnstableApi::class)
     fun selectAudioTrack(language: String, exoPlayer: ExoPlayer?) {
@@ -224,9 +237,9 @@ object PlayerUtils {
         }
 
         if (subTitleFormatList.isEmpty()) {
-            exoPlayer?.trackSelectionParameters = exoPlayer?.trackSelectionParameters?.buildUpon()
-                ?.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                ?.build()!!
+            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
         }
 
         return subTitleFormatList
@@ -252,15 +265,6 @@ object PlayerUtils {
             }
         }
         return videoQuality
-    }
-
-    fun getMimeTypeFromExtension(videoUrl: String): Boolean {
-        val cleanUrl = videoUrl.substringBefore("?")
-        return getUrlExtension(cleanUrl).equals("mpd", ignoreCase = true)
-    }
-
-    private fun getUrlExtension(url: String): String {
-        return url.substringAfterLast(".")
     }
 
     fun calculatePitch(speed: Float): Float {
@@ -323,32 +327,40 @@ object PlayerUtils {
 
     fun timeToMillis(
         time: String?,
-        offsetMs: Long = (2 * 60 + 40) * 1000L
+        offset: String? = "0"
     ): Long {
-        if (time.isNullOrEmpty()) return 0L
-
-        // Case 1: Already milliseconds
-        time.toLongOrNull()?.let { durationMs ->
-            return (durationMs - offsetMs).coerceAtLeast(0L)
-        }
-
-        val parts = time.split(":").map { it.trim() }
-
-        val durationMs = when (parts.size) {
-            3 -> { // HH:mm:ss
-                val h = parts[0].toLongOrNull() ?: 0L
-                val m = parts[1].toLongOrNull() ?: 0L
-                val s = parts[2].toLongOrNull() ?: 0L
-                (h * 3600 + m * 60 + s) * 1000
-            }
-            2 -> { // mm:ss
-                val m = parts[0].toLongOrNull() ?: 0L
-                val s = parts[1].toLongOrNull() ?: 0L
-                (m * 60 + s) * 1000
-            }
-            else -> 0L
-        }
+        val durationMs = parseDurationToMillis(time)
+        val offsetMs = parseDurationToMillis(offset)
 
         return (durationMs - offsetMs).coerceAtLeast(0L)
+    }
+
+    @JvmStatic
+    fun parseDurationToMillis(input: String?): Long {
+        if (input.isNullOrBlank()) return 0L
+
+        val value = input.trim()
+
+        // Digits only → milliseconds
+        if (value.all { it.isDigit() }) {
+            return value.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
+        }
+
+        val parts = value.split(":")
+        val numbers = parts.map { it.toLongOrNull() ?: return 0L }
+
+        return when (numbers.size) {
+            3 -> { // HH:mm:ss
+                val (h, m, s) = numbers
+                (h * 3600 + m * 60 + s) * 1000
+            }
+
+            2 -> { // mm:ss
+                val (m, s) = numbers
+                (m * 60 + s) * 1000
+            }
+
+            else -> 0L
+        }
     }
 }

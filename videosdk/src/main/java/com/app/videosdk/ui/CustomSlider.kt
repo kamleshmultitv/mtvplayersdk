@@ -52,24 +52,43 @@ fun CustomSlider(
     onSeek: (Long) -> Unit,
     showControls: (Boolean) -> Unit,
     isLive: Boolean = false,
-    exoPlayer: ExoPlayer? = null
+    exoPlayer: ExoPlayer? = null,
+    onDragStateChange: (Boolean) -> Unit = {},
+    onPreviewChange: (Long) -> Unit = {}
 ) {
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     var isSeeking by remember { mutableStateOf(false) }
 
-    // Check if the user is at the live edge (within 10 seconds)
+    /* ---------- ANIMATIONS ---------- */
+
+    val animatedTrackHeight by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isSeeking) 14.dp else 4.dp,
+        animationSpec = androidx.compose.animation.core.spring(),
+        label = "trackHeight"
+    )
+
+    val animatedContainerHeight by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isSeeking) 24.dp else 8.dp,
+        animationSpec = androidx.compose.animation.core.spring(),
+        label = "containerHeight"
+    )
+
+    /* ---------- LIVE EDGE ---------- */
+
     val isAtLiveEdge = remember(currentPosition, duration, isLive) {
         isLive && (duration - currentPosition) < 10_000L
     }
 
-    // Sync slider with playback
+    /* ---------- SYNC POSITION ---------- */
+
     LaunchedEffect(currentPosition, duration) {
         if (!isSeeking && duration > 0) {
             sliderPosition = currentPosition.toFloat() / duration
         }
     }
 
-    // Blinking animation for Live indicator
+    /* ---------- LIVE BLINK ---------- */
+
     val infiniteTransition = rememberInfiniteTransition(label = "liveIndicator")
     val blinkAlpha by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -84,11 +103,12 @@ fun CustomSlider(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
 
-        // Current time (hidden for Live)
+        /* ---------- CURRENT TIME ---------- */
+
         if (!isLive) {
             Text(
                 text = formatTime(currentPosition),
@@ -98,72 +118,96 @@ fun CustomSlider(
             )
         }
 
-        Slider(
-            value = sliderPosition,
-            onValueChange = {
-                sliderPosition = it
-                isSeeking = true
-                showControls(true)
-            },
-            onValueChangeFinished = {
-                onSeek((sliderPosition * duration).toLong())
-                isSeeking = false
-                showControls(false)
-            },
-            valueRange = 0f..1f,
-            colors = SliderDefaults.colors(
-                thumbColor = Color.Red,
-                activeTrackColor = Color.Transparent,
-                inactiveTrackColor = Color.Transparent,
-            ),
+        /* ---------- SEEK BAR ---------- */
+
+        Box(
             modifier = Modifier
                 .weight(1f)
-                .height(4.dp)
-                .drawBehind {
-                    val trackHeight = 4.dp.toPx()
-                    val trackY = size.height / 2 - trackHeight / 2
+                .height(animatedContainerHeight),
+            contentAlignment = Alignment.Center
+        ) {
 
-                    // Background track
-                    drawRoundRect(
-                        color = Color.Gray.copy(alpha = 0.5f),
-                        topLeft = Offset(0f, trackY),
-                        size = Size(size.width, trackHeight),
-                        cornerRadius = CornerRadius(4.dp.toPx())
-                    )
+            Slider(
+                value = sliderPosition,
+                valueRange = 0f..1f,
 
-                    // Progress track
-                    drawRoundRect(
-                        color = if (isLive && isAtLiveEdge) Color.Red else Color.Red.copy(alpha = 0.7f),
-                        topLeft = Offset(0f, trackY),
-                        size = Size(size.width * sliderPosition, trackHeight),
-                        cornerRadius = CornerRadius(4.dp.toPx())
-                    )
+                onValueChange = { value ->
+                    sliderPosition = value
 
-                    // Cue markers (VISUAL ONLY)
+                    if (!isSeeking) {
+                        isSeeking = true
+                        onDragStateChange(true)
+                    }
+
+                    showControls(true) // ✅ ALWAYS keep controls visible
+
                     if (duration > 0) {
-                        cuePoints.forEach { cue ->
+                        onPreviewChange((value * duration).toLong())
+                    }
+                },
 
-                            val x = (cue.positionMs.toFloat() / duration) * size.width
+                onValueChangeFinished = {
+                    onSeek((sliderPosition * duration).toLong())
 
-                            val markerWidth = 4.dp.toPx()
-                            val markerHeight = 4.dp.toPx()
-                            val cornerRadius = 1.dp.toPx()
+                    isSeeking = false
+                    onDragStateChange(false)
 
-                            drawRoundRect(
-                                color = Color.Yellow,
-                                topLeft = Offset(
-                                    x = x - markerWidth / 2,
-                                    y = size.height / 2 - markerHeight / 2
-                                ),
-                                size = Size(markerWidth, markerHeight),
-                                cornerRadius = CornerRadius(cornerRadius)
-                            )
+                    showControls(true) // ✅ KEEP controls visible after seek
+                },
+
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.Red,
+                    activeTrackColor = Color.Transparent,
+                    inactiveTrackColor = Color.Transparent
+                ),
+
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .drawBehind {
+
+                        val trackHeightPx = animatedTrackHeight.toPx()
+                        val trackY = size.height / 2 - trackHeightPx / 2
+
+                        drawRoundRect(
+                            color = Color.Gray.copy(alpha = 0.5f),
+                            topLeft = Offset(0f, trackY),
+                            size = Size(size.width, trackHeightPx),
+                            cornerRadius = CornerRadius(trackHeightPx / 2)
+                        )
+
+                        drawRoundRect(
+                            color = if (isLive && isAtLiveEdge)
+                                Color.Red
+                            else
+                                Color.Red.copy(alpha = 0.7f),
+                            topLeft = Offset(0f, trackY),
+                            size = Size(size.width * sliderPosition, trackHeightPx),
+                            cornerRadius = CornerRadius(trackHeightPx / 2)
+                        )
+
+                        if (duration > 0) {
+                            cuePoints.forEach { cue ->
+                                val x = (cue.positionMs.toFloat() / duration) * size.width
+                                val markerSize =
+                                    if (isSeeking) 6.dp.toPx() else 4.dp.toPx()
+
+                                drawRoundRect(
+                                    color = Color.Yellow,
+                                    topLeft = Offset(
+                                        x - markerSize / 2,
+                                        size.height / 2 - markerSize / 2
+                                    ),
+                                    size = Size(markerSize, markerSize),
+                                    cornerRadius = CornerRadius(markerSize / 2)
+                                )
+                            }
                         }
                     }
-                }
-        )
+            )
+        }
 
-        // Duration or Live button
+        /* ---------- DURATION / LIVE ---------- */
+
         if (!isLive) {
             Text(
                 text = formatTime(duration),
@@ -177,7 +221,10 @@ fun CustomSlider(
                 modifier = Modifier
                     .padding(start = 12.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(if (isAtLiveEdge) Color.Transparent else Color.Gray.copy(alpha = 0.3f))
+                    .background(
+                        if (isAtLiveEdge) Color.Transparent
+                        else Color.Gray.copy(alpha = 0.3f)
+                    )
                     .clickable {
                         onSeek(duration)
                         exoPlayer?.play()
@@ -202,4 +249,8 @@ fun CustomSlider(
         }
     }
 }
+
+
+
+
 

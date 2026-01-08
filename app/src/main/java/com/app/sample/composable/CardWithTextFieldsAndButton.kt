@@ -9,8 +9,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.app.sample.model.StreamInfo
 import com.app.sample.utils.StreamDetector
-import com.app.sample.utils.StreamInfo
 import com.app.sample.utils.StreamType
 import com.app.sample.utils.PlaybackMode
 

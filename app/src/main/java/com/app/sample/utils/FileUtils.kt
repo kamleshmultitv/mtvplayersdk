@@ -110,10 +110,10 @@ object FileUtils {
                 skipIntro = SkipIntro(
                     startTime = 5000L,
                     endTime = 95000L,
-                    enableSkipIntro = true
+                    enableSkipIntro = false
                 ),
                 nextEpisode = NextEpisode(
-                    showBeforeEndMs = (2 * 60 + 40) * 1000L,
+                    showBeforeEndMs = "160000",
                     enableNextEpisode = true
                 )
             )

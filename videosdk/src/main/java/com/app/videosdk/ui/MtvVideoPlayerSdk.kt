@@ -43,6 +43,7 @@ import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils
+import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.delay
 import kotlin.math.max
@@ -206,8 +207,15 @@ fun MtvVideoPlayerSdk(
                 imaCuePoints.clear()
                 for (adGroupIndex in 0 until period.adGroupCount) {
                     val timeUs = period.getAdGroupTimeUs(adGroupIndex)
-                    val positionMs = if (timeUs == C.TIME_END_OF_SOURCE) exoPlayer.duration else timeUs / 1000
-                    imaCuePoints.add(CuePoint(id = "ima_$adGroupIndex", positionMs = positionMs, type = CueType.AD))
+                    val positionMs =
+                        if (timeUs == C.TIME_END_OF_SOURCE) exoPlayer.duration else timeUs / 1000
+                    imaCuePoints.add(
+                        CuePoint(
+                            id = "ima_$adGroupIndex",
+                            positionMs = positionMs,
+                            type = CueType.AD
+                        )
+                    )
                 }
             }
         }
@@ -246,13 +254,18 @@ fun MtvVideoPlayerSdk(
                         next.enableNextEpisode &&
                         contentDuration > 0
                     ) {
-                        val triggerTime = (contentDuration - next.showBeforeEndMs).coerceAtLeast(0L)
+                        val showBeforeEndMs = parseDurationToMillis(next.showBeforeEndMs)
+
+                        val triggerTime = (contentDuration - showBeforeEndMs)
+                            .coerceAtLeast(0L)
+
                         if (currentPos >= triggerTime) {
                             hasShownNextEpisodeControls = true
                             isControllerVisible = true
                         }
                     }
                 }
+
             }
             delay(1000)
         }
@@ -299,7 +312,10 @@ fun MtvVideoPlayerSdk(
         )
 
         if (!isControllerVisible && isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = Color.White
+            )
         }
 
         AnimatedVisibility(
@@ -316,7 +332,8 @@ fun MtvVideoPlayerSdk(
                     isFullScreen = { full ->
                         isFullScreen = full
                         setFullScreen(full)
-                        activity.requestedOrientation = if (full) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                        activity.requestedOrientation =
+                            if (full) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                     },
                     isCurrentlyFullScreen = isFullScreen,
                     exoPlayer = it,

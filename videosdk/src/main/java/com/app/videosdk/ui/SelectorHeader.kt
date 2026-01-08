@@ -68,6 +68,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(start = 24.dp, end = 24.dp)
             .background(Color.Black.copy(alpha = 0.9f))
     ) {
         Row(
