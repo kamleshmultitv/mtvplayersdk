@@ -58,7 +58,6 @@ fun MtvVideoPlayerSdk(
     setFullScreen: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
-    val activity = remember(context) { context as Activity }
     val configuration = LocalConfiguration.current
 
     var contentDuration by remember { mutableLongStateOf(0L) }
@@ -93,6 +92,7 @@ fun MtvVideoPlayerSdk(
     val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
     var isFullScreen by remember { mutableStateOf(false) }
+    FullScreenHandler(isFullScreen)
     var isControllerVisible by remember { mutableStateOf(false) }
     var pipEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
@@ -332,8 +332,6 @@ fun MtvVideoPlayerSdk(
                     isFullScreen = { full ->
                         isFullScreen = full
                         setFullScreen(full)
-                        activity.requestedOrientation =
-                            if (full) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                     },
                     isCurrentlyFullScreen = isFullScreen,
                     exoPlayer = it,
@@ -346,7 +344,6 @@ fun MtvVideoPlayerSdk(
                         if (isFullScreen) {
                             isFullScreen = false
                             setFullScreen(false)
-                            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                         } else {
                             onPlayerBack(true)
                         }
