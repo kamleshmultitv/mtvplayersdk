@@ -47,39 +47,48 @@ object PlayerUtils {
         existingAdsLoader: ImaAdsLoader? = null
     ): Pair<ExoPlayer, ImaAdsLoader?> {
 
-        require(videoUrl.isNotBlank())
+        // ❗ Contract check (unchanged)
+        require(videoUrl.isNotBlank()) { "videoUrl must not be blank" }
 
         val cleanUrl = videoUrl.substringBefore("?")
-        val isDash = cleanUrl.endsWith(".mpd", true)
+        val isDash = cleanUrl.endsWith(".mpd", ignoreCase = true)
 
-        /* ---------------- ADS LOADER ---------------- */
+        /* =========================================================
+           ADS LOADER
+           ========================================================= */
 
-        val adsLoader = existingAdsLoader
-            ?: if (adsConfig?.enableAds == true && adsConfig.adTagUrl.isNotBlank()) {
-                ImaAdsLoader.Builder(context)
-                    .setAdEventListener { event ->
-                        when (event.type) {
-                            AdEvent.AdEventType.LOADED -> adsListener?.onAdsLoaded()
-                            AdEvent.AdEventType.STARTED -> adsListener?.onAdStarted()
-                            AdEvent.AdEventType.COMPLETED -> adsListener?.onAdCompleted()
-                            AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener?.onAllAdsCompleted()
-                            else -> Unit
+        val adsLoader =
+            existingAdsLoader
+                ?: if (
+                    adsConfig?.enableAds == true &&
+                    !adsConfig.adTagUrl.isNullOrBlank()
+                ) {
+                    ImaAdsLoader.Builder(context)
+                        .setAdEventListener { event ->
+                            when (event.type) {
+                                AdEvent.AdEventType.LOADED -> adsListener?.onAdsLoaded()
+                                AdEvent.AdEventType.STARTED -> adsListener?.onAdStarted()
+                                AdEvent.AdEventType.COMPLETED -> adsListener?.onAdCompleted()
+                                AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener?.onAllAdsCompleted()
+                                else -> Unit
+                            }
                         }
-                    }
-                    .setAdErrorListener { error ->
-                        adsListener?.onAdError(error.error.message)
-                        Log.e("IMA", "Ad error", error.error)
-                    }
-                    .build()
-            } else {
-                null
-            }
+                        .setAdErrorListener { error ->
+                            adsListener?.onAdError(error.error.message)
+                            Log.e("IMA", "Ad error", error.error)
+                        }
+                        .build()
+                } else {
+                    null
+                }
 
-        /* ---------------- MEDIA SOURCE FACTORY ---------------- */
+        /* =========================================================
+           MEDIA SOURCE FACTORY
+           ========================================================= */
 
         val mediaSourceFactory = DefaultMediaSourceFactory(context).apply {
 
-            if (isDash && drmToken != null) {
+            if (isDash && !drmToken.isNullOrBlank()) {
                 val drmProvider = DefaultDrmSessionManagerProvider().apply {
                     setDrmHttpDataSourceFactory(DefaultHttpDataSource.Factory())
                 }
@@ -88,11 +97,15 @@ object PlayerUtils {
 
             adsLoader?.let { loader ->
                 setAdsLoaderProvider { loader }
-                playerView?.let { setAdViewProvider { it } }
+                playerView?.let { view ->
+                    setAdViewProvider { view }
+                }
             }
         }
 
-        /* ---------------- PLAYER ---------------- */
+        /* =========================================================
+           PLAYER
+           ========================================================= */
 
         val exoPlayer =
             ExoPlayer.Builder(context)
@@ -103,7 +116,9 @@ object PlayerUtils {
                     repeatMode = Player.REPEAT_MODE_OFF
                 }
 
-        /* ---------------- MEDIA ITEM ---------------- */
+        /* =========================================================
+           MEDIA ITEM
+           ========================================================= */
 
         val mediaItemBuilder =
             MediaItem.Builder()
@@ -117,10 +132,10 @@ object PlayerUtils {
                     }
                 )
 
-        drmToken?.takeIf { isDash }?.let {
+        if (isDash && !drmToken.isNullOrBlank()) {
             mediaItemBuilder.setDrmConfiguration(
                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
-                    .setLicenseUri(it.toUri())
+                    .setLicenseUri(drmToken.toUri())
                     .build()
             )
         }
@@ -131,7 +146,11 @@ object PlayerUtils {
             )
         }
 
-        if (adsLoader != null && adsConfig != null && adsConfig.enableAds) {
+        if (
+            adsLoader != null &&
+            adsConfig?.enableAds == true &&
+            !adsConfig.adTagUrl.isNullOrBlank()
+        ) {
             mediaItemBuilder.setAdsConfiguration(
                 MediaItem.AdsConfiguration.Builder(
                     adsConfig.adTagUrl.trim().toUri()
@@ -140,7 +159,9 @@ object PlayerUtils {
             adsLoader.setPlayer(exoPlayer)
         }
 
-        /* ---------------- PREPARE ---------------- */
+        /* =========================================================
+           PREPARE & PLAY
+           ========================================================= */
 
         exoPlayer.setMediaItem(mediaItemBuilder.build())
         exoPlayer.prepare()
@@ -148,6 +169,7 @@ object PlayerUtils {
 
         return exoPlayer to adsLoader
     }
+
 
 
     private fun initializeSubTitleTracker(srt: String): MediaItem.SubtitleConfiguration {

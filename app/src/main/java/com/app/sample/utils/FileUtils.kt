@@ -21,21 +21,20 @@ object FileUtils {
     /* ---------------------------------- */
 
     private fun getSecondFromDays(downloadDays: String?): Int {
-        return if (!downloadDays.isNullOrEmpty() && !downloadDays.equals("0", true)) {
-            downloadDays.toInt() * 24 * 60 * 60
-        } else {
-            0
-        }
+        return downloadDays
+            ?.takeIf { it != "0" }
+            ?.toIntOrNull()
+            ?.times(24 * 60 * 60)
+            ?: 0
     }
 
     fun getDrmToken(context: Context, contentItems: ContentItem?): String {
         val accessType = if (contentItems?.accessType == PAID) "1" else "0"
 
         val downloadExpiry =
-            if (getSecondFromDays(contentItems?.downloadExpiry) == 0)
-                getSecondFromDays("30")
-            else
-                getSecondFromDays(contentItems?.downloadExpiry)
+            getSecondFromDays(contentItems?.downloadExpiry)
+                .takeIf { it > 0 }
+                ?: getSecondFromDays("30")
 
         val payload = JSONObject().apply {
             put("content_id", contentItems?.id)
@@ -68,32 +67,81 @@ object FileUtils {
         overrideContent: OverrideContent?
     ): List<PlayerModel> {
 
-        // ✅ GUARANTEED TEST AD (PRE / MID WHEN SEEKED)
-        val adTagUrl =
-            "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/vmap_ad_samples&sz=640x480&cust_params=sample_ar%3Dpremidpost&ciu_szs=300x250&gdfp_req=1&ad_rule=1&output=vmap&unviewed_position_start=1&env=vp&cmsid=496&vid=short_onecue&correlator="
+        /* =========================================================
+           CASE 1 & 2 : SUBMIT WAS PRESSED
+           ========================================================= */
 
-        /* ---------------- OVERRIDE CONTENT ---------------- */
+        overrideContent?.let { override ->
 
-        overrideContent?.let {
+            /* ---------- CASE 1: Submit WITHOUT URL (apply config to API data) ---------- */
+
+            if (override.url.isNullOrBlank()) {
+                return pagingItems.itemSnapshotList.items.mapNotNull { content ->
+
+                    val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
+                    val mpd = content.url?.takeIf { it.isNotBlank() }
+                    if (hls == null && mpd == null) return@mapNotNull null
+
+                    PlayerModel(
+                        hlsUrl = hls,
+                        mpdUrl = mpd,
+                        liveUrl = null,
+                        isLive = false,
+
+                        drmToken = getDrmToken(context, content),
+
+                        imageUrl = content.layoutThumbs
+                            ?.firstOrNull()
+                            ?.imageSize
+                            ?.firstOrNull()
+                            ?.url.orEmpty(),
+
+                        title = content.title.orEmpty(),
+                        description = content.shortDesc.orEmpty(),
+                        srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
+
+                        // 🔥 APPLY SUBMITTED TOGGLES
+                        adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
+                        skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
+                        nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false)
+                    )
+                }
+            }
+
+            /* ---------- CASE 2: Submit WITH URL (single override playback) ---------- */
+
             return listOf(
                 PlayerModel(
-                    hlsUrl = it.url,
-                    liveUrl = it.url,
-                    drmToken = it.drmToken.orEmpty(),
-                    isLive = it.isLive
+                    hlsUrl = if (!override.isLive) override.url else null,
+                    liveUrl = if (override.isLive) override.url else null,
+                    mpdUrl = override.url,
+                    drmToken = override.drmToken.orEmpty(),
+                    isLive = override.isLive,
+                    adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
+                    skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
+                    nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false)
                 )
             )
         }
 
-        /* ---------------- PAGED CONTENT ---------------- */
+        /* =========================================================
+           CASE 3 : NO SUBMIT (pure API data, defaults only)
+           ========================================================= */
 
-        return pagingItems.itemSnapshotList.items.map { content ->
+        return pagingItems.itemSnapshotList.items.mapNotNull { content ->
+
+            val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
+            val mpd = content.url?.takeIf { it.isNotBlank() }
+            if (hls == null && mpd == null) return@mapNotNull null
+
             PlayerModel(
-                hlsUrl = content.hlsUrl.orEmpty(),
-                mpdUrl = content.url.orEmpty(),
-                liveUrl = "https://livesim.dashif.org/livesim/testpic_2s/Manifest.mpd",
+                hlsUrl = hls,
+                mpdUrl = mpd,
+                liveUrl = null,
                 isLive = false,
+
                 drmToken = getDrmToken(context, content),
+
                 imageUrl = content.layoutThumbs
                     ?.firstOrNull()
                     ?.imageSize
@@ -103,21 +151,14 @@ object FileUtils {
                 title = content.title.orEmpty(),
                 description = content.shortDesc.orEmpty(),
                 srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
-                adsConfig = AdsConfig(
-                    adTagUrl = adTagUrl,
-                    enableAds = false
-                ),
-                skipIntro = SkipIntro(
-                    startTime = 5000L,
-                    endTime = 95000L,
-                    enableSkipIntro = false
-                ),
-                nextEpisode = NextEpisode(
-                    showBeforeEndMs = "160000",
-                    enableNextEpisode = true
-                )
+
+                // ✅ DEFAULTS (no submit yet)
+                adsConfig = AdsConfig(enableAds = false),
+                skipIntro = SkipIntro(enableSkipIntro = false),
+                nextEpisode = NextEpisode(enableNextEpisode = false)
             )
         }
     }
-
 }
+
+
