@@ -105,38 +105,58 @@ fun CustomPlayerController(
 
     /* ---------------- NEXT EPISODE WINDOW ---------------- */
 
-    val showNextEpisode by remember(currentPosition, currentPlayerModel, nextEpisodeClicked) {
+    val showNextEpisode by remember(
+        currentPosition,
+        currentPlayerModel,
+        nextEpisodeClicked,
+        duration
+    ) {
         derivedStateOf {
-            currentPlayerModel?.nextEpisode?.let { next ->
-                !currentPlayerModel.isLive &&
-                        next.enableNextEpisode &&
-                        !nextEpisodeClicked &&
-                        currentPosition in (timeToMillis(
-                    duration.toString(),
-                    next.showBeforeEndMs
-                ))..timeToMillis(duration.toString(), next.showBeforeEndMs).plus(100_00L)
-            } ?: false
+            val next = currentPlayerModel?.nextEpisode ?: return@derivedStateOf false
+
+            if (
+                exoPlayer.isPlayingAd ||          // 🔥 KEY FIX
+                duration <= 0L ||
+                currentPosition <= 0L ||
+                currentPosition >= duration ||
+                currentPlayerModel.isLive ||
+                !next.enableNextEpisode ||
+                nextEpisodeClicked
+            ) return@derivedStateOf false
+
+            val startTime = timeToMillis(duration.toString(), next.showBeforeEndMs)
+
+            currentPosition in startTime..startTime.plus(10_000L)
         }
     }
+
 
     /* ⭐ FIX 1: PLAYBACK-TIME BASED WINDOW (NOT animation based) */
     val isInNextEpisodeWindow by remember(
         currentPosition,
         currentPlayerModel,
-        nextEpisodeClicked
+        nextEpisodeClicked,
+        duration
     ) {
         derivedStateOf {
-            currentPlayerModel?.nextEpisode?.let { next ->
-                !currentPlayerModel.isLive &&
-                        next.enableNextEpisode &&
-                        !nextEpisodeClicked &&
-                        currentPosition in (timeToMillis(
-                    duration.toString(),
-                    next.showBeforeEndMs
-                ))..timeToMillis(duration.toString(), next.showBeforeEndMs).plus(100_00L)
-            } ?: false
+            val next = currentPlayerModel?.nextEpisode ?: return@derivedStateOf false
+
+            if (
+                exoPlayer.isPlayingAd ||          // 🔥 KEY FIX
+                duration <= 0L ||
+                currentPosition <= 0L ||
+                currentPosition >= duration ||
+                currentPlayerModel.isLive ||
+                !next.enableNextEpisode ||
+                nextEpisodeClicked
+            ) return@derivedStateOf false
+
+            val startTime = timeToMillis(duration.toString(), next.showBeforeEndMs)
+
+            currentPosition in startTime..startTime.plus(10_000L)
         }
     }
+
 
     // ⭐ FIX 4: FORCE SHOW CONTROLS EXACTLY AT startTime
     LaunchedEffect(isInNextEpisodeWindow) {

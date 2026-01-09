@@ -97,6 +97,7 @@ fun MtvVideoPlayerSdk(
     var pipEnabled by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
+    var isAdsShowing by remember { mutableStateOf(false) }
 
     var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
 
@@ -130,11 +131,26 @@ fun MtvVideoPlayerSdk(
 
     val adsListener = remember {
         object : AdsListener {
-            override fun onAdsLoaded() {}
-            override fun onAdStarted() {}
-            override fun onAdCompleted() {}
-            override fun onAllAdsCompleted() {}
-            override fun onAdError(message: String) {}
+            override fun onAdsLoaded() {
+                isControllerVisible = false
+                isAdsShowing = true
+            }
+            override fun onAdStarted() {
+                isControllerVisible = false
+                isAdsShowing = true
+            }
+            override fun onAdCompleted() {
+                isControllerVisible = true
+                isAdsShowing = false
+            }
+            override fun onAllAdsCompleted() {
+                isControllerVisible = true
+                isAdsShowing = false
+            }
+            override fun onAdError(message: String) {
+                isControllerVisible = true
+                isAdsShowing = false
+            }
         }
     }
 
@@ -240,7 +256,7 @@ fun MtvVideoPlayerSdk(
                 model.skipIntro?.let { intro ->
                     if (!isSkipIntroClicked && !hasShownSkipIntroControls && intro.enableSkipIntro) {
                         val startTime = intro.startTime ?: 0L
-                        if (currentPos >= startTime && currentPos < startTime + 2000) {
+                        if (currentPos >= startTime && currentPos < startTime + 2000 && !isAdsShowing) {
                             hasShownSkipIntroControls = true
                             isControllerVisible = true
                         }
@@ -259,7 +275,7 @@ fun MtvVideoPlayerSdk(
                         val triggerTime = (contentDuration - showBeforeEndMs)
                             .coerceAtLeast(0L)
 
-                        if (currentPos >= triggerTime) {
+                        if (currentPos >= triggerTime && triggerTime != 0L && !isAdsShowing) {
                             hasShownNextEpisodeControls = true
                             isControllerVisible = true
                         }
