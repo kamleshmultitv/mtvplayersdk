@@ -67,7 +67,7 @@ afterEvaluate {
                 from(components["release"])
 
                 groupId = "com.github.kamleshmultitv"
-                artifactId = "mtvplayersdk"
+                artifactId = "videosdk"
                 version = "mobile-1.0.54"
             }
         }

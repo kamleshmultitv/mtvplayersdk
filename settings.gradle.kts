@@ -16,5 +16,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Sample"
-include(":app", ":videosdk", ":mtvdownloader")
+include(":app")
+include(":videosdk")
+include(":mtvdownloader")
 

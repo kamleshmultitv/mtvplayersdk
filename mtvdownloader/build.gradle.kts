@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("maven-publish")
+  //  id("maven-publish")
     id("kotlin-kapt")
 }
 
@@ -14,16 +14,18 @@ android {
 
     defaultConfig {
         minSdk = 24
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                getDefaultProguardFile("proguard-android-optimize.txt")
             )
+        }
+        debug {
+            isMinifyEnabled = false
         }
     }
     compileOptions {
@@ -43,7 +45,33 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // ✅ REQUIRED for AGP 8+ + JitPack
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+
 }
+
+/**
+ * ✅ Maven Publish (KEEP OUTSIDE android {})
+ * This publishes ONLY downloader sdk (not app)
+ */
+/*afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+
+                groupId = "com.github.kamleshmultitv"
+                artifactId = "mtvdownloader"
+                version = "download-1.0.0"
+            }
+        }
+    }
+}*/
 
 dependencies {
     implementation(libs.androidx.core.ktx)
