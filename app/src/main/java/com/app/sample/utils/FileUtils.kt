@@ -2,6 +2,7 @@ package com.app.sample.utils
 
 import android.content.Context
 import androidx.paging.compose.LazyPagingItems
+import com.app.mtvdownloader.model.DownloadModel
 import com.app.sample.BuildConfig.DRM_LICENSE_URL
 import com.app.sample.extra.ApiConstant.DRM_TYPE
 import com.app.sample.extra.ApiConstant.PAID
@@ -159,6 +160,39 @@ object FileUtils {
             )
         }
     }
+
+    fun buildDownloadContentList(
+        context: Context,
+        contentItem: ContentItem?
+    ): DownloadModel? {
+
+        if (contentItem == null) return null
+
+        val hlsUrl = contentItem.hlsUrl?.takeIf { it.isNotBlank() }
+        val mpdUrl = contentItem.url?.takeIf { it.isNotBlank() }
+
+        // Skip if no playable URL is available
+        if (hlsUrl == null && mpdUrl == null) return null
+
+        return DownloadModel(
+            id = contentItem.id.orEmpty(),
+            seasonId = contentItem.seasonId.orEmpty(),
+            hlsUrl = hlsUrl,
+            mpdUrl = mpdUrl,
+            drmToken = getDrmToken(context, contentItem),
+            imageUrl = contentItem.layoutThumbs
+                ?.firstOrNull()
+                ?.imageSize
+                ?.firstOrNull()
+                ?.url
+                .orEmpty(),
+
+            title = contentItem.title.orEmpty(),
+            description = contentItem.shortDesc.orEmpty(),
+            srt = contentItem.subtitle
+                ?.firstOrNull()
+                ?.srt
+                .orEmpty()
+        )
+    }
 }
-
-

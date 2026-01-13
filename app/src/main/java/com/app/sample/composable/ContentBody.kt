@@ -67,7 +67,7 @@ fun ContentBody(
                 pagingItems = pagingItems,
                 onItemClick = { index ->
                     selectedIndex.intValue = index
-                    onOverrideContent(null) // reset override
+                    onOverrideContent(null)
                 }
             )
         }

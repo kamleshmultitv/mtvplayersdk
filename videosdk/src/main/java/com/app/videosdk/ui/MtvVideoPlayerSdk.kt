@@ -1,8 +1,5 @@
 package com.app.videosdk.ui
 
-import android.app.Activity
-import android.content.pm.ActivityInfo
-import android.util.Log
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn

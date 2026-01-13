@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import com.app.mtvdownloader.utils.NotificationPermission
 import com.app.sample.composable.ContentScreen
 import com.app.sample.viewModel.ContentViewModel
 import com.app.videosdk.listener.PipListener
@@ -17,6 +18,7 @@ class MainActivity : ComponentActivity(), PipListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        NotificationPermission.requestIfRequired(this)
         enableEdgeToEdge()
         setContent {
             ContentScreen(viewModel = viewModel, this@MainActivity)
@@ -32,4 +34,5 @@ class MainActivity : ComponentActivity(), PipListener {
             enterPictureInPictureMode(params)
         }
     }
+
 }
