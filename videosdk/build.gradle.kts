@@ -68,7 +68,7 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "videosdk"
-                version = "mobile-1.0.54"
+                version = "mobile-1.0.55"
             }
         }
     }
