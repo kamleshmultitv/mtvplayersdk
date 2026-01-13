@@ -69,6 +69,10 @@ class DownloadRepository private constructor(appContext: Context) {
         ) > 0
     }
 
+    suspend fun insertOrUpdate(entity: DownloadedContentEntity) {
+        dao.insert(entity)
+    }
+
     companion object {
 
         @SuppressLint("StaticFieldLeak")

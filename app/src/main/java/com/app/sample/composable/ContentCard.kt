@@ -1,5 +1,6 @@
 package com.app.sample.composable
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.CircularProgressIndicator
@@ -89,14 +90,20 @@ fun ContentCard(
 
             IconButton(
                 onClick = {
-                    if (status == null) {
+                  //  if (status == null) {
                         downloadModel?.let {
                             ReelDownloadHelper.handleDownloadClick(
                                 context = context,
                                 contentItem = it
                             )
                         }
-                    }
+                   /* } else {
+                        Toast.makeText(
+                            context,
+                            status,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }*/
                 },
                 modifier = Modifier.size(40.dp)
             ) {
