@@ -51,6 +51,7 @@ fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
     pipListener: PipListener? = null,
+    startInFullScreen: Boolean = false,
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit
 ) {
@@ -88,7 +89,16 @@ fun MtvVideoPlayerSdk(
 
     val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
-    var isFullScreen by remember { mutableStateOf(false) }
+    var isFullScreen by remember(startInFullScreen) {
+        mutableStateOf(startInFullScreen)
+    }
+
+    LaunchedEffect(startInFullScreen) {
+        if (startInFullScreen) {
+            setFullScreen(true)
+        }
+    }
+
     FullScreenHandler(isFullScreen)
     var isControllerVisible by remember { mutableStateOf(false) }
     var pipEnabled by remember { mutableStateOf(false) }
