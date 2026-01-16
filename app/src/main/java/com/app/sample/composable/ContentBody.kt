@@ -1,6 +1,7 @@
 package com.app.sample.composable
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import com.app.sample.model.ContentItem
 import com.app.sample.model.OverrideContent
 import com.app.sample.utils.FileUtils.buildPlayerContentList
 import com.app.videosdk.listener.PipListener
+import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.ui.MtvVideoPlayerSdk
 
 @Composable
@@ -59,7 +61,29 @@ fun ContentBody(
                     pipListener = pipListener,
                     startInFullScreen = false,
                     onPlayerBack = {},
-                    setFullScreen = onFullScreenChange
+                    setFullScreen = onFullScreenChange,
+                    playerStateListener = object : PlayerStateListener {
+
+                        override fun onPlayerReady(durationMs: Long) {
+                            Log.d("CLIENT", "Player ready: $durationMs")
+                        }
+
+                        override fun onPlayStateChanged(isPlaying: Boolean) {
+                            Log.d("CLIENT", "Playing: $isPlaying")
+                        }
+
+                        override fun onPlaybackCompleted() {
+                            Log.d("CLIENT", "Playback completed")
+                        }
+
+                        override fun onFullScreenChanged(isFullScreen: Boolean) {
+                            Log.d("CLIENT", "Full screen: $isFullScreen")
+                        }
+
+                        override fun onAdStateChanged(isAdPlaying: Boolean) {
+                            Log.d("CLIENT", "Ad playing = $isAdPlaying")
+                        }
+                    }
                 )
             }
 

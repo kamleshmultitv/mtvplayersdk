@@ -38,6 +38,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
+import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
@@ -52,6 +53,7 @@ fun MtvVideoPlayerSdk(
     index: Int? = 0,
     pipListener: PipListener? = null,
     startInFullScreen: Boolean = false,
+    playerStateListener: PlayerStateListener? = null,
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit
 ) {
@@ -141,14 +143,17 @@ fun MtvVideoPlayerSdk(
             override fun onAdsLoaded() {
                 isControllerVisible = false
                 isAdsShowing = true
+
             }
             override fun onAdStarted() {
                 isControllerVisible = false
                 isAdsShowing = true
+                playerStateListener?.onAdStateChanged(true)
             }
             override fun onAdCompleted() {
                 isControllerVisible = true
                 isAdsShowing = false
+                playerStateListener?.onAdStateChanged(false)
             }
             override fun onAllAdsCompleted() {
                 isControllerVisible = true
@@ -196,25 +201,42 @@ fun MtvVideoPlayerSdk(
             }
 
             override fun onPlaybackStateChanged(state: Int) {
-                isLoading = state == Player.STATE_BUFFERING
-                // ✅ Duration becomes reliable here
-                if (state == Player.STATE_READY) {
-                    val d = player.duration
-                    if (d > 0) {
-                        contentDuration = d
+                when (state) {
+                    Player.STATE_BUFFERING -> {
+                        isLoading = true
+                        playerStateListener?.onBuffering(true)
                     }
-                }
 
-                if (state == Player.STATE_ENDED) {
-                    val total = contentList?.size ?: 0
-                    val nextIndex = selectedIndex.intValue + 1
-                    if (nextIndex < total) {
-                        selectedIndex.intValue = nextIndex
+                    Player.STATE_READY -> {
+                        val d = player.duration
+                        if (d > 0) {
+                            contentDuration = d
+                        }
+
+                        playerStateListener?.onBuffering(false)
+                        val duration = player.duration.takeIf { it > 0 } ?: 0L
+                        playerStateListener?.onPlayerReady(duration)
+                    }
+
+                    Player.STATE_ENDED -> {
+                        val total = contentList?.size ?: 0
+                        val nextIndex = selectedIndex.intValue + 1
+                        if (nextIndex < total) {
+                            selectedIndex.intValue = nextIndex
+                        }
+
+                        playerStateListener?.onPlaybackCompleted()
                     }
                 }
             }
 
-            override fun onPlayerError(error: PlaybackException) {}
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                playerStateListener?.onPlayStateChanged(isPlaying)
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                playerStateListener?.onPlayerError(error)
+            }
 
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                 if (!timeline.isEmpty) {
@@ -355,6 +377,7 @@ fun MtvVideoPlayerSdk(
                     isFullScreen = { full ->
                         isFullScreen = full
                         setFullScreen(full)
+                        playerStateListener?.onFullScreenChanged(full)
                     },
                     isCurrentlyFullScreen = isFullScreen,
                     exoPlayer = it,
@@ -367,6 +390,7 @@ fun MtvVideoPlayerSdk(
                         if (isFullScreen) {
                             isFullScreen = false
                             setFullScreen(false)
+                            playerStateListener?.onFullScreenChanged(false)
                         } else {
                             onPlayerBack(true)
                         }
