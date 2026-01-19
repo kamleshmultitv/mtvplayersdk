@@ -143,6 +143,8 @@ dependencies {
     implementation(libs.adapter.rxjava2)
     implementation(libs.logging.interceptor)
 
+    implementation(libs.coil.compose)
+
     // SDK
     // implementation(project(":mtvdownloader"))
     // implementation(libs.mtvplayersdk)

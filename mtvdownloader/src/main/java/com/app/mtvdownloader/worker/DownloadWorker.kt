@@ -3,19 +3,28 @@ package com.app.mtvdownloader.worker
 import android.content.Context
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.StreamKey
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.offline.Download.*
+import androidx.media3.exoplayer.offline.DownloadHelper
+import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.WorkerParameters
 import com.app.mtvdownloader.DownloadUtil
 import com.app.mtvdownloader.local.database.DownloadDatabase
-import com.app.mtvdownloader.local.entity.DownloadedContentEntity
+import com.app.mtvdownloader.utils.StreamKeyUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.util.Date
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 @OptIn(UnstableApi::class)
 class DownloadWorker(
@@ -24,12 +33,14 @@ class DownloadWorker(
 ) : CoroutineWorker(context, params) {
 
     private val TAG = "DownloadWorker"
+
     private val dao = DownloadDatabase
         .getInstance(context)
         .downloadedContentDao()
 
     companion object {
-        const val KEY_HLS_URI = "hls_uri"
+        const val KEY_CONTENT_URI = "content_uri"
+        const val KEY_DRM_LICENSE_URI = "drm_license_uri"
         const val KEY_CONTENT_ID = "content_id"
         const val KEY_SEASON_ID = "season_id"
         const val KEY_CONTENT_TITLE = "content_title"
@@ -37,48 +48,92 @@ class DownloadWorker(
         const val KEY_THUMBNAIL_URL = "thumbnail_url"
         const val KEY_SEASON_THUMBNAIL_URL = "season_thumbnail_url"
 
+        const val KEY_STREAM_KEYS = "stream_keys"
+
         const val DOWNLOAD_STATUS_QUEUED = "queued"
         const val DOWNLOAD_STATUS_DOWNLOADING = "downloading"
         const val DOWNLOAD_STATUS_COMPLETED = "completed"
         const val DOWNLOAD_STATUS_FAILED = "failed"
         const val DOWNLOAD_STATUS_REMOVED = "removed"
+        const val DOWNLOAD_STATUS_PAUSED = "paused"
     }
 
     override suspend fun doWork(): Result {
 
-        val hlsUri = inputData.getString(KEY_HLS_URI) ?: return Result.failure()
+        val contentUri = inputData.getString(KEY_CONTENT_URI) ?: return Result.failure()
         val contentId = inputData.getString(KEY_CONTENT_ID) ?: return Result.failure()
-        val seasonId = inputData.getString(KEY_SEASON_ID).orEmpty()
-        val title = inputData.getString(KEY_CONTENT_TITLE).orEmpty()
-        val seasonName = inputData.getString(KEY_SEASON_NAME).orEmpty()
-        val thumb = inputData.getString(KEY_THUMBNAIL_URL)
-        val seasonImage = inputData.getString(KEY_SEASON_THUMBNAIL_URL)
+        val drmLicenseUri = inputData.getString(KEY_DRM_LICENSE_URI)
 
-        // 🔥 ALWAYS UPSERT AS QUEUED
-        withContext(Dispatchers.IO) {
-            dao.insert(
-                DownloadedContentEntity(
-                    contentId = contentId,
-                    seasonId = seasonId,
-                    title = title,
-                    seasonName = seasonName,
-                    hlsUrl = hlsUri,
-                    thumbnailUrl = thumb,
-                    seasonImage = seasonImage,
-                    downloadStatus = DOWNLOAD_STATUS_QUEUED,
-                    downloadProgress = 0
-                )
-            )
-        }
+        val streamKeyString = inputData.getString(KEY_STREAM_KEYS)
+        val streamKeys: List<StreamKey> =
+            streamKeyString?.let { StreamKeyUtil.fromString(it) } ?: emptyList()
 
         val downloadManager = DownloadUtil.getDownloadManager(applicationContext)
-        val request = DownloadUtil.buildDownloadRequest(contentId, hlsUri)
+        val dataSourceFactory = DownloadUtil.getHttpFactory(applicationContext)
+
+        // ✅ DRM handled via MediaItem (Media3 correct approach)
+        val mediaItem = if (!drmLicenseUri.isNullOrEmpty()) {
+            MediaItem.Builder()
+                .setUri(contentUri)
+                .setDrmConfiguration(
+                    MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                        .setLicenseUri(drmLicenseUri)
+                        .build()
+                )
+                .build()
+        } else {
+            MediaItem.fromUri(contentUri)
+        }
 
         try {
+            val request = suspendCancellableCoroutine { continuation ->
+
+                val downloadHelper = DownloadHelper.forMediaItem(
+                    applicationContext,
+                    mediaItem,
+                    null, // default RenderersFactory
+                    dataSourceFactory
+                )
+
+                continuation.invokeOnCancellation {
+                    downloadHelper.release()
+                }
+
+                downloadHelper.prepare(object : DownloadHelper.Callback {
+
+                    override fun onPrepared(
+                        helper: DownloadHelper,
+                        tracksInfoAvailable: Boolean
+                    ) {
+                        val downloadRequest =
+                            DownloadRequest.Builder(
+                                contentId,
+                                mediaItem.localConfiguration!!.uri
+                            )
+                                .setStreamKeys(streamKeys)
+                                .build()
+
+                        continuation.resume(downloadRequest)
+                    }
+
+                    override fun onPrepareError(
+                        helper: DownloadHelper,
+                        e: IOException
+                    ) {
+                        Log.e(TAG, "Failed to prepare download", e)
+                        if (continuation.isActive) {
+                            continuation.resumeWithException(e)
+                        }
+                    }
+                })
+            }
+
             downloadManager.addDownload(request)
             downloadManager.resumeDownloads()
+
         } catch (t: Throwable) {
-            Log.w(TAG, "add/resume failed: ${t.message}")
+            Log.e(TAG, "Failed to prepare or add download", t)
+            return Result.failure()
         }
 
         var lastProgress = -1
@@ -88,7 +143,7 @@ class DownloadWorker(
 
             val download = try {
                 downloadManager.downloadIndex.getDownload(contentId)
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 null
             }
 
@@ -97,21 +152,50 @@ class DownloadWorker(
                 continue
             }
 
-            val (status, progress) = when (download.state) {
+            when (download.state) {
 
-                STATE_QUEUED ->
-                    DOWNLOAD_STATUS_QUEUED to 0
+                STATE_QUEUED -> {
+                    // already handled
+                }
 
                 STATE_DOWNLOADING -> {
-                    val pct =
+
+                    val progress =
                         if (download.contentLength > 0)
                             ((download.bytesDownloaded * 100) / download.contentLength).toInt()
                         else download.percentDownloaded.toInt().coerceIn(0, 100)
 
-                    DOWNLOAD_STATUS_DOWNLOADING to pct
+                    if (lastStatus != DOWNLOAD_STATUS_DOWNLOADING ||
+                        progress != lastProgress
+                    ) {
+
+                        withContext(Dispatchers.IO) {
+                            dao.updateProgressAndStatus(
+                                contentId,
+                                progress,
+                                DOWNLOAD_STATUS_DOWNLOADING,
+                                null,
+                                null
+                            )
+                        }
+
+                        setProgress(
+                            Data.Builder()
+                                .putInt("download_progress", progress)
+                                .putString(
+                                    "download_status",
+                                    DOWNLOAD_STATUS_DOWNLOADING
+                                )
+                                .build()
+                        )
+
+                        lastStatus = DOWNLOAD_STATUS_DOWNLOADING
+                        lastProgress = progress
+                    }
                 }
 
                 STATE_COMPLETED -> {
+
                     withContext(Dispatchers.IO) {
                         dao.updateProgressAndStatus(
                             contentId,
@@ -121,44 +205,26 @@ class DownloadWorker(
                             DownloadUtil.getDownloadPath(contentId)
                         )
                     }
+
                     return Result.success()
                 }
 
                 STATE_FAILED -> {
+
                     withContext(Dispatchers.IO) {
-                        dao.updateStatus(contentId, DOWNLOAD_STATUS_FAILED)
+                        dao.updateStatus(
+                            contentId,
+                            DOWNLOAD_STATUS_FAILED
+                        )
                     }
+
                     return Result.failure()
                 }
 
                 else -> {
-                    delay(500)
-                    continue
+                    // Stop worker for unhandled states
+                    return Result.failure()
                 }
-            }
-
-            // 🔥 FORCE QUEUED STATUS TO DB
-            if (status != lastStatus || progress != lastProgress || status == DOWNLOAD_STATUS_QUEUED) {
-
-                setProgress(
-                    Data.Builder()
-                        .putInt("download_progress", progress)
-                        .putString("download_status", status)
-                        .build()
-                )
-
-                withContext(Dispatchers.IO) {
-                    dao.updateProgressAndStatus(
-                        contentId,
-                        progress,
-                        status,
-                        null,
-                        null
-                    )
-                }
-
-                lastStatus = status
-                lastProgress = progress
             }
 
             delay(1000)

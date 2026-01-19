@@ -16,12 +16,12 @@ import kotlinx.coroutines.flow.Flow
  * Repository wrapping Media3 DownloadManager + Room DB.
  * No DI framework required.
  */
+@UnstableApi
 class DownloadRepository private constructor(appContext: Context) {
 
     private val dao: DownloadedContentDao =
         DownloadDatabase.getInstance(appContext).downloadedContentDao()
 
-    @OptIn(UnstableApi::class)
     private val downloadManager: DownloadManager =
         DownloadUtil.getDownloadManager(appContext)
 
@@ -71,6 +71,33 @@ class DownloadRepository private constructor(appContext: Context) {
 
     suspend fun insertOrUpdate(entity: DownloadedContentEntity) {
         dao.insert(entity)
+    }
+
+    suspend fun getNextQueuedContent(): DownloadedContentEntity? {
+        return dao.getNextQueuedContent(
+            DownloadWorker.DOWNLOAD_STATUS_QUEUED
+        )
+    }
+
+
+    suspend fun pauseDownload(contentId: String) {
+
+        // 1️⃣ Update DB (UI + queue logic)
+        dao.updateStatus(
+            contentId,
+            DownloadWorker.DOWNLOAD_STATUS_PAUSED
+        )
+
+        // 2️⃣ Remove ONLY this download from Media3
+        try {
+            downloadManager.removeDownload(contentId)
+        } catch (t: Throwable) {
+            Log.w(
+                "DownloadRepository",
+                "pauseDownload remove failed for id=$contentId: ${t.message}",
+                t
+            )
+        }
     }
 
     companion object {

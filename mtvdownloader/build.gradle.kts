@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-  //  id("maven-publish")
     id("kotlin-kapt")
 }
 
@@ -19,10 +18,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt")
-            )
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro" // SDK internal rules
+                )
         }
         debug {
             isMinifyEnabled = false
@@ -46,32 +45,8 @@ android {
         compose = true
     }
 
-    // ✅ REQUIRED for AGP 8+ + JitPack
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-        }
-    }
 
 }
-
-/**
- * ✅ Maven Publish (KEEP OUTSIDE android {})
- * This publishes ONLY downloader sdk (not app)
- */
-/*afterEvaluate {
-    publishing {
-        publications {
-            create<MavenPublication>("release") {
-                from(components["release"])
-
-                groupId = "com.github.kamleshmultitv"
-                artifactId = "mtvdownloader"
-                version = "download-1.0.0"
-            }
-        }
-    }
-}*/
 
 dependencies {
     implementation(libs.androidx.core.ktx)
@@ -101,7 +76,6 @@ dependencies {
 
     // ExoPlayer / Media3
     implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
-    implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.exoplayer.hls)
+    implementation(libs.androidx.media3.exoplayer.dash)
 }
