@@ -35,6 +35,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
@@ -49,6 +50,7 @@ import kotlin.math.max
 @OptIn(UnstableApi::class)
 @Composable
 fun MtvVideoPlayerSdk(
+    cacheFactory: CacheDataSource.Factory,
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
     pipListener: PipListener? = null,
@@ -169,7 +171,9 @@ fun MtvVideoPlayerSdk(
     val playerWithAds = remember(selectedIndex.intValue, playbackUrl) {
         val model = playerModel ?: return@remember null
         PlayerUtils.createPlayer(
+            cacheDataSourceFactory = cacheFactory,
             context = context,
+            contentList,
             videoUrl = playbackUrl.toString(),
             drmToken = model.drmToken,
             srt = subtitleUri,
