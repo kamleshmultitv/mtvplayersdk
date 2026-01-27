@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+  //  id("maven-publish")
     id("kotlin-kapt")
 }
 
@@ -45,8 +46,32 @@ android {
         compose = true
     }
 
+    // ✅ REQUIRED for AGP 8+ + JitPack
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
 
 }
+
+/**
+ * ✅ Maven Publish (KEEP OUTSIDE android {})
+ * This publishes ONLY downloader sdk (not app)
+ */
+/*afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+
+                groupId = "com.github.kamleshmultitv"
+                artifactId = "mtvdownloader"
+                version = "download-1.0.9"
+            }
+        }
+    }
+}*/
 
 dependencies {
     implementation(libs.androidx.core.ktx)
