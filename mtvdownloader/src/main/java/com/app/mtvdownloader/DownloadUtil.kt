@@ -6,7 +6,9 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.database.ExoDatabaseProvider
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.offline.DownloadManager
@@ -66,14 +68,12 @@ object DownloadUtil {
     @Synchronized
     fun getDownloadCache(context: Context): SimpleCache {
         return downloadCache ?: run {
+            val cacheDir = getDownloadDirectory(context)
             val evictor = LeastRecentlyUsedCacheEvictor(MAX_CACHE_BYTES)
-            val cache = SimpleCache(
-                getDownloadDirectory(context),
-                evictor,
-                getDatabaseProvider(context)
-            )
+            val db = getDatabaseProvider(context)
+            val cache = SimpleCache(cacheDir, evictor, db)
             downloadCache = cache
-            Log.d(TAG, "SimpleCache created")
+            Log.d(TAG, "SimpleCache initialized at ${cacheDir.absolutePath}")
             cache
         }
     }
@@ -104,6 +104,21 @@ object DownloadUtil {
                 )
             )
             .setAllowCrossProtocolRedirects(true)
+    }
+
+    @Synchronized
+    fun getCacheDataSourceFactory(context: Context): CacheDataSource.Factory {
+        return CacheDataSource.Factory()
+            .setCache(getDownloadCache(context))
+            .setUpstreamDataSourceFactory(getDataSourceFactory(context))
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
+
+    @Synchronized
+    fun getDataSourceFactory(context: Context): DefaultDataSource.Factory {
+        return DefaultDataSource.Factory(context.applicationContext,
+            getHttpFactory(context)
+        )
     }
 
     /* ---------------- DOWNLOAD MANAGER ---------------- */

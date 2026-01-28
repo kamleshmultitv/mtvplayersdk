@@ -4,6 +4,7 @@ import android.content.Context
 import android.text.TextUtils
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.paging.compose.LazyPagingItems
 import com.app.mtvdownloader.local.entity.DownloadedContentEntity
 import com.app.mtvdownloader.model.DownloadModel
@@ -95,7 +96,7 @@ object FileUtils {
         val androidDeviceUniqueId = GUIDGenerator.generateGUID(context)
         val drmToken =
             DRM_LICENSE_URL + "" + "user_id=" + androidDeviceUniqueId + "&type=" + DRM_TYPE + "&" + "authorization=" +
-                TOKEN + "&payload=" + ApiEncryptionHelper.convertStringToBase64(
+                    TOKEN + "&payload=" + ApiEncryptionHelper.convertStringToBase64(
                 jsonObject.toString()
             )
 
@@ -107,13 +108,16 @@ object FileUtils {
         downloadedContentEntity: DownloadedContentEntity
     ): List<PlayerModel> {
 
+        val downloadCache = (applicationContext as AppClass).downloadCache
         val cacheFactory = (applicationContext as AppClass).cacheDataSourceFactory
-        
+        val downloadManager = (applicationContext as AppClass).downloadManager
+
         // ✅ Determine if content is DRM: if licenseUri exists, it's DRM content
-        val isDrm = !downloadedContentEntity.licenseUri.isNullOrBlank()
-        
+        val isDrm = downloadedContentEntity.licenseUri.isNotBlank()
+
         return listOf(
             PlayerModel(
+                id = downloadedContentEntity.contentId,
                 // ▶️ Playback URL
                 hlsUrl = downloadedContentEntity.contentUrl,
                 mpdUrl = downloadedContentEntity.contentUrl,
@@ -135,7 +139,9 @@ object FileUtils {
 
                 // 📡 Downloaded content is NOT live
                 isLive = false,
-                cacheFactory = cacheFactory
+                cacheFactory = cacheFactory,
+                downloadManager = downloadManager,
+                downloadCache = downloadCache
             )
         )
     }
@@ -216,8 +222,6 @@ object FileUtils {
 
         return pagingItems.itemSnapshotList.items.mapNotNull { content ->
 
-            val cacheFactory = (applicationContext as AppClass).cacheDataSourceFactory
-
             val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
             val mpd = content.url?.takeIf { it.isNotBlank() }
             if (hls == null && mpd == null) return@mapNotNull null
@@ -245,7 +249,7 @@ object FileUtils {
                 adsConfig = AdsConfig(enableAds = false),
                 skipIntro = SkipIntro(enableSkipIntro = false),
                 nextEpisode = NextEpisode(enableNextEpisode = false),
-                cacheFactory = cacheFactory
+                cacheFactory = null
             )
         }
     }
