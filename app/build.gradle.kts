@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.app.sample"
+        applicationId = "com.aol.sspt"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

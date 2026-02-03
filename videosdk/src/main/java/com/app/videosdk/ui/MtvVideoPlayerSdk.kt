@@ -229,6 +229,7 @@ fun MtvVideoPlayerSdk(
                     }
 
                     Player.STATE_READY -> {
+                        isLoading = false
                         val d = player.duration
                         if (d > 0) {
                             contentDuration = d
@@ -246,6 +247,7 @@ fun MtvVideoPlayerSdk(
                     }
 
                     Player.STATE_ENDED -> {
+                        isLoading = false
                         val total = contentList?.size ?: 0
                         val nextIndex = selectedIndex.intValue + 1
                         if (nextIndex < total) {

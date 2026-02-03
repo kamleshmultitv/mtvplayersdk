@@ -81,4 +81,13 @@ WHERE downloadStatus = :downloading
     )
     suspend fun getNextQueuedContent(status: String): DownloadedContentEntity?
 
+    @Query(
+        """
+    SELECT drmKeySetId FROM downloaded_content
+    WHERE contentId = :contentId
+    LIMIT 1
+    """
+    )
+    suspend fun getDrmKeySetId(contentId: String): String?
+
 }

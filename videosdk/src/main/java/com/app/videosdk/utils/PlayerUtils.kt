@@ -3,8 +3,6 @@ package com.app.videosdk.utils
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
@@ -21,10 +19,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.drm.DefaultDrmSessionManager
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider
-import androidx.media3.exoplayer.drm.FrameworkMediaDrm
-import androidx.media3.exoplayer.drm.HttpMediaDrmCallback
 import androidx.media3.exoplayer.hls.SampleQueueMappingException
 import androidx.media3.exoplayer.ima.ImaAdsLoader
 import androidx.media3.exoplayer.offline.Download
@@ -41,7 +36,6 @@ import com.app.videosdk.model.VideoQualityModel
 import com.google.ads.interactivemedia.v3.api.AdEvent
 import com.google.common.collect.ImmutableList
 import com.google.gson.Gson
-import java.io.File
 import kotlin.math.pow
 
 object PlayerUtils {
@@ -199,10 +193,29 @@ object PlayerUtils {
 
         /* ================= MEDIA ITEM ================= */
 
-        val mediaItem =
+        val mediaItem: MediaItem =
             if (isOffline) {
                 Log.d("PlayerUtils", "Using OFFLINE MediaItem")
-                download!!.request.toMediaItem()
+
+                val isDashOffline =
+                    download.request.uri.toString()
+                        .substringBefore("?")
+                        .endsWith(".mpd", ignoreCase = true)
+
+                if (isDashOffline) {
+                    // Try offline DRM → fallback to online
+                    buildOfflineDrmMediaItemOrNull(download)
+                        ?: run {
+                            Log.w(
+                                "PlayerUtils",
+                                "Offline DASH without license → fallback to online"
+                            )
+                            MediaItem.fromUri(resolvedUri)
+                        }
+                } else {
+                    // HLS or non-DRM offline
+                    download.request.toMediaItem()
+                }
             } else {
                 Log.d("PlayerUtils", "Using ONLINE MediaItem: $resolvedUri")
 
@@ -213,6 +226,7 @@ object PlayerUtils {
                             setDrmConfiguration(
                                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
                                     .setLicenseUri(drmToken)
+                                    .setMultiSession(true)
                                     .build()
                             )
                         }
@@ -239,6 +253,7 @@ object PlayerUtils {
                     .build()
             }
 
+
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
@@ -246,6 +261,30 @@ object PlayerUtils {
         return exoPlayer to adsLoader
     }
 
+    @OptIn(UnstableApi::class)
+    private fun buildOfflineDrmMediaItemOrNull(
+        download: Download
+    ): MediaItem? {
+
+        val keySetId = download.request.keySetId
+        if (keySetId == null) {
+            Log.e(
+                "DRM_DEBUG",
+                "❌ Offline DASH but keySetId missing — falling back to online"
+            )
+            return null
+        }
+
+        return download.request
+            .toMediaItem()
+            .buildUpon()
+            .setDrmConfiguration(
+                MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                    .setKeySetId(keySetId)
+                    .build()
+            )
+            .build()
+    }
 
 
 
