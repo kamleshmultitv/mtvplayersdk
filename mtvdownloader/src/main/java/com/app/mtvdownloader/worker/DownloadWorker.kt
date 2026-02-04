@@ -182,6 +182,7 @@ class DownloadWorker(
                 continue
             }
 
+
             Log.d(
                 TAG,
                 "Download state=${download.state} " +
