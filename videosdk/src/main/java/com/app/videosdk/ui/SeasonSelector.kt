@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyRow
@@ -52,6 +53,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeasonSelector(
+    playerModel: PlayerModel? = null,
     playerModelList: List<PlayerModel>? = null,
     exoPlayer: ExoPlayer,
     onShowControls: (Boolean) -> Unit,
@@ -109,10 +111,12 @@ fun SeasonSelector(
                 }
             }
         ) {
-            Icon(
-                imageVector = Icons.Default.KeyboardDoubleArrowUp,
+            CustomIcon(
+                resId = playerModel?.customControls?.seasonSelectorIconRes,
+                defaultIcon = Icons.Default.KeyboardDoubleArrowUp,
                 contentDescription = "Episodes",
-                tint = Color.White
+                modifier = Modifier.size(24.dp),
+                tint = playerModel?.customControls?.iconTintRes
             )
             Text(
                 text = "Episodes",
@@ -120,7 +124,6 @@ fun SeasonSelector(
                 fontSize = 14.sp
             )
         }
-
     }
 
     // Bottom Sheet appears when swiped up

@@ -10,6 +10,7 @@ import com.app.mtvdownloader.local.entity.DownloadedContentEntity
 import com.app.mtvdownloader.model.DownloadModel
 import com.app.sample.AppClass
 import com.app.sample.BuildConfig.DRM_LICENSE_URL
+import com.app.sample.R
 import com.app.sample.extra.ApiConstant.DRM_TYPE
 import com.app.sample.extra.ApiConstant.PAID
 import com.app.sample.extra.ApiConstant.TOKEN
@@ -17,6 +18,7 @@ import com.app.sample.model.ContentItem
 import com.app.sample.model.OverrideContent
 import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.NextEpisode
+import com.app.videosdk.model.PlayerCustomControls
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.model.SkipIntro
 import okhttp3.internal.platform.PlatformRegistry.applicationContext
@@ -74,6 +76,179 @@ object FileUtils {
         return drmToken
     }
 
+    /* ---------------------------------- */
+    /* PLAYER MODEL BUILDER                */
+    /* ---------------------------------- */
+
+    @OptIn(UnstableApi::class)
+    fun buildPlayerContentList(
+        context: Context,
+        pagingItems: LazyPagingItems<ContentItem>,
+        overrideContent: OverrideContent?
+    ): List<PlayerModel> {
+
+        /* =========================================================
+           CASE 1 & 2 : SUBMIT WAS PRESSED
+           ========================================================= */
+
+        overrideContent?.let { override ->
+
+            /* ---------- CASE 1: Submit WITHOUT URL (apply config to API data) ---------- */
+
+            if (override.url.isNullOrBlank()) {
+                return pagingItems.itemSnapshotList.items.mapNotNull { content ->
+
+                    //  val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
+                    val hls = content.url?.takeIf { it.isNotBlank() }
+                    val mpd = content.url?.takeIf { it.isNotBlank() }
+                    if (hls == null && mpd == null) return@mapNotNull null
+
+                    PlayerModel(
+                        hlsUrl = hls,
+                        mpdUrl = mpd,
+                        liveUrl = null,
+                        isLive = false,
+
+                        drm = content.drm,
+                        drmToken = getDrmToken(context, content),
+
+                        imageUrl = content.layoutThumbs
+                            ?.firstOrNull()
+                            ?.imageSize
+                            ?.firstOrNull()
+                            ?.url.orEmpty(),
+
+                        title = content.title.orEmpty(),
+                        description = content.shortDesc.orEmpty(),
+                        srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
+
+                        // 🔥 APPLY SUBMITTED TOGGLES
+                        adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
+                        skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
+                        nextEpisode = override.nextEpisode
+                            ?: NextEpisode(enableNextEpisode = false),
+                        customControls = PlayerCustomControls(
+                            iconTintRes = R.color.white,
+                            playIconRes = R.drawable.ic_play,
+                            pauseIconRes = R.drawable.ic_pause,
+                            forwardIconRes = R.drawable.ic_forward,
+                            rewindIconRes = R.drawable.ic_rewined,
+                            backIconRes = R.drawable.ic_back_arrow,
+                            settingsIconRes = R.drawable.ic_settings,
+                            pipIconRes = R.drawable.ic_pip,
+                            fullScreenIconRes = R.drawable.ic_collapse,
+                            exitFullScreenIconRes = R.drawable.ic_expand,
+                            lockIconRes = R.drawable.ic_lock,
+                            unlockIconRes = R.drawable.ic_unlock,
+                            nextIconRes = R.drawable.ic_forward,
+                            previousIconRes = R.drawable.ic_rewined,
+                            muteIconRes = R.drawable.ic_mute,
+                            unMuteIconRes = R.drawable.ic_unmute,
+                            crossFadeIconRes = R.drawable.ic_cross,
+                            seasonSelectorIconRes = R.drawable.ic_episode,
+                            nextEpisodeIconRes = R.drawable.ic_next_episode,
+                        )
+                    )
+                }
+            }
+
+            /* ---------- CASE 2: Submit WITH URL (single override playback) ---------- */
+
+            return listOf(
+                PlayerModel(
+                    hlsUrl = if (!override.isLive) override.url else null,
+                    liveUrl = if (override.isLive) override.url else null,
+                    mpdUrl = override.url,
+                    drmToken = override.drmToken.orEmpty(),
+                    isLive = override.isLive,
+                    adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
+                    skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
+                    nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false),
+                    customControls = PlayerCustomControls(
+                        iconTintRes = R.color.white,
+                        playIconRes = R.drawable.ic_play,
+                        pauseIconRes = R.drawable.ic_pause,
+                        forwardIconRes = R.drawable.ic_forward,
+                        rewindIconRes = R.drawable.ic_rewined,
+                        backIconRes = R.drawable.ic_back_arrow,
+                        settingsIconRes = R.drawable.ic_settings,
+                        pipIconRes = R.drawable.ic_pip,
+                        fullScreenIconRes = R.drawable.ic_collapse,
+                        exitFullScreenIconRes = R.drawable.ic_expand,
+                        lockIconRes = R.drawable.ic_lock,
+                        unlockIconRes = R.drawable.ic_unlock,
+                        nextIconRes = R.drawable.ic_forward,
+                        previousIconRes = R.drawable.ic_rewined,
+                        muteIconRes = R.drawable.ic_mute,
+                        unMuteIconRes = R.drawable.ic_unmute,
+                        crossFadeIconRes = R.drawable.ic_cross,
+                        seasonSelectorIconRes = R.drawable.ic_episode,
+                        nextEpisodeIconRes = R.drawable.ic_next_episode,
+                    )
+                )
+            )
+        }
+
+        /* =========================================================
+           CASE 3 : NO SUBMIT (pure API data, defaults only)
+           ========================================================= */
+
+        return pagingItems.itemSnapshotList.items.mapNotNull { content ->
+
+            // val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
+            val hls = content.url?.takeIf { it.isNotBlank() }
+            val mpd = content.url?.takeIf { it.isNotBlank() }
+            if (hls == null && mpd == null) return@mapNotNull null
+
+            PlayerModel(
+                hlsUrl = hls,
+                mpdUrl = mpd,
+                liveUrl = null,
+                isLive = false,
+
+                drm = content.drm,
+                drmToken = getDrmToken(context, content),
+
+                imageUrl = content.layoutThumbs
+                    ?.firstOrNull()
+                    ?.imageSize
+                    ?.firstOrNull()
+                    ?.url.orEmpty(),
+
+                title = content.title.orEmpty(),
+                description = content.shortDesc.orEmpty(),
+                srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
+
+                // ✅ DEFAULTS (no submit yet)
+                adsConfig = AdsConfig(enableAds = false),
+                skipIntro = SkipIntro(enableSkipIntro = false),
+                nextEpisode = NextEpisode(enableNextEpisode = false),
+                cacheFactory = null,
+                customControls = PlayerCustomControls(
+                    iconTintRes = R.color.white,
+                    playIconRes = R.drawable.ic_play,
+                    pauseIconRes = R.drawable.ic_pause,
+                    forwardIconRes = R.drawable.ic_forward,
+                    rewindIconRes = R.drawable.ic_rewined,
+                    backIconRes = R.drawable.ic_back_arrow,
+                    settingsIconRes = R.drawable.ic_settings,
+                    pipIconRes = R.drawable.ic_pip,
+                    fullScreenIconRes = R.drawable.ic_collapse,
+                    exitFullScreenIconRes = R.drawable.ic_expand,
+                    lockIconRes = R.drawable.ic_lock,
+                    unlockIconRes = R.drawable.ic_unlock,
+                    nextIconRes = R.drawable.ic_forward,
+                    previousIconRes = R.drawable.ic_rewined,
+                    muteIconRes = R.drawable.ic_mute,
+                    unMuteIconRes = R.drawable.ic_unmute,
+                    crossFadeIconRes = R.drawable.ic_cross,
+                    seasonSelectorIconRes = R.drawable.ic_episode,
+                    nextEpisodeIconRes = R.drawable.ic_next_episode,
+                )
+            )
+        }
+    }
+
     @OptIn(UnstableApi::class)
     fun buildContentListFromDownloaded(
         downloadedContentEntity: DownloadedContentEntity
@@ -112,119 +287,30 @@ object FileUtils {
                 isLive = false,
                 cacheFactory = cacheFactory,
                 downloadManager = downloadManager,
-                downloadCache = downloadCache
-            )
-        )
-    }
-
-
-    /* ---------------------------------- */
-    /* PLAYER MODEL BUILDER                */
-    /* ---------------------------------- */
-
-    @OptIn(UnstableApi::class)
-    fun buildPlayerContentList(
-        context: Context,
-        pagingItems: LazyPagingItems<ContentItem>,
-        overrideContent: OverrideContent?
-    ): List<PlayerModel> {
-
-        /* =========================================================
-           CASE 1 & 2 : SUBMIT WAS PRESSED
-           ========================================================= */
-
-        overrideContent?.let { override ->
-
-            /* ---------- CASE 1: Submit WITHOUT URL (apply config to API data) ---------- */
-
-            if (override.url.isNullOrBlank()) {
-                return pagingItems.itemSnapshotList.items.mapNotNull { content ->
-
-                  //  val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
-                    val hls = content.url?.takeIf { it.isNotBlank() }
-                    val mpd = content.url?.takeIf { it.isNotBlank() }
-                    if (hls == null && mpd == null) return@mapNotNull null
-
-                    PlayerModel(
-                        hlsUrl = hls,
-                        mpdUrl = mpd,
-                        liveUrl = null,
-                        isLive = false,
-
-                        drm = content.drm,
-                        drmToken = getDrmToken(context, content),
-
-                        imageUrl = content.layoutThumbs
-                            ?.firstOrNull()
-                            ?.imageSize
-                            ?.firstOrNull()
-                            ?.url.orEmpty(),
-
-                        title = content.title.orEmpty(),
-                        description = content.shortDesc.orEmpty(),
-                        srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
-
-                        // 🔥 APPLY SUBMITTED TOGGLES
-                        adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
-                        skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
-                        nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false)
-                    )
-                }
-            }
-
-            /* ---------- CASE 2: Submit WITH URL (single override playback) ---------- */
-
-            return listOf(
-                PlayerModel(
-                    hlsUrl = if (!override.isLive) override.url else null,
-                    liveUrl = if (override.isLive) override.url else null,
-                    mpdUrl = override.url,
-                    drmToken = override.drmToken.orEmpty(),
-                    isLive = override.isLive,
-                    adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
-                    skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
-                    nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false)
+                downloadCache = downloadCache,
+                customControls = PlayerCustomControls(
+                    iconTintRes = R.color.white,
+                    playIconRes = R.drawable.ic_play,
+                    pauseIconRes = R.drawable.ic_pause,
+                    forwardIconRes = R.drawable.ic_forward,
+                    rewindIconRes = R.drawable.ic_rewined,
+                    backIconRes = R.drawable.ic_back_arrow,
+                    settingsIconRes = R.drawable.ic_settings,
+                    pipIconRes = R.drawable.ic_pip,
+                    fullScreenIconRes = R.drawable.ic_collapse,
+                    exitFullScreenIconRes = R.drawable.ic_expand,
+                    lockIconRes = R.drawable.ic_lock,
+                    unlockIconRes = R.drawable.ic_unlock,
+                    nextIconRes = R.drawable.ic_forward,
+                    previousIconRes = R.drawable.ic_rewined,
+                    muteIconRes = R.drawable.ic_mute,
+                    unMuteIconRes = R.drawable.ic_unmute,
+                    crossFadeIconRes = R.drawable.ic_cross,
+                    seasonSelectorIconRes = R.drawable.ic_episode,
+                    nextEpisodeIconRes = R.drawable.ic_next_episode,
                 )
             )
-        }
-
-        /* =========================================================
-           CASE 3 : NO SUBMIT (pure API data, defaults only)
-           ========================================================= */
-
-        return pagingItems.itemSnapshotList.items.mapNotNull { content ->
-
-           // val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
-            val hls = content.url?.takeIf { it.isNotBlank() }
-            val mpd = content.url?.takeIf { it.isNotBlank() }
-            if (hls == null && mpd == null) return@mapNotNull null
-
-            PlayerModel(
-                hlsUrl = hls,
-                mpdUrl = mpd,
-                liveUrl = null,
-                isLive = false,
-
-                drm = content.drm,
-                drmToken = getDrmToken(context, content),
-
-                imageUrl = content.layoutThumbs
-                    ?.firstOrNull()
-                    ?.imageSize
-                    ?.firstOrNull()
-                    ?.url.orEmpty(),
-
-                title = content.title.orEmpty(),
-                description = content.shortDesc.orEmpty(),
-                srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
-
-                // ✅ DEFAULTS (no submit yet)
-                adsConfig = AdsConfig(enableAds = false),
-                skipIntro = SkipIntro(enableSkipIntro = false),
-                nextEpisode = NextEpisode(enableNextEpisode = false),
-                cacheFactory = null
-            )
-        }
+        )
     }
 
     fun buildDownloadContentList(
@@ -234,7 +320,7 @@ object FileUtils {
 
         if (contentItem == null) return null
 
-      //  val hlsUrl = contentItem.hlsUrl?.takeIf { it.isNotBlank() }
+        //  val hlsUrl = contentItem.hlsUrl?.takeIf { it.isNotBlank() }
         val hlsUrl = contentItem.url?.takeIf { it.isNotBlank() }
         val mpdUrl = contentItem.url?.takeIf { it.isNotBlank() }
 

@@ -16,17 +16,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 
 @Composable
 fun CenterControls(
+    playerModel: PlayerModel? = null,
     isLoading: Boolean,
     exoPlayer: ExoPlayer,
     castUtils: CastUtils,
     isCasting: Boolean,
     onShowControls: (Boolean) -> Unit,
-    showForwardIcon: Boolean,
-    showRewindIcon: Boolean,
     onForward: () -> Unit,
     onRewind: () -> Unit,
     onForwardHide: () -> Unit,
@@ -73,10 +73,9 @@ fun CenterControls(
                 .then(gestureModifier)
         ) {
             ForwardBackwardButtonsOverlay(
+                playerModel = playerModel,
                 exoPlayer = exoPlayer,
                 context = LocalContext.current,
-                showRewindIcon = showRewindIcon,
-                showForwardIcon = showForwardIcon,
                 onRewindIconHide = onRewindHide,
                 onForwardIconHide = onForwardHide,
                 isControllerVisible = true

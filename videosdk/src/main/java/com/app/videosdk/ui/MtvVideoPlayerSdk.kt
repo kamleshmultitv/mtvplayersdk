@@ -37,11 +37,12 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
+import com.app.videosdk.model.CuePoint
+import com.app.videosdk.model.CueType
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
@@ -55,6 +56,7 @@ fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
     pipListener: PipListener? = null,
+    isInPipMode: Boolean = false,
     startInFullScreen: Boolean = false,
     playerStateListener: PlayerStateListener? = null,
     onPlayerBack: (Boolean) -> Unit,
@@ -106,7 +108,10 @@ fun MtvVideoPlayerSdk(
 
     FullScreenHandler(isFullScreen)
     var isControllerVisible by remember { mutableStateOf(false) }
-    var pipEnabled by remember { mutableStateOf(false) }
+    var isLockScreen by remember { mutableStateOf(false) }
+    var showUnlockConfirm by remember { mutableStateOf(false) }
+    var isLockOverlayVisible by remember { mutableStateOf(true) }
+    var pipEnabled = isInPipMode
     var isLoading by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
     var isAdsShowing by remember { mutableStateOf(false) }
@@ -133,10 +138,13 @@ fun MtvVideoPlayerSdk(
 
             else -> ""
         }
-        
+
         // ✅ DEBUG: Log URL selection
-        android.util.Log.d("MtvVideoPlayerSdk", "Selected playbackUrl: $url (DRM=${playerModel?.drm}, isLive=$isLive)")
-        
+        android.util.Log.d(
+            "MtvVideoPlayerSdk",
+            "Selected playbackUrl: $url (DRM=${playerModel?.drm}, isLive=$isLive)"
+        )
+
         url
     }
 
@@ -160,20 +168,24 @@ fun MtvVideoPlayerSdk(
                 isAdsShowing = true
 
             }
+
             override fun onAdStarted() {
                 isControllerVisible = false
                 isAdsShowing = true
                 playerStateListener?.onAdStateChanged(true)
             }
+
             override fun onAdCompleted() {
                 isControllerVisible = true
                 isAdsShowing = false
                 playerStateListener?.onAdStateChanged(false)
             }
+
             override fun onAllAdsCompleted() {
                 isControllerVisible = true
                 isAdsShowing = false
             }
+
             override fun onAdError(message: String) {
                 isControllerVisible = true
                 isAdsShowing = false
@@ -183,10 +195,13 @@ fun MtvVideoPlayerSdk(
 
     val playerWithAds = remember(selectedIndex.intValue, playbackUrl) {
         val model = playerModel ?: return@remember null
-        val urlString = playbackUrl?.toString() ?: ""
-        
-        android.util.Log.d("MtvVideoPlayerSdk", "Creating player with url: $urlString, drmToken: ${if (model.drmToken.isNullOrBlank()) "null" else "present"}")
-        
+        val urlString = playbackUrl ?: ""
+
+        android.util.Log.d(
+            "MtvVideoPlayerSdk",
+            "Creating player with url: $urlString, drmToken: ${if (model.drmToken.isNullOrBlank()) "null" else "present"}"
+        )
+
         PlayerUtils.createPlayer(
             context = context,
             contentList,
@@ -259,19 +274,18 @@ fun MtvVideoPlayerSdk(
                 }
             }
 
-                override fun onTracksChanged(tracks: Tracks) {
-                    tracks.groups.forEach { group ->
-                        Log.d("TRACK", "TrackGroup type=${group.type}")
-                        for (i in 0 until group.mediaTrackGroup.length) {
-                            val format = group.mediaTrackGroup.getFormat(i)
-                            Log.d(
-                                "TRACK",
-                                "  mime=${format.sampleMimeType}, codecs=${format.codecs}"
-                            )
-                        }
+            override fun onTracksChanged(tracks: Tracks) {
+                tracks.groups.forEach { group ->
+                    Log.d("TRACK", "TrackGroup type=${group.type}")
+                    for (i in 0 until group.mediaTrackGroup.length) {
+                        val format = group.mediaTrackGroup.getFormat(i)
+                        Log.d(
+                            "TRACK",
+                            "  mime=${format.sampleMimeType}, codecs=${format.codecs}"
+                        )
                     }
                 }
-
+            }
 
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -364,6 +378,13 @@ fun MtvVideoPlayerSdk(
         }
     }
 
+    LaunchedEffect(isLockScreen, isLockOverlayVisible) {
+        if (isLockScreen && isLockOverlayVisible) {
+            delay(3000)
+            isLockOverlayVisible = false
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -397,7 +418,9 @@ fun MtvVideoPlayerSdk(
                 }
                 .pointerInput(Unit) {
                     detectTapGestures {
-                        if (!pipEnabled && !isSettingsClick) {
+                        if (isLockScreen) {
+                            isLockOverlayVisible = true
+                        } else if (!pipEnabled && !isSettingsClick) {
                             isControllerVisible = !isControllerVisible
                         }
                     }
@@ -412,11 +435,11 @@ fun MtvVideoPlayerSdk(
         }
 
         AnimatedVisibility(
-            visible = isControllerVisible && !pipEnabled,
+            visible = isControllerVisible && !pipEnabled && !isLockScreen,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
-            exoPlayer?.let {
+            exoPlayer?.let { it ->
                 CustomPlayerController(
                     playerModelList = contentList,
                     index = selectedIndex.intValue,
@@ -427,7 +450,11 @@ fun MtvVideoPlayerSdk(
                         setFullScreen(full)
                         playerStateListener?.onFullScreenChanged(full)
                     },
+                    isLockScreen = {
+                        isLockScreen = it
+                    },
                     isCurrentlyFullScreen = isFullScreen,
+                    isCurrentlyLockScreen = isLockScreen,
                     exoPlayer = it,
                     modifier = Modifier.fillMaxSize(),
                     onShowControls = { isControllerVisible = it },
@@ -452,8 +479,35 @@ fun MtvVideoPlayerSdk(
             }
         }
 
+        if (isLockScreen) {
+            AnimatedVisibility(
+                visible = isLockOverlayVisible && !pipEnabled,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                exoPlayer?.let {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LockScreenOverlay(
+                            playerModel = playerModel,
+                            isLocked = isLockScreen,
+                            showUnlockConfirm = showUnlockConfirm,
+                            onUnlockRequest = {
+                                showUnlockConfirm = true
+                            },
+                            onConfirmUnlock = {
+                                isLockScreen = false
+                                showUnlockConfirm = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
         if (isSettingsClick) {
-            SelectorHeader(exoPlayer) { isSettingsClick = it }
+            SelectorHeader(
+                playerModel = playerModel,
+                exoPlayer) { isSettingsClick = it }
         }
     }
 }

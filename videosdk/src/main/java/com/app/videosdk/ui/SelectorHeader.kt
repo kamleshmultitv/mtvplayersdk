@@ -12,13 +12,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +41,7 @@ import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.OptionItemModel
+import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils.calculatePitch
 import com.app.videosdk.utils.PlayerUtils.changeVideoResolution
 import com.app.videosdk.utils.PlayerUtils.getAudioTrack
@@ -52,7 +53,7 @@ import com.app.videosdk.utils.PlayerUtils.showAudioTrack
 import com.app.videosdk.viewmodel.VideoViewModel
 
 @Composable
-fun SelectorHeader(exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {}) {
+fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {}) {
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
     val selectedItems = remember { mutableStateMapOf<Int, Int>() }
@@ -99,10 +100,12 @@ fun SelectorHeader(exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {
                     closeOptionCard(false)
                 }
             ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
+                CustomIcon(
+                    resId = playerModel?.customControls?.crossFadeIconRes,
+                    defaultIcon = Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = Color.White
+                    modifier = Modifier.size(24.dp),
+                    tint = playerModel?.customControls?.iconTintRes
                 )
             }
         }
@@ -113,10 +116,13 @@ fun SelectorHeader(exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {
             color = Color.Gray
         )
 
-        Box(modifier = Modifier.fillMaxSize().padding(top = 16.dp)) {
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 16.dp)) {
             when (selectedOption) {
                 1 -> {
-                    val audioTrackList = remember(context, exoPlayer) { showAudioTrack(context, exoPlayer) }
+                    val audioTrackList =
+                        remember(context, exoPlayer) { showAudioTrack(context, exoPlayer) }
                     SelectionList(
                         items = audioTrackList.map { it.name.toString() },
                         selectedIndex = selectedItems[selectedOption] ?: -1
@@ -130,7 +136,8 @@ fun SelectorHeader(exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {
                     val subTitleList = remember(exoPlayer) { getSubTitleFormats(exoPlayer) }
                     val availableList = remember(context, subTitleList) {
                         getAudioTrack(
-                            context, listOf("off") + subTitleList.mapNotNull { it.language ?: it.label }
+                            context,
+                            listOf("off") + subTitleList.mapNotNull { it.language ?: it.label }
                         )
                     }
 
@@ -213,22 +220,23 @@ fun SelectionList(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val isSelected = selectedIndex == index
+
                 Text(
-                    text = items[index],
-                    color = Color.White,
+                    text = if (isSelected) "✔" else "",
+                    color = Color.Green,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal,
-                    modifier = Modifier.weight(1f)
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(0.5f)
                 )
 
-                if (selectedIndex == index) {
-                    Text(
-                        text = "✔",
-                        color = Color.Green,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    text = items[index],
+                    color = if (isSelected) Color.Green else Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.weight(9.5f)
+                )
             }
         }
     }

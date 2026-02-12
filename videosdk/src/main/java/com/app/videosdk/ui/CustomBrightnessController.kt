@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brightness6
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,11 +32,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.app.videosdk.model.PlayerModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun CustomBrightnessController(
+    playerModel: PlayerModel? = null,
     modifier: Modifier = Modifier,
     onShowControls: (Boolean) -> Unit = {}
 ) {
@@ -87,11 +88,13 @@ fun CustomBrightnessController(
                 .size(24.dp),
             onClick = {}
         ) {
-            Icon(
-                imageVector = Icons.Default.Brightness6,
+            CustomIcon(
+                resId = playerModel?.customControls?.brightnessIconRes,
+                defaultIcon = Icons.Default.Brightness6,
                 contentDescription = "Brightness",
                 modifier = Modifier.size(24.dp),
-                tint = Color.White
+                tint = playerModel?.customControls?.iconTintRes
+
             )
         }
 

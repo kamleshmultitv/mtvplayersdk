@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.CuePoint
 import com.app.videosdk.utils.PlayerUtils.formatTime
 
 @Composable

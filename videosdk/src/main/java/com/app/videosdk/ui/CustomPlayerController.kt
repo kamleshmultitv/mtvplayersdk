@@ -39,6 +39,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.listener.PipListener
+import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
@@ -51,7 +52,9 @@ fun CustomPlayerController(
     totalDuration: Long,
     pipListener: PipListener? = null,
     isFullScreen: (Boolean) -> Unit,
+    isLockScreen: (Boolean) -> Unit,
     isCurrentlyFullScreen: Boolean,
+    isCurrentlyLockScreen: Boolean,
     exoPlayer: ExoPlayer,
     modifier: Modifier,
     onShowControls: (Boolean) -> Unit,
@@ -70,6 +73,7 @@ fun CustomPlayerController(
 
     val showControlsState = rememberUpdatedState(onShowControls)
     val fullScreenState = rememberUpdatedState(isFullScreen)
+    val lockScreenState = rememberUpdatedState(isLockScreen)
 
     val castUtils = remember(context, exoPlayer) {
         CastUtils(context, exoPlayer)
@@ -266,6 +270,8 @@ fun CustomPlayerController(
         }
     }
 
+    val playerModel = playerModelList?.getOrNull(index)
+
 
     /* ---------------- UI (UNCHANGED) ---------------- */
 
@@ -278,6 +284,7 @@ fun CustomPlayerController(
 
         /* ---- TOP BAR ---- */
         TopBar(
+            playerModel = playerModel,
             title = currentPlayerModel?.title.orEmpty(),
             isFullScreen = isCurrentlyFullScreen,
             context = context,
@@ -292,6 +299,9 @@ fun CustomPlayerController(
             },
             onFullScreenToggle = {
                 fullScreenState.value(!isCurrentlyFullScreen)
+            },
+            onLockScreenToggle = {
+                lockScreenState.value(!isCurrentlyLockScreen)
             }
         )
 
@@ -309,6 +319,7 @@ fun CustomPlayerController(
                     contentAlignment = Alignment.Center
                 ) {
                     CustomBrightnessController(
+                        playerModel = playerModel,
                         onShowControls = showControlsState.value
                     )
                 }
@@ -316,13 +327,12 @@ fun CustomPlayerController(
                 /* ---- CENTER CONTROLS ---- */
                 Box(modifier = Modifier.weight(0.8f)) {
                     CenterControls(
+                        playerModel = playerModel,
                         isLoading = isLoading,
                         exoPlayer = exoPlayer,
                         castUtils = castUtils,
                         isCasting = isCasting,
                         onShowControls = showControlsState.value,
-                        showForwardIcon = showForwardIcon,
-                        showRewindIcon = showRewindIcon,
                         onForward = { showForwardIcon = true },
                         onRewind = { showRewindIcon = true },
                         onForwardHide = { showForwardIcon = false },
@@ -340,6 +350,7 @@ fun CustomPlayerController(
                     contentAlignment = Alignment.Center
                 ) {
                     CustomVolumeController(
+                        playerModel = playerModel,
                         exoPlayer = exoPlayer,
                         onShowControls = showControlsState.value
                     )
@@ -350,13 +361,12 @@ fun CustomPlayerController(
 
             /* ---- NON FULLSCREEN CENTER ---- */
             CenterControls(
+                playerModel = playerModel,
                 isLoading = isLoading,
                 exoPlayer = exoPlayer,
                 castUtils = castUtils,
                 isCasting = isCasting,
                 onShowControls = showControlsState.value,
-                showForwardIcon = showForwardIcon,
-                showRewindIcon = showRewindIcon,
                 onForward = { showForwardIcon = true },
                 onRewind = { showRewindIcon = true },
                 onForwardHide = { showForwardIcon = false },

@@ -22,7 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.core.R
+import androidx.core.graphics.alpha
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.sprite.SpriteThumbnail
 import com.app.videosdk.ui.sprite.SpriteUtils
@@ -130,12 +133,16 @@ fun BottomControls(
                                 .padding(4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.SkipNext,
+                            CustomIcon(
+                                resId = model?.customControls?.nextEpisodeIconRes,
+                                defaultIcon = Icons.Default.SkipNext,
                                 contentDescription = "Next Episode",
-                                tint = if (isLastItem) Color.Gray else Color.White
+                                modifier = Modifier.size(24.dp),
+                                tint = if (!isLastItem) model?.customControls?.iconTintRes else model?.customControls?.iconTintRes
                             )
+
                             Text(
+                                modifier = Modifier.padding(start = 4.dp),
                                 text = "Next Ep.",
                                 color = if (isLastItem) Color.Gray else Color.White
                             )
@@ -148,6 +155,7 @@ fun BottomControls(
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
                         SeasonSelector(
+                            playerModel = model,
                             playerModelList = playerModelList,
                             exoPlayer = exoPlayer,
                             onShowControls = {},

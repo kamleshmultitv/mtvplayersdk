@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -27,11 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.PlayerModel
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
 fun CustomVolumeController(
+    playerModel: PlayerModel? = null,
     exoPlayer: ExoPlayer,
     modifier: Modifier = Modifier,
     onShowControls: (Boolean) -> Unit = {}
@@ -116,11 +117,12 @@ fun CustomVolumeController(
                 exoPlayer.volume = if (isMuted) 0f else systemVolume / maxVolume
             }
         ) {
-            Icon(
-                imageVector = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+            CustomIcon(
+                resId = if (isMuted) playerModel?.customControls?.muteIconRes else playerModel?.customControls?.unMuteIconRes,
+                defaultIcon = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                 contentDescription = if (isMuted) "Unmute" else "Mute",
-                tint = Color.White,
                 modifier = Modifier.size(24.dp),
+                tint = playerModel?.customControls?.iconTintRes
             )
         }
 

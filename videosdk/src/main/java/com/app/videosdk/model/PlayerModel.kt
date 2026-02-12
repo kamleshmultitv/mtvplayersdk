@@ -26,6 +26,7 @@ data class PlayerModel(
     val adsConfig: AdsConfig? = null,
     val skipIntro: SkipIntro? = null,
     val nextEpisode: NextEpisode? = null,
+    val customControls: PlayerCustomControls? = null,
     val cacheFactory: CacheDataSource.Factory? = null,
     val downloadManager: DownloadManager? = null,
     val downloadCache: SimpleCache? = null
