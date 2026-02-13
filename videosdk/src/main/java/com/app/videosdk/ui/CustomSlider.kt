@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.CuePoint
+import com.app.videosdk.model.CueType
 import com.app.videosdk.utils.PlayerUtils.formatTime
 
 @Composable
@@ -193,7 +194,10 @@ fun CustomSlider(
                                     if (isSeeking) 6.dp.toPx() else 4.dp.toPx()
 
                                 drawRoundRect(
-                                    color = Color.Yellow,
+                                    color = when (cue.type) {
+                                        CueType.AD -> Color.Yellow
+                                        CueType.L_BAND -> Color.Green
+                                    },
                                     topLeft = Offset(
                                         x - markerSize / 2,
                                         size.height / 2 - markerSize / 2

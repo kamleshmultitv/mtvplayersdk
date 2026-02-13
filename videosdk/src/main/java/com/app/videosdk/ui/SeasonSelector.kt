@@ -115,7 +115,7 @@ fun SeasonSelector(
                 resId = playerModel?.customControls?.seasonSelectorIconRes,
                 defaultIcon = Icons.Default.KeyboardDoubleArrowUp,
                 contentDescription = "Episodes",
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(16.dp),
                 tint = playerModel?.customControls?.iconTintRes
             )
             Text(

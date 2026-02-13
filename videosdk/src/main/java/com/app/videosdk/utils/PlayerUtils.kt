@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableList
 import com.google.gson.Gson
 import kotlin.math.pow
 
+
 object PlayerUtils {
 
     /* =========================================================
@@ -85,13 +86,25 @@ object PlayerUtils {
                     adsConfig?.enableAds == true &&
                     !adsConfig.adTagUrl.isNullOrBlank()
                 ) {
+
                     ImaAdsLoader.Builder(context)
                         .setAdEventListener { event ->
+
                             when (event.type) {
-                                AdEvent.AdEventType.LOADED -> adsListener?.onAdsLoaded()
-                                AdEvent.AdEventType.STARTED -> adsListener?.onAdStarted()
-                                AdEvent.AdEventType.COMPLETED -> adsListener?.onAdCompleted()
-                                AdEvent.AdEventType.ALL_ADS_COMPLETED -> adsListener?.onAllAdsCompleted()
+
+                                AdEvent.AdEventType.LOADED -> {
+                                    adsListener?.onAdsLoaded()
+                                }
+
+                                AdEvent.AdEventType.STARTED ->
+                                    adsListener?.onAdStarted()
+
+                                AdEvent.AdEventType.COMPLETED ->
+                                    adsListener?.onAdCompleted()
+
+                                AdEvent.AdEventType.ALL_ADS_COMPLETED ->
+                                    adsListener?.onAllAdsCompleted()
+
                                 else -> Unit
                             }
                         }
@@ -100,7 +113,10 @@ object PlayerUtils {
                             Log.e("IMA", "Ad error", error.error)
                         }
                         .build()
+
                 } else null
+
+
 
         /* ================= DATASOURCE ================= */
 

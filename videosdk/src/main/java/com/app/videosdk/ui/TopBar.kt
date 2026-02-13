@@ -93,14 +93,16 @@ fun TopBar(
             }
         }
 
-        IconButton(onClick = onLockScreenToggle) {
-            CustomIcon(
-                resId = playerModel?.customControls?.lockIconRes,
-                defaultIcon = Icons.Default.Lock,
-                contentDescription = "Toggle Lock Screen",
-                modifier = Modifier.size(24.dp),
-                tint = playerModel?.customControls?.iconTintRes
-            )
+        if (isFullScreen) {
+            IconButton(onClick = onLockScreenToggle) {
+                CustomIcon(
+                    resId = playerModel?.customControls?.lockIconRes,
+                    defaultIcon = Icons.Default.Lock,
+                    contentDescription = "Toggle Lock Screen",
+                    modifier = Modifier.size(24.dp),
+                    tint = playerModel?.customControls?.iconTintRes
+                )
+            }
         }
 
         // FIXED: Moved Fullscreen button OUTSIDE the if(isFullScreen) block 
@@ -108,7 +110,7 @@ fun TopBar(
         IconButton(onClick = onFullScreenToggle) {
             CustomIcon(
                 resId = if (isFullScreen) playerModel?.customControls?.exitFullScreenIconRes else playerModel?.customControls?.fullScreenIconRes,
-                defaultIcon = if (isFullScreen)Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                defaultIcon = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                 contentDescription = "Toggle Fullscreen",
                 modifier = Modifier.size(24.dp),
                 tint = playerModel?.customControls?.iconTintRes

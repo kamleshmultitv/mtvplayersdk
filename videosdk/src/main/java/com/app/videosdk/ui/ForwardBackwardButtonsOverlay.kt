@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forward10
@@ -18,15 +19,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.PlayerCustomControls
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 import kotlinx.coroutines.delay
@@ -58,8 +62,8 @@ fun ForwardBackwardButtonsOverlay(
     }
 
     /* 🔁 Animation triggers (FIX) */
-    var rewindAnimTrigger by remember { mutableStateOf(0) }
-    var forwardAnimTrigger by remember { mutableStateOf(0) }
+    var rewindAnimTrigger by remember { mutableIntStateOf(0) }
+    var forwardAnimTrigger by remember { mutableIntStateOf(0) }
 
     /* 🔄 Animations */
     val rewindRotation by animateFloatAsState(
@@ -75,115 +79,52 @@ fun ForwardBackwardButtonsOverlay(
     )
 
     /* 🎮 UI */
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    ForwardBackwardButtonsOverlayUi(
+        isPlaying = isPlaying,
+        isCasting = isCasting,
+        customControls = customControls,
+        onRewind = {
+            rewindAnimTrigger++
 
-            /* ⏪ Rewind */
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = {
-                        rewindAnimTrigger++
+            val newPosition = maxOf(
+                (if (isCasting) castUtils.getCastPosition()
+                else exoPlayer.currentPosition) - 10_000,
+                0
+            )
+            if (isCasting) castUtils.seekOnCast(newPosition)
+            else exoPlayer.seekTo(newPosition)
+        },
+        onForward = {
+            forwardAnimTrigger++
 
-                        val newPosition = maxOf(
-                            (if (isCasting) castUtils.getCastPosition()
-                            else exoPlayer.currentPosition) - 10_000,
-                            0
-                        )
-                        if (isCasting) castUtils.seekOnCast(newPosition)
-                        else exoPlayer.seekTo(newPosition)
-                    }
-                ) {
+            val duration =
+                if (isCasting) castUtils.getCastDuration()
+                else exoPlayer.duration
 
-                    CustomIcon(
-                        resId = customControls?.rewindIconRes,
-                        defaultIcon = Icons.Default.Replay10,
-                        contentDescription = "Rewind 10s",
-                        modifier = Modifier
-                            .size(48.dp)
-                            .graphicsLayer(rotationZ = rewindRotation),
-                        tint = customControls?.iconTintRes
-                    )
-                }
+            val newPosition = minOf(
+                (if (isCasting) castUtils.getCastPosition()
+                else exoPlayer.currentPosition) + 10_000,
+                duration
+            )
+            if (isCasting) castUtils.seekOnCast(newPosition)
+            else exoPlayer.seekTo(newPosition)
+        },
+        onPlayPause = {
+            if (isPlaying) {
+                if (isCasting) castUtils.pauseCasting()
+                else exoPlayer.pause()
+            } else {
+                if (isCasting) castUtils.playCasting()
+                else exoPlayer.play()
             }
+        },
+        onRewindIconHide = onRewindIconHide,
+        onForwardIconHide = onForwardIconHide,
+        isControllerVisible = isControllerVisible,
+        rewindRotation = rewindRotation,
+        forwardRotation = forwardRotation
+    )
 
-            /* ▶️ Play / Pause */
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isControllerVisible) {
-                    IconButton(
-                        onClick = {
-                            if (isPlaying) {
-                                if (isCasting) castUtils.pauseCasting()
-                                else exoPlayer.pause()
-                            } else {
-                                if (isCasting) castUtils.playCasting()
-                                else exoPlayer.play()
-                            }
-                        }
-                    ) {
-
-                        CustomIcon(
-                            resId = if (isPlaying) customControls?.pauseIconRes else customControls?.playIconRes,
-                            defaultIcon = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = "Play/Pause",
-                            modifier = Modifier.size(72.dp),
-                            tint = customControls?.iconTintRes
-                        )
-                    }
-                }
-            }
-
-            /* ⏩ Forward */
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = {
-                        forwardAnimTrigger++
-
-                        val duration =
-                            if (isCasting) castUtils.getCastDuration()
-                            else exoPlayer.duration
-
-                        val newPosition = minOf(
-                            (if (isCasting) castUtils.getCastPosition()
-                            else exoPlayer.currentPosition) + 10_000,
-                            duration
-                        )
-                        if (isCasting) castUtils.seekOnCast(newPosition)
-                        else exoPlayer.seekTo(newPosition)
-                    }
-                ) {
-
-                    CustomIcon(
-                        resId = customControls?.forwardIconRes,
-                        defaultIcon = Icons.Default.Forward10,
-                        contentDescription = "Forward 10s",
-                        modifier = Modifier
-                            .size(48.dp)
-                            .graphicsLayer(rotationZ = forwardRotation),
-                        tint = customControls?.iconTintRes
-                    )
-                }
-            }
-        }
-    }
 
     /* 🔁 Auto reset animations */
     LaunchedEffect(rewindAnimTrigger) {
@@ -201,4 +142,125 @@ fun ForwardBackwardButtonsOverlay(
             onForwardIconHide()
         }
     }
+}
+
+@Composable
+private fun ForwardBackwardButtonsOverlayUi(
+    isPlaying: Boolean,
+    isCasting: Boolean,
+    customControls: PlayerCustomControls?,
+    onRewind: () -> Unit,
+    onForward: () -> Unit,
+    onPlayPause: () -> Unit,
+    onRewindIconHide: () -> Unit,
+    onForwardIconHide: () -> Unit,
+    isControllerVisible: Boolean,
+    rewindRotation: Float,
+    forwardRotation: Float
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            /* ⏪ Rewind */
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    onClick = onRewind
+                ) {
+
+                    CustomIcon(
+                        resId = customControls?.rewindIconRes,
+                        defaultIcon = Icons.Default.Replay10,
+                        contentDescription = "Rewind 10s",
+                        modifier = Modifier
+                            .size(48.dp)
+                            .graphicsLayer(rotationZ = rewindRotation),
+                        tint = customControls?.iconTintRes
+                    )
+                }
+            }
+
+            /* ▶️ Play / Pause */
+            Box(
+                modifier = Modifier.weight(1f)
+                    .height(48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isControllerVisible) {
+                    IconButton(
+                        modifier = Modifier
+                            .fillMaxSize(),
+                        onClick = onPlayPause
+                    ) {
+
+                        CustomIcon(
+                            resId = if (isPlaying) customControls?.pauseIconRes else customControls?.playIconRes,
+                            defaultIcon = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = "Play/Pause",
+                            modifier = Modifier.size(48.dp),
+                            tint = customControls?.iconTintRes
+                        )
+                    }
+                }
+            }
+
+            /* ⏩ Forward */
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                IconButton(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    onClick = onForward
+                ) {
+
+                    CustomIcon(
+                        resId = customControls?.forwardIconRes,
+                        defaultIcon = Icons.Default.Forward10,
+                        contentDescription = "Forward 10s",
+                        modifier = Modifier
+                            .size(48.dp)
+                            .graphicsLayer(rotationZ = forwardRotation),
+                        tint = customControls?.iconTintRes
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+@Preview(showBackground = true)
+@Composable
+fun ForwardBackwardButtonsOverlayPreview() {
+    // Mock states for preview
+    var isPlaying by remember { mutableStateOf(true) }
+    val rewindRotation by animateFloatAsState(targetValue = 0f, animationSpec = tween(300), label = "rewindRotation")
+    val forwardRotation by animateFloatAsState(targetValue = 0f, animationSpec = tween(300), label = "forwardRotation")
+    val customControls = PlayerCustomControls(iconTintRes = null) // Minimal controls
+
+    ForwardBackwardButtonsOverlayUi(
+        isPlaying = isPlaying,
+        isCasting = false, // Not casting for preview
+        customControls = customControls,
+        onRewind = { /* mock seek back */ },
+        onForward = { /* mock seek forward */ },
+        onPlayPause = { isPlaying = !isPlaying },
+        onRewindIconHide = { /* mock hide */ },
+        onForwardIconHide = { /* mock hide */ },
+        isControllerVisible = true,
+        rewindRotation = rewindRotation,
+        forwardRotation = forwardRotation
+    )
 }

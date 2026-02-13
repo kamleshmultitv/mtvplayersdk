@@ -137,7 +137,7 @@ fun BottomControls(
                                 resId = model?.customControls?.nextEpisodeIconRes,
                                 defaultIcon = Icons.Default.SkipNext,
                                 contentDescription = "Next Episode",
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(16.dp),
                                 tint = if (!isLastItem) model?.customControls?.iconTintRes else model?.customControls?.iconTintRes
                             )
 

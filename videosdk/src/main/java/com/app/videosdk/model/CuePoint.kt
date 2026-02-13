@@ -8,5 +8,6 @@ data class CuePoint(
 )
 
 enum class CueType {
-    AD
+    AD,
+    L_BAND
 }

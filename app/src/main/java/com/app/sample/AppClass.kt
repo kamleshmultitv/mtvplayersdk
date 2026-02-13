@@ -8,6 +8,7 @@ import com.app.mtvdownloader.DownloadUtil
 import com.app.mtvdownloader.DownloadUtil.getDownloadManager
 import androidx.media3.exoplayer.offline.DownloadManager
 import com.app.mtvdownloader.DownloadUtil.getDownloadCache
+import com.google.android.gms.ads.MobileAds
 
 @UnstableApi
 class AppClass : Application() {
@@ -24,6 +25,7 @@ class AppClass : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        MobileAds.initialize(this)
         // ✅ INIT DOWNLOAD MANAGER SAFELY
         downloadManager = getDownloadManager(this)
         downloadCache = getDownloadCache(this)

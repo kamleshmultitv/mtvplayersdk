@@ -44,10 +44,12 @@ import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.max
 
 @OptIn(UnstableApi::class)
@@ -66,6 +68,7 @@ fun MtvVideoPlayerSdk(
     val configuration = LocalConfiguration.current
 
     var contentDuration by remember { mutableLongStateOf(0L) }
+
 
     val playerView = remember {
         PlayerView(context).apply {
@@ -115,6 +118,9 @@ fun MtvVideoPlayerSdk(
     var isLoading by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
     var isAdsShowing by remember { mutableStateOf(false) }
+    var showLShapeAd by remember { mutableStateOf(false) }
+    val triggeredLBands = remember { mutableSetOf<String>() }
+    val coroutineScope = rememberCoroutineScope()
 
     var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
 
@@ -163,15 +169,16 @@ fun MtvVideoPlayerSdk(
 
     val adsListener = remember {
         object : AdsListener {
+
             override fun onAdsLoaded() {
                 isControllerVisible = false
                 isAdsShowing = true
-
             }
 
             override fun onAdStarted() {
                 isControllerVisible = false
                 isAdsShowing = true
+                showLShapeAd = false
                 playerStateListener?.onAdStateChanged(true)
             }
 
@@ -179,6 +186,13 @@ fun MtvVideoPlayerSdk(
                 isControllerVisible = true
                 isAdsShowing = false
                 playerStateListener?.onAdStateChanged(false)
+
+                showLShapeAd = true
+
+                coroutineScope.launch {
+                    delay(200000)
+                    showLShapeAd = false
+                }
             }
 
             override fun onAllAdsCompleted() {
@@ -192,6 +206,7 @@ fun MtvVideoPlayerSdk(
             }
         }
     }
+
 
     val playerWithAds = remember(selectedIndex.intValue, playbackUrl) {
         val model = playerModel ?: return@remember null
@@ -217,6 +232,29 @@ fun MtvVideoPlayerSdk(
 
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
+
+    val lBandCuePoints = remember(contentDuration, selectedIndex.intValue) {
+        val interval = playerModel?.gamAdsConfig?.timeIntervalInMilliseconds
+        if (contentDuration <= 0L || interval == null || interval <= 0L) {
+            emptyList()
+        } else {
+            val cueList = mutableListOf<CuePoint>()
+            var position = interval
+            var count = 1
+            while (position < contentDuration) {
+                cueList.add(
+                    CuePoint(
+                        positionMs = position,
+                        id = "lband_$count",
+                        type = CueType.L_BAND
+                    )
+                )
+                position += interval   // now safe (Long, not nullable)
+                count++
+            }
+            cueList
+        }
+    }
 
     // 🔥 Position Tracker for Auto-Show Controls (Intro / Next Episode)
     var hasShownNextEpisodeControls by remember(selectedIndex.intValue) { mutableStateOf(false) }
@@ -244,14 +282,23 @@ fun MtvVideoPlayerSdk(
                     }
 
                     Player.STATE_READY -> {
+
                         isLoading = false
+
                         val d = player.duration
-                        if (d > 0) {
+
+                        if (d != C.TIME_UNSET && d > 0) {
                             contentDuration = d
                         }
 
                         playerStateListener?.onBuffering(false)
-                        val duration = player.duration.takeIf { it > 0 } ?: 0L
+
+                        val duration =
+                            if (player.duration != C.TIME_UNSET && player.duration > 0)
+                                player.duration
+                            else
+                                0L
+
                         playerStateListener?.onPlayerReady(duration)
 
                         exoPlayer.trackSelectionParameters =
@@ -260,6 +307,7 @@ fun MtvVideoPlayerSdk(
                                 .setForceHighestSupportedBitrate(false)
                                 .build()
                     }
+
 
                     Player.STATE_ENDED -> {
                         isLoading = false
@@ -336,47 +384,89 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-    LaunchedEffect(exoPlayer) {
+    LaunchedEffect(exoPlayer, lBandCuePoints) {
+
         val player = exoPlayer ?: return@LaunchedEffect
+
         while (true) {
+
             val currentPos = player.currentPosition
             val model = playerModel
 
+            // 🔥 L-BAND CUE HANDLER
+            lBandCuePoints.forEach { cue ->
+
+                if (!triggeredLBands.contains(cue.id)
+                    && currentPos >= cue.positionMs
+                    && !isAdsShowing
+                    && !pipEnabled
+                    && isFullScreen
+                ) {
+
+                    triggeredLBands.add(cue.id)
+
+                    showLShapeAd = true
+
+                    coroutineScope.launch {
+                        delay(15_000L)
+
+                        if (!isAdsShowing && !pipEnabled) {
+                            showLShapeAd = false
+                        }
+                    }
+                }
+            }
+
             if (model != null && !model.isLive) {
-                // Skip Intro Auto-Show
+
                 model.skipIntro?.let { intro ->
-                    if (!isSkipIntroClicked && !hasShownSkipIntroControls && intro.enableSkipIntro) {
+                    if (!isSkipIntroClicked &&
+                        !hasShownSkipIntroControls &&
+                        intro.enableSkipIntro
+                    ) {
+
                         val startTime = intro.startTime ?: 0L
-                        if (currentPos >= startTime && currentPos < startTime + 2000 && !isAdsShowing) {
+
+                        if (currentPos >= startTime &&
+                            currentPos < startTime + 2000 &&
+                            !isAdsShowing
+                        ) {
                             hasShownSkipIntroControls = true
                             isControllerVisible = true
                         }
                     }
                 }
 
-                // Next Episode Auto-Show
                 model.nextEpisode?.let { next ->
-                    if (
-                        !hasShownNextEpisodeControls &&
+
+                    if (!hasShownNextEpisodeControls &&
                         next.enableNextEpisode &&
                         contentDuration > 0
                     ) {
-                        val showBeforeEndMs = parseDurationToMillis(next.showBeforeEndMs)
 
-                        val triggerTime = (contentDuration - showBeforeEndMs)
-                            .coerceAtLeast(0L)
+                        val showBeforeEndMs =
+                            parseDurationToMillis(next.showBeforeEndMs)
 
-                        if (currentPos >= triggerTime && triggerTime != 0L && !isAdsShowing) {
+                        val triggerTime =
+                            (contentDuration - showBeforeEndMs)
+                                .coerceAtLeast(0L)
+
+                        if (currentPos >= triggerTime &&
+                            triggerTime != 0L &&
+                            !isAdsShowing
+                        ) {
                             hasShownNextEpisodeControls = true
                             isControllerVisible = true
                         }
                     }
                 }
-
             }
-            delay(1000)
+
+            delay(1000L)
         }
     }
+
+
 
     LaunchedEffect(isLockScreen, isLockOverlayVisible) {
         if (isLockScreen && isLockOverlayVisible) {
@@ -385,115 +475,136 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-    Box(
+    LShapeAdContainer(
+        playerModel,
+        isFullScreen,
+        isVisible = showLShapeAd && !isAdsShowing && !pipEnabled,
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isFullScreen) Modifier.fillMaxSize() else Modifier.height(configuration.screenWidthDp.dp * 9 / 16))
+            .then(
+                if (isFullScreen)
+                    Modifier.fillMaxSize()
+                else
+                    Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
+            )
             .background(Color.Black)
-            .onSizeChanged { containerSize = Size(it.width.toFloat(), it.height.toFloat()) }
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    zoomAccumulator = 1f
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val zoomChange = event.calculateZoom()
-                        if (zoomChange != 1f) {
-                            zoomAccumulator *= zoomChange
-                            if (zoomAccumulator > 1.15f && !isFilled) isFilled = true
-                            if (zoomAccumulator < 0.85f && isFilled) isFilled = false
-                        }
-                        if (event.changes.all { !it.pressed }) break
-                    }
-                }
-            }
     ) {
-        AndroidView(
-            factory = { playerView },
-            update = { if (it.player !== exoPlayer) it.player = exoPlayer },
+
+        // 🎬 Video Area (this is squeezed automatically)
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = animatedScale
-                    scaleY = animatedScale
+                .background(Color.Black)
+                .onSizeChanged {
+                    containerSize = Size(it.width.toFloat(), it.height.toFloat())
                 }
                 .pointerInput(Unit) {
-                    detectTapGestures {
-                        if (isLockScreen) {
-                            isLockOverlayVisible = true
-                        } else if (!pipEnabled && !isSettingsClick) {
-                            isControllerVisible = !isControllerVisible
+                    awaitEachGesture {
+                        zoomAccumulator = 1f
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val zoomChange = event.calculateZoom()
+                            if (zoomChange != 1f) {
+                                zoomAccumulator *= zoomChange
+                                if (zoomAccumulator > 1.15f && !isFilled) isFilled = true
+                                if (zoomAccumulator < 0.85f && isFilled) isFilled = false
+                            }
+                            if (event.changes.all { !it.pressed }) break
                         }
                     }
                 }
-        )
-
-        if (!isControllerVisible && isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = Color.White
-            )
-        }
-
-        AnimatedVisibility(
-            visible = isControllerVisible && !pipEnabled && !isLockScreen,
-            enter = fadeIn(),
-            exit = fadeOut()
         ) {
-            exoPlayer?.let { it ->
-                CustomPlayerController(
-                    playerModelList = contentList,
-                    index = selectedIndex.intValue,
-                    totalDuration = contentDuration,
-                    pipListener = pipListener,
-                    isFullScreen = { full ->
-                        isFullScreen = full
-                        setFullScreen(full)
-                        playerStateListener?.onFullScreenChanged(full)
-                    },
-                    isLockScreen = {
-                        isLockScreen = it
-                    },
-                    isCurrentlyFullScreen = isFullScreen,
-                    isCurrentlyLockScreen = isLockScreen,
-                    exoPlayer = it,
-                    modifier = Modifier.fillMaxSize(),
-                    onShowControls = { isControllerVisible = it },
-                    isPipEnabled = { pipEnabled = it },
-                    onSettingsButtonClick = { isSettingsClick = it },
-                    isLoading = isLoading,
-                    onBackPressed = {
-                        if (isFullScreen) {
-                            isFullScreen = false
-                            setFullScreen(false)
-                            playerStateListener?.onFullScreenChanged(false)
-                        } else {
-                            onPlayerBack(true)
+
+            AndroidView(
+                factory = { playerView },
+                update = {
+                    if (it.player !== exoPlayer) {
+                        it.player = exoPlayer
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = animatedScale
+                        scaleY = animatedScale
+                    }
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            if (isLockScreen) {
+                                isLockOverlayVisible = true
+                            } else if (!pipEnabled && !isSettingsClick) {
+                                isControllerVisible = !isControllerVisible
+                            }
                         }
-                    },
-                    cuePoints = imaCuePoints,
-                    playContent = { selectedIndex.intValue = it },
-                    isSkipIntroClicked = isSkipIntroClicked,
-                    onSkipIntroClicked = { isSkipIntroClicked = it },
-                    onNextEpisodeClick = { selectedIndex.intValue = it }
+                    }
+            )
+
+            // 🔄 Loading
+            if (!isControllerVisible && isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = Color.White
                 )
             }
-        }
 
-        if (isLockScreen) {
+            // 🎛 Controller
             AnimatedVisibility(
-                visible = isLockOverlayVisible && !pipEnabled,
+                visible = isControllerVisible && !pipEnabled && !isLockScreen,
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
-                exoPlayer?.let {
-                    Box(modifier = Modifier.fillMaxSize()) {
+                exoPlayer?.let { player ->
+                    CustomPlayerController(
+                        playerModelList = contentList,
+                        index = selectedIndex.intValue,
+                        totalDuration = contentDuration,
+                        pipListener = pipListener,
+                        isFullScreen = { full ->
+                            isFullScreen = full
+                            setFullScreen(full)
+                            playerStateListener?.onFullScreenChanged(full)
+                        },
+                        isLockScreen = { isLockScreen = it },
+                        isCurrentlyFullScreen = isFullScreen,
+                        isCurrentlyLockScreen = isLockScreen,
+                        exoPlayer = player,
+                        modifier = Modifier.fillMaxSize(),
+                        onShowControls = { isControllerVisible = it },
+                        isPipEnabled = { pipEnabled = it },
+                        onSettingsButtonClick = { isSettingsClick = it },
+                        isLoading = isLoading,
+                        onBackPressed = {
+                            if (isFullScreen) {
+                                isFullScreen = false
+                                setFullScreen(false)
+                                playerStateListener?.onFullScreenChanged(false)
+                            } else {
+                                onPlayerBack(true)
+                            }
+                        },
+                        // cuePoints = imaCuePoints,
+                        cuePoints = imaCuePoints + if (playerModel?.gamAdsConfig?.isAdsEnabled == true)lBandCuePoints else emptyList(),
+                        playContent = { selectedIndex.intValue = it },
+                        isSkipIntroClicked = isSkipIntroClicked,
+                        onSkipIntroClicked = { isSkipIntroClicked = it },
+                        onNextEpisodeClick = { selectedIndex.intValue = it }
+                    )
+                }
+            }
+
+            // 🔒 Lock Overlay
+            if (isLockScreen) {
+                AnimatedVisibility(
+                    visible = isLockOverlayVisible && !pipEnabled,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    exoPlayer?.let {
                         LockScreenOverlay(
                             playerModel = playerModel,
                             isLocked = isLockScreen,
                             showUnlockConfirm = showUnlockConfirm,
-                            onUnlockRequest = {
-                                showUnlockConfirm = true
-                            },
+                            onUnlockRequest = { showUnlockConfirm = true },
                             onConfirmUnlock = {
                                 isLockScreen = false
                                 showUnlockConfirm = false
@@ -502,12 +613,14 @@ fun MtvVideoPlayerSdk(
                     }
                 }
             }
-        }
 
-        if (isSettingsClick) {
-            SelectorHeader(
-                playerModel = playerModel,
-                exoPlayer) { isSettingsClick = it }
+            // ⚙ Settings
+            if (isSettingsClick) {
+                SelectorHeader(
+                    playerModel = playerModel,
+                    exoPlayer
+                ) { isSettingsClick = it }
+            }
         }
     }
 }

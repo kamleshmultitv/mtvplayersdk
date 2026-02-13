@@ -17,6 +17,7 @@ import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.ContentItem
 import com.app.sample.model.OverrideContent
 import com.app.videosdk.model.AdsConfig
+import com.app.videosdk.model.GAMAdsConfig
 import com.app.videosdk.model.NextEpisode
 import com.app.videosdk.model.PlayerCustomControls
 import com.app.videosdk.model.PlayerModel
@@ -146,6 +147,7 @@ object FileUtils {
                             unMuteIconRes = R.drawable.ic_unmute,
                             crossFadeIconRes = R.drawable.ic_cross,
                             seasonSelectorIconRes = R.drawable.ic_episode,
+                            brightnessIconRes = R.drawable.ic_brightness,
                             nextEpisodeIconRes = R.drawable.ic_next_episode,
                         )
                     )
@@ -183,6 +185,7 @@ object FileUtils {
                         unMuteIconRes = R.drawable.ic_unmute,
                         crossFadeIconRes = R.drawable.ic_cross,
                         seasonSelectorIconRes = R.drawable.ic_episode,
+                        brightnessIconRes = R.drawable.ic_brightness,
                         nextEpisodeIconRes = R.drawable.ic_next_episode,
                     )
                 )
@@ -221,6 +224,12 @@ object FileUtils {
 
                 // ✅ DEFAULTS (no submit yet)
                 adsConfig = AdsConfig(enableAds = false),
+                gamAdsConfig = GAMAdsConfig(
+                    verticalBan = "ca-app-pub-3940256099942544/6300978111",
+                    horizontalBan = "/21775744923/example/fixed-size-banner",
+                    timeIntervalInMilliseconds = 600000,
+                    isAdsEnabled = true
+                ),
                 skipIntro = SkipIntro(enableSkipIntro = false),
                 nextEpisode = NextEpisode(enableNextEpisode = false),
                 cacheFactory = null,
@@ -243,6 +252,7 @@ object FileUtils {
                     unMuteIconRes = R.drawable.ic_unmute,
                     crossFadeIconRes = R.drawable.ic_cross,
                     seasonSelectorIconRes = R.drawable.ic_episode,
+                    brightnessIconRes = R.drawable.ic_brightness,
                     nextEpisodeIconRes = R.drawable.ic_next_episode,
                 )
             )
@@ -307,6 +317,7 @@ object FileUtils {
                     unMuteIconRes = R.drawable.ic_unmute,
                     crossFadeIconRes = R.drawable.ic_cross,
                     seasonSelectorIconRes = R.drawable.ic_episode,
+                    brightnessIconRes = R.drawable.ic_brightness,
                     nextEpisodeIconRes = R.drawable.ic_next_episode,
                 )
             )

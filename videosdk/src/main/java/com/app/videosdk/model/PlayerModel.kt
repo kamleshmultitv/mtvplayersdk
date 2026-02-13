@@ -24,6 +24,7 @@ data class PlayerModel(
     val selectedVideoQuality: Int = 1080,
     val isLive: Boolean = false,
     val adsConfig: AdsConfig? = null,
+    val gamAdsConfig: GAMAdsConfig? = null,
     val skipIntro: SkipIntro? = null,
     val nextEpisode: NextEpisode? = null,
     val customControls: PlayerCustomControls? = null,

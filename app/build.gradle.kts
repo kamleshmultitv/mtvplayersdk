@@ -138,6 +138,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation("androidx.media3:media3-datasource:1.2.1")
     implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.play.services.ads)
 
     // SDK
      implementation(project(":videosdk"))
