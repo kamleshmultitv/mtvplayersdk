@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Lock
@@ -39,7 +40,8 @@ fun TopBar(
     onBackPressed: () -> Unit,
     onSettingsClick: () -> Unit,
     onFullScreenToggle: () -> Unit,
-    onLockScreenToggle: () -> Unit
+    onLockScreenToggle: () -> Unit,
+    onChapterClick: () -> Unit
 ) {
 
     Row(
@@ -69,6 +71,19 @@ fun TopBar(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+
+        if (isFullScreen && playerModel?.isChapterEnabled == true) {
+            IconButton(onClick = onChapterClick) {
+                CustomIcon(
+                    resId = null,
+                    defaultIcon = Icons.Default.AutoStories,
+                    contentDescription = "Chapter",
+                    modifier = Modifier.size(24.dp),
+                    tint = playerModel.customControls?.iconTintRes
+                )
+            }
+        }
+
 
         if (castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
             CastButton()

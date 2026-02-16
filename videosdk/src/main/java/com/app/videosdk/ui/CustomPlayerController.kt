@@ -39,10 +39,13 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.listener.PipListener
+import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.ui.BottomControls
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 
 @Composable
@@ -67,6 +70,7 @@ fun CustomPlayerController(
     isSkipIntroClicked: Boolean,
     onSkipIntroClicked: (Boolean) -> Unit,
     onNextEpisodeClick: (Int) -> Unit,
+    onChapterClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -302,6 +306,9 @@ fun CustomPlayerController(
             },
             onLockScreenToggle = {
                 lockScreenState.value(!isCurrentlyLockScreen)
+            },
+            onChapterClick = {
+                onChapterClick()
             }
         )
 

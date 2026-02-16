@@ -9,26 +9,42 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.runtime.*
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.graphics.toColorInt
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -37,14 +53,17 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
+import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
+import com.app.videosdk.ui.chapter.ChapterDrawer
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
@@ -121,6 +140,10 @@ fun MtvVideoPlayerSdk(
     var showLShapeAd by remember { mutableStateOf(false) }
     val triggeredLBands = remember { mutableSetOf<String>() }
     val coroutineScope = rememberCoroutineScope()
+    var lastVideoSize by remember { mutableStateOf<VideoSize?>(null) }
+    var currentChapter by remember { mutableStateOf<Chapter?>(null) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    var hasActivatedFill by remember { mutableStateOf(false) }
 
     var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
 
@@ -265,6 +288,8 @@ fun MtvVideoPlayerSdk(
 
         val listener = object : Player.Listener {
             override fun onVideoSizeChanged(videoSize: VideoSize) {
+                hasActivatedFill = false
+                lastVideoSize = videoSize
                 if (videoSize.width == 0 || containerSize == Size.Zero) return
                 fillScale = max(
                     containerSize.width / videoSize.width,
@@ -384,6 +409,27 @@ fun MtvVideoPlayerSdk(
         }
     }
 
+    LaunchedEffect(containerSize, showLShapeAd) {
+
+        val videoSize = lastVideoSize ?: return@LaunchedEffect
+
+        if (videoSize.width == 0 || containerSize == Size.Zero) return@LaunchedEffect
+
+        fillScale = max(
+            containerSize.width / videoSize.width,
+            containerSize.height / videoSize.height
+        )
+
+        isFilled = false
+        zoomAccumulator = 1f
+    }
+
+    LaunchedEffect(selectedIndex.intValue) {
+        triggeredLBands.clear()
+        imaCuePoints.clear()
+    }
+
+
     LaunchedEffect(exoPlayer, lBandCuePoints) {
 
         val player = exoPlayer ?: return@LaunchedEffect
@@ -466,6 +512,35 @@ fun MtvVideoPlayerSdk(
         }
     }
 
+    val chapters = remember(playerModel) {
+        if (playerModel?.isChapterEnabled == true)
+            playerModel.chapters?.sortedBy { it.startMs }
+        else
+            emptyList()
+    }
+
+    LaunchedEffect(exoPlayer, chapters) {
+
+        val player = exoPlayer ?: return@LaunchedEffect
+
+        if (chapters?.isEmpty() == true) {
+            currentChapter = null
+            return@LaunchedEffect
+        }
+
+        while (true) {
+
+            val position = player.currentPosition
+
+            currentChapter =
+                chapters?.lastOrNull { position >= it.startMs }
+
+            delay(500)
+        }
+    }
+
+
+
 
 
     LaunchedEffect(isLockScreen, isLockOverlayVisible) {
@@ -475,10 +550,7 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-    LShapeAdContainer(
-        playerModel,
-        isFullScreen,
-        isVisible = showLShapeAd && !isAdsShowing && !pipEnabled,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .then(
@@ -487,140 +559,247 @@ fun MtvVideoPlayerSdk(
                 else
                     Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
             )
-            .background(Color.Black)
     ) {
 
-        // 🎬 Video Area (this is squeezed automatically)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-                .onSizeChanged {
-                    containerSize = Size(it.width.toFloat(), it.height.toFloat())
-                }
-                .pointerInput(Unit) {
-                    awaitEachGesture {
-                        zoomAccumulator = 1f
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val zoomChange = event.calculateZoom()
-                            if (zoomChange != 1f) {
-                                zoomAccumulator *= zoomChange
-                                if (zoomAccumulator > 1.15f && !isFilled) isFilled = true
-                                if (zoomAccumulator < 0.85f && isFilled) isFilled = false
-                            }
-                            if (event.changes.all { !it.pressed }) break
+        // 🔥 Drawer RTL only
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = true,
+                drawerContent = {
+                    if (playerModel?.isChapterEnabled == true &&
+                        playerModel.chapters?.isNotEmpty() == true
+                    ) {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            ChapterDrawer(
+                                chapters = playerModel.chapters,
+                                currentChapter = currentChapter,
+                                onChapterClick = { chapter ->
+                                    exoPlayer?.seekTo(chapter.startMs)
+                                    coroutineScope.launch { drawerState.close() }
+                                }
+                            )
                         }
                     }
                 }
-        ) {
 
-            AndroidView(
-                factory = { playerView },
-                update = {
-                    if (it.player !== exoPlayer) {
-                        it.player = exoPlayer
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = animatedScale
-                        scaleY = animatedScale
-                    }
-                    .pointerInput(Unit) {
-                        detectTapGestures {
-                            if (isLockScreen) {
-                                isLockOverlayVisible = true
-                            } else if (!pipEnabled && !isSettingsClick) {
-                                isControllerVisible = !isControllerVisible
-                            }
-                        }
-                    }
-            )
-
-            // 🔄 Loading
-            if (!isControllerVisible && isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
-                    color = Color.White
-                )
-            }
-
-            // 🎛 Controller
-            AnimatedVisibility(
-                visible = isControllerVisible && !pipEnabled && !isLockScreen,
-                enter = fadeIn(),
-                exit = fadeOut()
             ) {
-                exoPlayer?.let { player ->
-                    CustomPlayerController(
-                        playerModelList = contentList,
-                        index = selectedIndex.intValue,
-                        totalDuration = contentDuration,
-                        pipListener = pipListener,
-                        isFullScreen = { full ->
-                            isFullScreen = full
-                            setFullScreen(full)
-                            playerStateListener?.onFullScreenChanged(full)
-                        },
-                        isLockScreen = { isLockScreen = it },
-                        isCurrentlyFullScreen = isFullScreen,
-                        isCurrentlyLockScreen = isLockScreen,
-                        exoPlayer = player,
-                        modifier = Modifier.fillMaxSize(),
-                        onShowControls = { isControllerVisible = it },
-                        isPipEnabled = { pipEnabled = it },
-                        onSettingsButtonClick = { isSettingsClick = it },
-                        isLoading = isLoading,
-                        onBackPressed = {
-                            if (isFullScreen) {
-                                isFullScreen = false
-                                setFullScreen(false)
-                                playerStateListener?.onFullScreenChanged(false)
-                            } else {
-                                onPlayerBack(true)
-                            }
-                        },
-                        // cuePoints = imaCuePoints,
-                        cuePoints = imaCuePoints + if (playerModel?.gamAdsConfig?.isAdsEnabled == true)lBandCuePoints else emptyList(),
-                        playContent = { selectedIndex.intValue = it },
-                        isSkipIntroClicked = isSkipIntroClicked,
-                        onSkipIntroClicked = { isSkipIntroClicked = it },
-                        onNextEpisodeClick = { selectedIndex.intValue = it }
-                    )
-                }
-            }
 
-            // 🔒 Lock Overlay
-            if (isLockScreen) {
-                AnimatedVisibility(
-                    visible = isLockOverlayVisible && !pipEnabled,
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
-                    exoPlayer?.let {
-                        LockScreenOverlay(
-                            playerModel = playerModel,
-                            isLocked = isLockScreen,
-                            showUnlockConfirm = showUnlockConfirm,
-                            onUnlockRequest = { showUnlockConfirm = true },
-                            onConfirmUnlock = {
-                                isLockScreen = false
-                                showUnlockConfirm = false
-                            }
+                // 🔥 Reset back to LTR for player
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+
+                    LShapeAdContainer(
+                        playerModel = playerModel,
+                        isFullScreen = isFullScreen,
+                        isVisible = showLShapeAd && !isAdsShowing && !pipEnabled,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(
+                                if (isFullScreen)
+                                    Modifier.fillMaxSize()
+                                else
+                                    Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
+                            )
+                            .background(Color.Black)
+                    ) {
+
+                        AndroidView(
+                            factory = { playerView },
+                            update = { view ->
+
+                                if (view.player !== exoPlayer) {
+                                    view.player = exoPlayer
+                                }
+
+                                view.subtitleView?.apply {
+
+                                    setApplyEmbeddedStyles(false)
+                                    setApplyEmbeddedFontSizes(false)
+
+                                    setStyle(
+                                        CaptionStyleCompat(
+                                            android.graphics.Color.WHITE,
+                                            "#80000000".toColorInt(),
+                                            android.graphics.Color.TRANSPARENT,
+                                            CaptionStyleCompat.EDGE_TYPE_NONE,
+                                            android.graphics.Color.TRANSPARENT,
+                                            android.graphics.Typeface.DEFAULT
+                                        )
+                                    )
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+
+                                    val finalScale = when {
+                                        zoomAccumulator > fillScale -> zoomAccumulator
+                                        isFilled -> fillScale
+                                        else -> 1f
+                                    }
+
+                                    scaleX = finalScale
+                                    scaleY = finalScale
+                                }
+
+
+                                // 🔥 PINCH ZOOM
+                                .pointerInput(isFullScreen, pipEnabled, isAdsShowing) {
+
+                                    detectTransformGestures { _, _, zoom, _ ->
+
+                                        if (!pipEnabled && !isAdsShowing && !isLockScreen) {
+
+                                            // 🔥 Auto enter fullscreen
+                                            if (!isFullScreen) {
+                                                isFullScreen = true
+                                                setFullScreen(true)
+                                                playerStateListener?.onFullScreenChanged(true)
+                                            }
+
+                                            // ✅ FIRST PINCH → ACTIVATE FIT MODE
+                                            if (!hasActivatedFill) {
+
+                                                isFilled = true
+                                                hasActivatedFill = true
+
+                                                // Start zoom accumulator from fillScale
+                                                zoomAccumulator = fillScale
+
+                                            } else {
+
+                                                zoomAccumulator *= zoom
+                                                zoomAccumulator =
+                                                    zoomAccumulator.coerceIn(fillScale, 3f)
+                                            }
+                                        }
+                                    }
+                                }
+
+
+                                // 🔥 SINGLE TAP
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onDoubleTap = {
+                                            hasActivatedFill = false
+                                            isFilled = false
+                                            zoomAccumulator = 1f
+                                            // Reset zoom on double tap
+                                            if (zoomAccumulator > 1f) {
+                                                zoomAccumulator = 1f
+                                            }
+                                        },
+                                        onTap = {
+                                            when {
+                                                isLockScreen -> {
+                                                    isLockOverlayVisible = true
+                                                }
+
+                                                !pipEnabled && !isSettingsClick -> {
+                                                    isControllerVisible = !isControllerVisible
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+
                         )
+
+                        // 🔄 Loading
+                        if (!isControllerVisible && isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.align(Alignment.Center),
+                                color = Color.White
+                            )
+                        }
+
+                        // 🎛 Controller
+                        AnimatedVisibility(
+                            visible = isControllerVisible && !pipEnabled && !isLockScreen,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            exoPlayer?.let { player ->
+                                CustomPlayerController(
+                                    playerModelList = contentList,
+                                    index = selectedIndex.intValue,
+                                    totalDuration = contentDuration,
+                                    pipListener = pipListener,
+                                    isFullScreen = { full ->
+                                        isFullScreen = full
+                                        setFullScreen(full)
+                                        playerStateListener?.onFullScreenChanged(full)
+                                    },
+                                    isLockScreen = { isLockScreen = it },
+                                    isCurrentlyFullScreen = isFullScreen,
+                                    isCurrentlyLockScreen = isLockScreen,
+                                    exoPlayer = player,
+                                    modifier = Modifier.fillMaxSize(),
+                                    onShowControls = { isControllerVisible = it },
+                                    isPipEnabled = { pipEnabled = it },
+                                    onSettingsButtonClick = { isSettingsClick = it },
+                                    isLoading = isLoading,
+                                    onBackPressed = {
+                                        if (isFullScreen) {
+                                            isFullScreen = false
+                                            setFullScreen(false)
+                                            playerStateListener?.onFullScreenChanged(false)
+                                        } else {
+                                            onPlayerBack(true)
+                                        }
+                                    },
+                                    cuePoints = imaCuePoints/* +
+                                            if (playerModel?.gamAdsConfig?.isAdsEnabled == true)
+                                                lBandCuePoints
+                                            else emptyList()*/,
+                                    playContent = { selectedIndex.intValue = it },
+                                    isSkipIntroClicked = isSkipIntroClicked,
+                                    onSkipIntroClicked = { isSkipIntroClicked = it },
+                                    onNextEpisodeClick = { selectedIndex.intValue = it },
+                                    onChapterClick = {
+                                        if (playerModel?.isChapterEnabled == true) {
+                                            coroutineScope.launch { drawerState.open() }
+                                        }
+                                    }
+
+                                )
+                            }
+                        }
+
+                        // 🔒 Lock Overlay
+                        if (isLockScreen) {
+                            AnimatedVisibility(
+                                visible = isLockOverlayVisible && !pipEnabled,
+                                enter = fadeIn(),
+                                exit = fadeOut()
+                            ) {
+                                exoPlayer?.let {
+                                    LockScreenOverlay(
+                                        playerModel = playerModel,
+                                        isLocked = isLockScreen,
+                                        showUnlockConfirm = showUnlockConfirm,
+                                        onUnlockRequest = { showUnlockConfirm = true },
+                                        onConfirmUnlock = {
+                                            isLockScreen = false
+                                            showUnlockConfirm = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        // ⚙ Settings
+                        if (isSettingsClick) {
+                            SelectorHeader(
+                                playerModel = playerModel,
+                                exoPlayer = exoPlayer
+                            ) { isSettingsClick = it }
+                        }
                     }
                 }
-            }
-
-            // ⚙ Settings
-            if (isSettingsClick) {
-                SelectorHeader(
-                    playerModel = playerModel,
-                    exoPlayer
-                ) { isSettingsClick = it }
             }
         }
     }
+
 }

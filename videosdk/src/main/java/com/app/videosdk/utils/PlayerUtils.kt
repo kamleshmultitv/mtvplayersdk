@@ -48,7 +48,7 @@ object PlayerUtils {
     @OptIn(UnstableApi::class)
     fun createPlayer(
         context: Context,
-        contentList: List<PlayerModel>,
+        contentList: List<PlayerModel>? = null,
         selectedIndex: Int = 0,
         videoUrl: String,
         drmToken: String? = null,
@@ -59,11 +59,11 @@ object PlayerUtils {
         existingAdsLoader: ImaAdsLoader? = null
     ): Pair<ExoPlayer, ImaAdsLoader?> {
 
-        val content = contentList[selectedIndex]
-        val contentId = content.id
+        val content = contentList?.get(selectedIndex)
+        val contentId = content?.id
 
         val download =
-            content.downloadManager
+            content?.downloadManager
                 ?.downloadIndex
                 ?.getDownload(contentId.toString())
 
@@ -120,7 +120,7 @@ object PlayerUtils {
 
         /* ================= DATASOURCE ================= */
 
-        val cache = content.downloadCache
+        val cache = content?.downloadCache
 
         val dataSourceFactory: DataSource.Factory =
             if (cache != null) {
@@ -306,23 +306,23 @@ object PlayerUtils {
 
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     fun resolveToPlayableUri(
-        contentList: List<PlayerModel>,
+        contentList: List<PlayerModel>? = null,
         selectedIndex: Int = 0
     ): Uri {
-        if (contentList.isEmpty()) return Uri.EMPTY
+        if (contentList?.isEmpty() == true) return Uri.EMPTY
 
-        val content = contentList[selectedIndex]
+        val content = contentList?.get(selectedIndex)
 
-        val mpd = content.mpdUrl
-        val hls = content.hlsUrl
-        val live = content.liveUrl
+        val mpd = content?.mpdUrl
+        val hls = content?.hlsUrl
+        val live = content?.liveUrl
 
         // ✅ STRICT RULE
         // DRM → DASH ONLY
         // NON-DRM → HLS
         val primaryUrl = when {
-            content.drm == "1" && !mpd.isNullOrBlank() -> mpd   // ✅ FIX
-            content.drm != "1" && !hls.isNullOrBlank() -> hls
+            content?.drm == "1" && !mpd.isNullOrBlank() -> mpd   // ✅ FIX
+            content?.drm != "1" && !hls.isNullOrBlank() -> hls
             !live.isNullOrBlank() -> live
             else -> null
         }?.trim()

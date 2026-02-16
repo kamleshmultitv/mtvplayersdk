@@ -41,12 +41,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
+import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils.formatTime
 
 @Composable
 fun CustomSlider(
+    playerModel: PlayerModel? = null,
     modifier: Modifier = Modifier,
     currentPosition: Long,
     duration: Long,
@@ -56,7 +59,8 @@ fun CustomSlider(
     isLive: Boolean = false,
     exoPlayer: ExoPlayer? = null,
     onDragStateChange: (Boolean) -> Unit = {},
-    onPreviewChange: (Long) -> Unit = {}
+    onPreviewChange: (Long) -> Unit = {},
+    chapters: List<Chapter> = emptyList()
 ) {
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     var isSeeking by remember { mutableStateOf(false) }
@@ -149,12 +153,24 @@ fun CustomSlider(
                 },
 
                 onValueChangeFinished = {
-                    onSeek((sliderPosition * duration).toLong())
+
+                    val seekPosition = (sliderPosition * duration).toLong()
+
+                    val nearestChapter = chapters.minByOrNull {
+                        kotlin.math.abs(it.startMs - seekPosition)
+                    }
+
+                    if (nearestChapter != null &&
+                        kotlin.math.abs(nearestChapter.startMs - seekPosition) < 3000
+                    ) {
+                        onSeek(nearestChapter.startMs)
+                    } else {
+                        onSeek(seekPosition)
+                    }
 
                     isSeeking = false
                     onDragStateChange(false)
-
-                    showControls(true) // ✅ KEEP controls visible after seek
+                    showControls(true)
                 },
 
                 colors = SliderDefaults.colors(
@@ -207,6 +223,28 @@ fun CustomSlider(
                                 )
                             }
                         }
+
+                        if (duration > 0 && chapters.isNotEmpty()) {
+
+                            chapters.forEach { chapter ->
+
+                                val x = (chapter.startMs.toFloat() / duration) * size.width
+                                val markerSize = if (isSeeking) 8.dp.toPx() else 6.dp.toPx()
+
+                                drawRoundRect(
+                                    color = if (playerModel?.isChapterEnabled == true) Color.Cyan else Color.Transparent ,
+                                    topLeft = Offset(
+                                        x - markerSize / 2,
+                                        size.height / 2 - markerSize / 2
+                                    ),
+                                    size = Size(markerSize, markerSize),
+                                    cornerRadius = CornerRadius(markerSize / 2)
+                                )
+                            }
+                        }
+
+
+
                     }
             )
         }

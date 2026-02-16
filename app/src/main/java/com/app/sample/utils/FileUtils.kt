@@ -17,6 +17,7 @@ import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.ContentItem
 import com.app.sample.model.OverrideContent
 import com.app.videosdk.model.AdsConfig
+import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.GAMAdsConfig
 import com.app.videosdk.model.NextEpisode
 import com.app.videosdk.model.PlayerCustomControls
@@ -141,8 +142,6 @@ object FileUtils {
                             exitFullScreenIconRes = R.drawable.ic_expand,
                             lockIconRes = R.drawable.ic_lock,
                             unlockIconRes = R.drawable.ic_unlock,
-                            nextIconRes = R.drawable.ic_forward,
-                            previousIconRes = R.drawable.ic_rewined,
                             muteIconRes = R.drawable.ic_mute,
                             unMuteIconRes = R.drawable.ic_unmute,
                             crossFadeIconRes = R.drawable.ic_cross,
@@ -179,8 +178,6 @@ object FileUtils {
                         exitFullScreenIconRes = R.drawable.ic_expand,
                         lockIconRes = R.drawable.ic_lock,
                         unlockIconRes = R.drawable.ic_unlock,
-                        nextIconRes = R.drawable.ic_forward,
-                        previousIconRes = R.drawable.ic_rewined,
                         muteIconRes = R.drawable.ic_mute,
                         unMuteIconRes = R.drawable.ic_unmute,
                         crossFadeIconRes = R.drawable.ic_cross,
@@ -227,12 +224,18 @@ object FileUtils {
                 gamAdsConfig = GAMAdsConfig(
                     verticalBan = "ca-app-pub-3940256099942544/6300978111",
                     horizontalBan = "/21775744923/example/fixed-size-banner",
-                    timeIntervalInMilliseconds = 600000,
+                    timeIntervalInMilliseconds = 300000,
                     isAdsEnabled = true
                 ),
                 skipIntro = SkipIntro(enableSkipIntro = false),
                 nextEpisode = NextEpisode(enableNextEpisode = false),
                 cacheFactory = null,
+                isChapterEnabled = true,
+                chapters = listOf(
+                    Chapter("intro", "Intro", 0L, ),
+                    Chapter("main", "Main Content", 186000L),
+                    Chapter("end", "Disclaimer", 2004000L)
+                ),
                 customControls = PlayerCustomControls(
                     iconTintRes = R.color.white,
                     playIconRes = R.drawable.ic_play,
@@ -246,8 +249,6 @@ object FileUtils {
                     exitFullScreenIconRes = R.drawable.ic_expand,
                     lockIconRes = R.drawable.ic_lock,
                     unlockIconRes = R.drawable.ic_unlock,
-                    nextIconRes = R.drawable.ic_forward,
-                    previousIconRes = R.drawable.ic_rewined,
                     muteIconRes = R.drawable.ic_mute,
                     unMuteIconRes = R.drawable.ic_unmute,
                     crossFadeIconRes = R.drawable.ic_cross,
@@ -311,8 +312,6 @@ object FileUtils {
                     exitFullScreenIconRes = R.drawable.ic_expand,
                     lockIconRes = R.drawable.ic_lock,
                     unlockIconRes = R.drawable.ic_unlock,
-                    nextIconRes = R.drawable.ic_forward,
-                    previousIconRes = R.drawable.ic_rewined,
                     muteIconRes = R.drawable.ic_mute,
                     unMuteIconRes = R.drawable.ic_unmute,
                     crossFadeIconRes = R.drawable.ic_cross,

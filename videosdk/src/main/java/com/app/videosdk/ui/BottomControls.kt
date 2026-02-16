@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,9 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.core.R
-import androidx.core.graphics.alpha
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.sprite.SpriteThumbnail
@@ -43,7 +41,6 @@ fun BottomControls(
     onNext: (Int) -> Unit,
     cuePoints: List<CuePoint> = emptyList(),
     onDragStateChange: (Boolean) -> Unit = {}
-
 ) {
     val model = playerModelList?.getOrNull(index)
     val isLive = model?.isLive ?: false
@@ -81,9 +78,12 @@ fun BottomControls(
             )
         }
 
+        /* ---------- CHAPTER LABEL ---------- */
+
         /* ---------- SEEK BAR ---------- */
 
         CustomSlider(
+            playerModel = model,
             currentPosition = currentPosition,
             duration = duration,
             cuePoints = cuePoints,
@@ -93,7 +93,7 @@ fun BottomControls(
 
             onDragStateChange = { dragging ->
                 isDragging = dragging
-                onDragStateChange(dragging) // ✅ FIX
+                onDragStateChange(dragging)
 
                 if (!dragging && previewMs > 0) {
                     onSeek(previewMs)
@@ -104,9 +104,9 @@ fun BottomControls(
                 previewMs = targetMs
             },
 
-            onSeek = onSeek
+            onSeek = onSeek,
+            chapters = model?.chapters ?: emptyList()
         )
-
 
         /* ---------- BOTTOM ACTION BAR ---------- */
 
@@ -138,7 +138,7 @@ fun BottomControls(
                                 defaultIcon = Icons.Default.SkipNext,
                                 contentDescription = "Next Episode",
                                 modifier = Modifier.size(16.dp),
-                                tint = if (!isLastItem) model?.customControls?.iconTintRes else model?.customControls?.iconTintRes
+                                tint = model?.customControls?.iconTintRes
                             )
 
                             Text(
@@ -173,4 +173,5 @@ fun BottomControls(
         }
     }
 }
+
 

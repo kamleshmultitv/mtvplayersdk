@@ -25,10 +25,6 @@ data class PlayerCustomControls(
     val lockIconRes: Int? = null,
     val unlockIconRes: Int? = null,
 
-    // Bottom Controls
-    val nextIconRes: Int? = null,
-    val previousIconRes: Int? = null,
-
     val muteIconRes: Int? = null,
     val unMuteIconRes: Int? = null,
     val crossFadeIconRes: Int? = null,
