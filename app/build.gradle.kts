@@ -141,10 +141,10 @@ dependencies {
     implementation(libs.play.services.ads)
 
     // SDK
-     implementation(project(":videosdk"))
+   //  implementation(project(":videosdk"))
      implementation(libs.mtvdownloadsdk)
 
-   // implementation(libs.mtvplayersdk)
+    implementation(libs.mtvplayersdk)
   //  implementation(project(":mtvdownloader"))
 
 }
