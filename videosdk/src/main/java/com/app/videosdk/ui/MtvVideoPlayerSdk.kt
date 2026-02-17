@@ -736,6 +736,7 @@ fun MtvVideoPlayerSdk(
                                     isCurrentlyLockScreen = isLockScreen,
                                     exoPlayer = player,
                                     modifier = Modifier.fillMaxSize(),
+                                    isControllerVisible,
                                     onShowControls = { isControllerVisible = it },
                                     isPipEnabled = { pipEnabled = it },
                                     onSettingsButtonClick = { isSettingsClick = it },

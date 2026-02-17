@@ -35,6 +35,7 @@ desugar = "2.1.5"
 androidx-room = "2.8.3"
 workRuntimeKtx = "2.11.0"
 datastorePreferences = "1.2.0"
+animationCoreVersion = "1.10.3"
 
 
 [libraries]
@@ -96,6 +97,7 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 # player sdk
 mtvplayersdk = { module = "com.github.kamleshmultitv:mtvplayersdk", version.ref = "mtvplayersdkVersion" }
 mtvdownloadsdk = { module = "com.github.kamleshmultitv:mtvdownloadsdk", version.ref = "mtvDownloadSdkVersion" }
+androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "animationCoreVersion" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

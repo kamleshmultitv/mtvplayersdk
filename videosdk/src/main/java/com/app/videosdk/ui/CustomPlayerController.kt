@@ -1,20 +1,37 @@
 package com.app.videosdk.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -30,22 +47,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
+import coil.compose.rememberAsyncImagePainter
 import com.app.videosdk.listener.PipListener
-import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.ui.BottomControls
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 
 @Composable
@@ -60,6 +77,7 @@ fun CustomPlayerController(
     isCurrentlyLockScreen: Boolean,
     exoPlayer: ExoPlayer,
     modifier: Modifier,
+    isControlsVisible: Boolean,
     onShowControls: (Boolean) -> Unit,
     isPipEnabled: (Boolean) -> Unit = {},
     onSettingsButtonClick: (Boolean) -> Unit = {},
@@ -97,6 +115,8 @@ fun CustomPlayerController(
     var isDraggingSeekbar by remember { mutableStateOf(false) }
     var onSeek by remember { mutableStateOf(false) }
     val currentPlayerModel = playerModelList?.getOrNull(index)
+    var expandSheet by remember { mutableStateOf(false) }
+
 
     /* ---------------- SKIP INTRO ---------------- */
 
@@ -287,30 +307,61 @@ fun CustomPlayerController(
     ) {
 
         /* ---- TOP BAR ---- */
-        TopBar(
-            playerModel = playerModel,
-            title = currentPlayerModel?.title.orEmpty(),
-            isFullScreen = isCurrentlyFullScreen,
-            context = context,
-            castUtils = castUtils,
-            pipListener = pipListener,
-            isPipEnabled = isPipEnabled,
-            onBackPressed = onBackPressed,
-            onSettingsClick = {
-                exoPlayer.pause()
-                showControlsState.value(true)
-                onSettingsButtonClick(true)
-            },
-            onFullScreenToggle = {
-                fullScreenState.value(!isCurrentlyFullScreen)
-            },
-            onLockScreenToggle = {
-                lockScreenState.value(!isCurrentlyLockScreen)
-            },
-            onChapterClick = {
-                onChapterClick()
-            }
-        )
+        AnimatedVisibility(
+            visible = isControlsVisible,
+            modifier = Modifier.align(Alignment.TopCenter),
+
+            enter = slideInVertically(
+                initialOffsetY = { -it },   // 🔥 start ABOVE the screen
+                animationSpec = tween(
+                    durationMillis = 700,
+                    easing = LinearOutSlowInEasing
+                )
+            ) + fadeIn(
+                animationSpec = tween(
+                    durationMillis = 600,
+                    delayMillis = 100,
+                    easing = LinearEasing
+                )
+            ),
+
+            exit = slideOutVertically(
+                targetOffsetY = { -it },    // 🔥 slide back UP
+                animationSpec = tween(
+                    durationMillis = 600,
+                    easing = FastOutLinearInEasing
+                )
+            ) + fadeOut(
+                animationSpec = tween(
+                    durationMillis = 400,
+                    easing = LinearEasing
+                )
+            )
+        ) {
+            TopBar(
+                playerModel = playerModel,
+                isFullScreen = isCurrentlyFullScreen,
+                context = context,
+                castUtils = castUtils,
+                pipListener = pipListener,
+                isPipEnabled = isPipEnabled,
+                onBackPressed = onBackPressed,
+                onSettingsClick = {
+                    exoPlayer.pause()
+                    showControlsState.value(true)
+                    onSettingsButtonClick(true)
+                },
+                onFullScreenToggle = {
+                    fullScreenState.value(!isCurrentlyFullScreen)
+                },
+                onLockScreenToggle = {
+                    lockScreenState.value(!isCurrentlyLockScreen)
+                },
+                onChapterClick = {
+                    onChapterClick()
+                }
+            )
+        }
 
         /* ---------- CENTER AREA ---------- */
 
@@ -319,17 +370,64 @@ fun CustomPlayerController(
             Row(modifier = Modifier.fillMaxSize()) {
 
                 /* ---- BRIGHTNESS (LEFT) ---- */
-                Box(
+                AnimatedVisibility(
+                    visible = isControlsVisible,
                     modifier = Modifier
                         .weight(0.1f)
                         .fillMaxHeight(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CustomBrightnessController(
-                        playerModel = playerModel,
-                        onShowControls = showControlsState.value
+
+                    enter = slideInHorizontally(
+                        initialOffsetX = { it },   // 🔥 Start from RIGHT outside screen
+                        animationSpec = tween(
+                            durationMillis = 600,
+                            easing = LinearOutSlowInEasing
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            easing = LinearEasing
+                        )
+                    ),
+
+                    exit = slideOutHorizontally(
+                        targetOffsetX = { -it },   // 🔥 Move to LEFT when hiding
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            easing = FastOutLinearInEasing
+                        )
+                    ) + fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = LinearEasing
+                        )
                     )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(0.1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        CustomBrightnessController(
+                            playerModel = playerModel,
+                            onShowControls = showControlsState.value
+                        )
+                    }
                 }
+
+
+                /* Box(
+                     modifier = Modifier
+                         .weight(0.1f)
+                         .fillMaxHeight(),
+                     contentAlignment = Alignment.Center
+                 ) {
+                     CustomBrightnessController(
+                         playerModel = playerModel,
+                         onShowControls = showControlsState.value
+                     )
+                 }*/
 
                 /* ---- CENTER CONTROLS ---- */
                 Box(modifier = Modifier.weight(0.8f)) {
@@ -350,18 +448,53 @@ fun CustomPlayerController(
                 }
 
                 /* ---- VOLUME (RIGHT) ---- */
-                Box(
+                AnimatedVisibility(
+                    visible = isControlsVisible,
                     modifier = Modifier
                         .weight(0.1f)
                         .fillMaxHeight(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CustomVolumeController(
-                        playerModel = playerModel,
-                        exoPlayer = exoPlayer,
-                        onShowControls = showControlsState.value
+
+                    enter = slideInHorizontally(
+                        initialOffsetX = { -it },   // 🔥 Start from LEFT outside screen
+                        animationSpec = tween(
+                            durationMillis = 600,
+                            easing = LinearOutSlowInEasing
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            easing = LinearEasing
+                        )
+                    ),
+
+                    exit = slideOutHorizontally(
+                        targetOffsetX = { it },     // 🔥 Move to RIGHT when hiding
+                        animationSpec = tween(
+                            durationMillis = 500,
+                            easing = FastOutLinearInEasing
+                        )
+                    ) + fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = LinearEasing
+                        )
                     )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(0.1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        CustomVolumeController(
+                            playerModel = playerModel,
+                            exoPlayer = exoPlayer,
+                            onShowControls = showControlsState.value
+                        )
+                    }
                 }
+
             }
 
         } else {
@@ -470,29 +603,76 @@ fun CustomPlayerController(
 
         /* ---------- BOTTOM CONTROLS ---------- */
 
-        BottomControls(
+        AnimatedVisibility(
+            visible = isControlsVisible,
             modifier = Modifier.align(Alignment.BottomCenter),
-            playerModelList = playerModelList,
-            index = index,
-            isFullScreen = isCurrentlyFullScreen,
-            currentPosition = currentPosition,
-            duration = duration,
-            exoPlayer = exoPlayer,
-            onSeek = {
-                onSeek = true
-                showControlsState.value(true)
-                if (isCasting) castUtils.seekOnCast(it)
-                else exoPlayer.seekTo(it)
-            },
-            onNext = playContent,
-            cuePoints = cuePoints,
-            onDragStateChange = { dragging ->
-                isDraggingSeekbar = dragging
-                if (dragging) {
-                    showControlsState.value(true)
-                }
-            }
-        )
 
+            enter = slideInVertically(
+                initialOffsetY = { it },   // from bottom
+                animationSpec = tween(
+                    durationMillis = 700,
+                    easing = LinearOutSlowInEasing   // smooth start, slow end
+                )
+            ) + fadeIn(
+                animationSpec = tween(
+                    durationMillis = 600,
+                    delayMillis = 100,
+                    easing = LinearEasing
+                )
+            ),
+
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(
+                    durationMillis = 600,
+                    easing = FastOutLinearInEasing   // smooth exit
+                )
+            ) + fadeOut(
+                animationSpec = tween(
+                    durationMillis = 400,
+                    easing = LinearEasing
+                )
+            )
+        ) {
+            BottomControls(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                playerModelList = playerModelList,
+                index = index,
+                isFullScreen = isCurrentlyFullScreen,
+                currentPosition = currentPosition,
+                duration = duration,
+                exoPlayer = exoPlayer,
+                onSeek = {
+                    onSeek = true
+                    showControlsState.value(true)
+                    if (isCasting) castUtils.seekOnCast(it)
+                    else exoPlayer.seekTo(it)
+                },
+                onNext = playContent,
+                cuePoints = cuePoints,
+                onDragStateChange = { dragging ->
+                    isDraggingSeekbar = dragging
+                    if (dragging) {
+                        showControlsState.value(true)
+                    }
+                },
+                expandSheet = {
+                    expandSheet = it
+                }
+            )
+        }
+
+        if (expandSheet) {
+            EpisodeSelectionSheet(
+                expandSheet = true,
+                playerModelList = playerModelList,
+                isCasting = isCasting,
+                exoPlayer = exoPlayer,
+                onDismiss = { expandSheet = false },
+                onShowControls = onShowControls,
+                playContent = playContent
+            )
+
+        }
     }
 }

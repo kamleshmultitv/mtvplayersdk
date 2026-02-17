@@ -91,6 +91,7 @@ dependencies {
     implementation(libs.androidx.runtime.livedata)
     implementation(libs.androidx.paging.compose)
     implementation(libs.ui.tooling.preview)
+    implementation(libs.androidx.compose.animation.core)
     debugImplementation(libs.ui.tooling)
 
     // Media3 / ExoPlayer

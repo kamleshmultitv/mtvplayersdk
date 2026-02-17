@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
-import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.sprite.SpriteThumbnail
@@ -40,7 +39,8 @@ fun BottomControls(
     onSeek: (Long) -> Unit,
     onNext: (Int) -> Unit,
     cuePoints: List<CuePoint> = emptyList(),
-    onDragStateChange: (Boolean) -> Unit = {}
+    onDragStateChange: (Boolean) -> Unit = {},
+    expandSheet: (Boolean) -> Unit = {}
 ) {
     val model = playerModelList?.getOrNull(index)
     val isLive = model?.isLive ?: false
@@ -156,11 +156,11 @@ fun BottomControls(
                     if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
                         SeasonSelector(
                             playerModel = model,
-                            playerModelList = playerModelList,
                             exoPlayer = exoPlayer,
                             onShowControls = {},
                             pausePlayer = {},
-                            playContent = onNext
+                            expandSheet = {
+                                expandSheet(it)}
                         )
                     }
                 }

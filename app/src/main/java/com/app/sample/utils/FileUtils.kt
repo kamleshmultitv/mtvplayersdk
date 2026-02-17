@@ -120,8 +120,14 @@ object FileUtils {
                             ?.firstOrNull()
                             ?.url.orEmpty(),
 
-                        title = content.title.orEmpty(),
-                        description = content.shortDesc.orEmpty(),
+                        episodeTitle = content.title.orEmpty(),
+                        episodeDescription = content.seriesDes.orEmpty(),
+                        seasonTitle = content.seasonTitle.orEmpty(),
+                        seasonDescription = content.seasonDes.orEmpty(),
+                        description = content.des.orEmpty(),
+                        seasonNumber = content.seasonNumber.orEmpty(),
+                        episodeNumber = content.episodeNumber.orEmpty(),
+                        duration = content.duration.orEmpty(),
                         srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
 
                         // 🔥 APPLY SUBMITTED TOGGLES
@@ -215,26 +221,42 @@ object FileUtils {
                     ?.firstOrNull()
                     ?.url.orEmpty(),
 
-                title = content.title.orEmpty(),
-                description = content.shortDesc.orEmpty(),
+                episodeTitle = content.title.orEmpty(),
+                episodeDescription = content.seriesDes.orEmpty(),
+                seasonTitle = content.seasonTitle.orEmpty(),
+                seasonDescription = content.seasonDes.orEmpty(),
+                description = content.des.orEmpty(),
+                seasonNumber = content.seasonNumber.orEmpty(),
+                episodeNumber = content.episodeNumber.orEmpty(),
+                duration = content.duration.orEmpty(),
                 srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
 
                 // ✅ DEFAULTS (no submit yet)
-                adsConfig = AdsConfig(enableAds = false),
+                adsConfig = AdsConfig(
+                    adTagUrl = "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/vmap_ad_samples&sz=640x480&cust_params=sample_ar%3Dpremidpost&ciu_szs=300x250&gdfp_req=1&ad_rule=1&output=vmap&unviewed_position_start=1&env=vp&cmsid=496&vid=short_onecue&correlator=",
+                    enableAds = false
+                ),
                 gamAdsConfig = GAMAdsConfig(
                     verticalBan = "ca-app-pub-3940256099942544/6300978111",
                     horizontalBan = "/21775744923/example/fixed-size-banner",
                     timeIntervalInMilliseconds = 300000,
-                    isAdsEnabled = true
+                    isAdsEnabled = false
                 ),
-                skipIntro = SkipIntro(enableSkipIntro = false),
-                nextEpisode = NextEpisode(enableNextEpisode = false),
+                skipIntro = SkipIntro(
+                    startTime = 5000L,
+                    endTime = 95000L,
+                    enableSkipIntro = false
+                ),
+                nextEpisode = NextEpisode(
+                    showBeforeEndMs = "160000",
+                    enableNextEpisode = false
+                ),
                 cacheFactory = null,
-                isChapterEnabled = true,
+                isChapterEnabled = false,
                 chapters = listOf(
-                    Chapter("intro", "Intro", 0L, ),
+                    Chapter("intro", "Intro", 0L),
                     Chapter("main", "Main Content", 186000L),
-                    Chapter("end", "Disclaimer", 2004000L)
+                    Chapter("end", "Special Thanks", 2004000L)
                 ),
                 customControls = PlayerCustomControls(
                     iconTintRes = R.color.white,
@@ -288,8 +310,7 @@ object FileUtils {
                     ?: downloadedContentEntity.seasonImage,
 
                 // 📝 Metadata
-                title = downloadedContentEntity.title,
-                seasonTitle = downloadedContentEntity.seasonName,
+                episodeTitle = downloadedContentEntity.title.orEmpty(),
 
                 // 🎞️ Quality preference (fallback to 1080)
                 selectedVideoQuality = downloadedContentEntity.videoHeight ?: 1080,

@@ -1,6 +1,7 @@
 package com.app.videosdk.ui
 
 import android.content.Context
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,7 +32,6 @@ import com.app.videosdk.utils.CastUtils
 @Composable
 fun TopBar(
     playerModel: PlayerModel? = null,
-    title: String,
     isFullScreen: Boolean = false,
     context: Context,
     castUtils: CastUtils,
@@ -57,20 +57,40 @@ fun TopBar(
                 resId = playerModel?.customControls?.backIconRes,
                 defaultIcon = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                modifier = Modifier.size(24.dp),
                 tint = playerModel?.customControls?.iconTintRes
             )
         }
 
-        Text(
-            text = title,
-            color = Color.White,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+
+            playerModel?.seasonTitle
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    Text(
+                        text = it,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+            playerModel?.episodeTitle
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    Text(
+                        text = it,
+                        color = Color.Gray,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+        }
+
+
 
         if (isFullScreen && playerModel?.isChapterEnabled == true) {
             IconButton(onClick = onChapterClick) {

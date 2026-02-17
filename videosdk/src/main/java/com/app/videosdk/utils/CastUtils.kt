@@ -123,7 +123,7 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
 
     private fun buildMediaMetadata(model: PlayerModel): MediaMetadata {
         return MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE).apply {
-            putString(MediaMetadata.KEY_TITLE, model.title ?: "Unknown Title")
+            putString(MediaMetadata.KEY_TITLE, model.episodeTitle ?: "Unknown Title")
         }
     }
 
