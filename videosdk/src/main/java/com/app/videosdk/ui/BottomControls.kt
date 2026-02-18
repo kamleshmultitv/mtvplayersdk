@@ -26,6 +26,7 @@ import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.sprite.SpriteThumbnail
 import com.app.videosdk.ui.sprite.SpriteUtils
+import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun BottomControls(
@@ -40,7 +41,8 @@ fun BottomControls(
     onNext: (Int) -> Unit,
     cuePoints: List<CuePoint> = emptyList(),
     onDragStateChange: (Boolean) -> Unit = {},
-    expandSheet: (Boolean) -> Unit = {}
+    expandSheet: (Boolean) -> Unit = {},
+    mode: PlayerMode? = null
 ) {
     val model = playerModelList?.getOrNull(index)
     val isLive = model?.isLive ?: false
@@ -120,48 +122,50 @@ fun BottomControls(
             if (!isLive) {
 
                 /* ---------- LEFT : NEXT ---------- */
+                if (mode != PlayerMode.REELS) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
+                            val isLastItem = index >= playerModelList.lastIndex
 
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
-                        val isLastItem = index >= playerModelList.lastIndex
+                            Row(
+                                modifier = Modifier
+                                    .clickable(enabled = !isLastItem) {
+                                        if (!isLastItem) onNext(index + 1)
+                                    }
+                                    .padding(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CustomIcon(
+                                    resId = model?.customControls?.nextEpisodeIconRes,
+                                    defaultIcon = Icons.Default.SkipNext,
+                                    contentDescription = "Next Episode",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = model?.customControls?.iconTintRes
+                                )
 
-                        Row(
-                            modifier = Modifier
-                                .clickable(enabled = !isLastItem) {
-                                    if (!isLastItem) onNext(index + 1)
-                                }
-                                .padding(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CustomIcon(
-                                resId = model?.customControls?.nextEpisodeIconRes,
-                                defaultIcon = Icons.Default.SkipNext,
-                                contentDescription = "Next Episode",
-                                modifier = Modifier.size(16.dp),
-                                tint = model?.customControls?.iconTintRes
-                            )
-
-                            Text(
-                                modifier = Modifier.padding(start = 4.dp),
-                                text = "Next Ep.",
-                                color = if (isLastItem) Color.Gray else Color.White
-                            )
+                                Text(
+                                    modifier = Modifier.padding(start = 4.dp),
+                                    text = "Next Ep.",
+                                    color = if (isLastItem) Color.Gray else Color.White
+                                )
+                            }
                         }
                     }
-                }
 
-                /* ---------- CENTER : EPISODES ---------- */
+                    /* ---------- CENTER : EPISODES ---------- */
 
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
-                        SeasonSelector(
-                            playerModel = model,
-                            exoPlayer = exoPlayer,
-                            onShowControls = {},
-                            pausePlayer = {},
-                            expandSheet = {
-                                expandSheet(it)}
-                        )
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
+                            SeasonSelector(
+                                playerModel = model,
+                                exoPlayer = exoPlayer,
+                                onShowControls = {},
+                                pausePlayer = {},
+                                expandSheet = {
+                                    expandSheet(it)
+                                }
+                            )
+                        }
                     }
                 }
 

@@ -252,7 +252,7 @@ object FileUtils {
                     enableNextEpisode = false
                 ),
                 cacheFactory = null,
-                isChapterEnabled = false,
+                isChapterEnabled = true,
                 chapters = listOf(
                     Chapter("intro", "Intro", 0L),
                     Chapter("main", "Main Content", 186000L),

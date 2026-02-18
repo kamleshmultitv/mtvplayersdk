@@ -28,6 +28,7 @@ import androidx.fragment.app.FragmentActivity
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
+import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun TopBar(
@@ -41,7 +42,8 @@ fun TopBar(
     onSettingsClick: () -> Unit,
     onFullScreenToggle: () -> Unit,
     onLockScreenToggle: () -> Unit,
-    onChapterClick: () -> Unit
+    onChapterClick: () -> Unit,
+    mode: PlayerMode? = null
 ) {
 
     Row(
@@ -90,67 +92,68 @@ fun TopBar(
                 }
         }
 
-
-
-        if (isFullScreen && playerModel?.isChapterEnabled == true) {
-            IconButton(onClick = onChapterClick) {
-                CustomIcon(
-                    resId = null,
-                    defaultIcon = Icons.Default.AutoStories,
-                    contentDescription = "Chapter",
-                    modifier = Modifier.size(24.dp),
-                    tint = playerModel.customControls?.iconTintRes
-                )
+        if (mode != PlayerMode.REELS) {
+            if (isFullScreen && playerModel?.isChapterEnabled == true) {
+                IconButton(onClick = onChapterClick) {
+                    CustomIcon(
+                        resId = null,
+                        defaultIcon = Icons.Default.AutoStories,
+                        contentDescription = "Chapter",
+                        modifier = Modifier.size(24.dp),
+                        tint = playerModel.customControls?.iconTintRes
+                    )
+                }
             }
-        }
 
 
-        if (castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
-            CastButton()
-        }
+            if (castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
+                CastButton()
+            }
 
-        // PIP and Settings remain visible only in FullScreen (VOD context)
-        if (isFullScreen) {
-            PipButton(
-                playerModel,
-                pipListener = pipListener,
-                isPipEnabled = isPipEnabled
-            )
+            // PIP and Settings remain visible only in FullScreen (VOD context)
+            if (isFullScreen) {
+                PipButton(
+                    playerModel,
+                    pipListener = pipListener,
+                    isPipEnabled = isPipEnabled
+                )
 
-            IconButton(onClick = onSettingsClick) {
+                IconButton(onClick = onSettingsClick) {
+                    CustomIcon(
+                        resId = playerModel?.customControls?.settingsIconRes,
+                        defaultIcon = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        modifier = Modifier.size(24.dp),
+                        tint = playerModel?.customControls?.iconTintRes
+                    )
+                }
+            }
+
+            if (isFullScreen) {
+                IconButton(onClick = onLockScreenToggle) {
+                    CustomIcon(
+                        resId = playerModel?.customControls?.lockIconRes,
+                        defaultIcon = Icons.Default.Lock,
+                        contentDescription = "Toggle Lock Screen",
+                        modifier = Modifier.size(24.dp),
+                        tint = playerModel?.customControls?.iconTintRes
+                    )
+                }
+            }
+
+            // FIXED: Moved Fullscreen button OUTSIDE the if(isFullScreen) block
+            // to make it visible in Portrait mode.
+            IconButton(onClick = onFullScreenToggle) {
                 CustomIcon(
-                    resId = playerModel?.customControls?.settingsIconRes,
-                    defaultIcon = Icons.Default.Settings,
-                    contentDescription = "Settings",
+                    resId = if (isFullScreen) playerModel?.customControls?.exitFullScreenIconRes else playerModel?.customControls?.fullScreenIconRes,
+                    defaultIcon = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                    contentDescription = "Toggle Fullscreen",
                     modifier = Modifier.size(24.dp),
                     tint = playerModel?.customControls?.iconTintRes
                 )
+
             }
         }
 
-        if (isFullScreen) {
-            IconButton(onClick = onLockScreenToggle) {
-                CustomIcon(
-                    resId = playerModel?.customControls?.lockIconRes,
-                    defaultIcon = Icons.Default.Lock,
-                    contentDescription = "Toggle Lock Screen",
-                    modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
-                )
-            }
-        }
-
-        // FIXED: Moved Fullscreen button OUTSIDE the if(isFullScreen) block 
-        // to make it visible in Portrait mode.
-        IconButton(onClick = onFullScreenToggle) {
-            CustomIcon(
-                resId = if (isFullScreen) playerModel?.customControls?.exitFullScreenIconRes else playerModel?.customControls?.fullScreenIconRes,
-                defaultIcon = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                contentDescription = "Toggle Fullscreen",
-                modifier = Modifier.size(24.dp),
-                tint = playerModel?.customControls?.iconTintRes
-            )
-
-        }
     }
 }

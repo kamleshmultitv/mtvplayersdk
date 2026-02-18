@@ -21,4 +21,8 @@ interface PlayerStateListener {
     fun onPipModeChanged(isInPip: Boolean) {}
 
     fun onAdStateChanged(isAdPlaying: Boolean) {}
+
+    fun onReelChanged(position: Int) {}
+
+    fun onPreloadNext(index: Int) {}
 }

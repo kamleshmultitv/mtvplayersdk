@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
+import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun CenterControls(
@@ -32,7 +33,8 @@ fun CenterControls(
     onForwardHide: () -> Unit,
     onRewindHide: () -> Unit,
     isZoomed: Boolean,
-    onZoomChange: (Boolean) -> Unit
+    onZoomChange: (Boolean) -> Unit,
+    mode: PlayerMode? = null
 ) {
     val gestureModifier = Modifier
         .pointerInput(Unit) {
@@ -78,7 +80,8 @@ fun CenterControls(
                 context = LocalContext.current,
                 onRewindIconHide = onRewindHide,
                 onForwardIconHide = onForwardHide,
-                isControllerVisible = true
+                isControllerVisible = true,
+                mode = mode
             )
 
             if (isLoading) {

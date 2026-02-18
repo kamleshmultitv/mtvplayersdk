@@ -36,6 +36,7 @@ import com.app.sample.utils.FileUtils.buildPlayerContentList
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun ContentBody(
@@ -83,6 +84,7 @@ fun ContentBody(
                 MtvVideoPlayerSdk(
                     contentList = contentList,
                     index = selectedIndex.intValue,
+                    mode = PlayerMode.REELS,
                     pipListener = pipListener,
                     isInPipMode = isInPipMode,
                     onPlayerBack = {  },

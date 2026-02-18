@@ -1,5 +1,6 @@
 package com.app.videosdk.ui
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -61,7 +62,9 @@ import coil.compose.rememberAsyncImagePainter
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.ui.reels.ReelsFooter
 import com.app.videosdk.utils.CastUtils
+import com.app.videosdk.utils.PlayerMode
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
 import kotlinx.coroutines.delay
 
@@ -88,7 +91,9 @@ fun CustomPlayerController(
     isSkipIntroClicked: Boolean,
     onSkipIntroClicked: (Boolean) -> Unit,
     onNextEpisodeClick: (Int) -> Unit,
-    onChapterClick: () -> Unit = {}
+    onChapterClick: () -> Unit = {},
+    mode: PlayerMode? = null,
+    onSettingsClick: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -359,7 +364,8 @@ fun CustomPlayerController(
                 },
                 onChapterClick = {
                     onChapterClick()
-                }
+                },
+                mode = mode
             )
         }
 
@@ -370,64 +376,53 @@ fun CustomPlayerController(
             Row(modifier = Modifier.fillMaxSize()) {
 
                 /* ---- BRIGHTNESS (LEFT) ---- */
-                AnimatedVisibility(
-                    visible = isControlsVisible,
-                    modifier = Modifier
-                        .weight(0.1f)
-                        .fillMaxHeight(),
 
-                    enter = slideInHorizontally(
-                        initialOffsetX = { it },   // 🔥 Start from RIGHT outside screen
-                        animationSpec = tween(
-                            durationMillis = 600,
-                            easing = LinearOutSlowInEasing
-                        )
-                    ) + fadeIn(
-                        animationSpec = tween(
-                            durationMillis = 500,
-                            easing = LinearEasing
-                        )
-                    ),
-
-                    exit = slideOutHorizontally(
-                        targetOffsetX = { -it },   // 🔥 Move to LEFT when hiding
-                        animationSpec = tween(
-                            durationMillis = 500,
-                            easing = FastOutLinearInEasing
-                        )
-                    ) + fadeOut(
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = LinearEasing
-                        )
-                    )
-                ) {
-                    Box(
+                if (mode != PlayerMode.REELS) {
+                    AnimatedVisibility(
+                        visible = isControlsVisible,
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(0.1f),
-                        contentAlignment = Alignment.Center
-                    ) {
+                            .weight(0.1f)
+                            .fillMaxHeight(),
 
-                        CustomBrightnessController(
-                            playerModel = playerModel,
-                            onShowControls = showControlsState.value
+                        enter = slideInHorizontally(
+                            initialOffsetX = { it },   // 🔥 Start from RIGHT outside screen
+                            animationSpec = tween(
+                                durationMillis = 600,
+                                easing = LinearOutSlowInEasing
+                            )
+                        ) + fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                easing = LinearEasing
+                            )
+                        ),
+
+                        exit = slideOutHorizontally(
+                            targetOffsetX = { -it },   // 🔥 Move to LEFT when hiding
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                easing = FastOutLinearInEasing
+                            )
+                        ) + fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 300,
+                                easing = LinearEasing
+                            )
                         )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(0.1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CustomBrightnessController(
+                                playerModel = playerModel,
+                                onShowControls = showControlsState.value
+                            )
+                        }
                     }
                 }
-
-
-                /* Box(
-                     modifier = Modifier
-                         .weight(0.1f)
-                         .fillMaxHeight(),
-                     contentAlignment = Alignment.Center
-                 ) {
-                     CustomBrightnessController(
-                         playerModel = playerModel,
-                         onShowControls = showControlsState.value
-                     )
-                 }*/
 
                 /* ---- CENTER CONTROLS ---- */
                 Box(modifier = Modifier.weight(0.8f)) {
@@ -443,58 +438,70 @@ fun CustomPlayerController(
                         onForwardHide = { showForwardIcon = false },
                         onRewindHide = { showForwardIcon = false },
                         isZoomed = isZoomed,
-                        onZoomChange = { isZoomed = it }
+                        onZoomChange = { isZoomed = it },
+                        mode = mode
                     )
                 }
 
                 /* ---- VOLUME (RIGHT) ---- */
-                AnimatedVisibility(
-                    visible = isControlsVisible,
-                    modifier = Modifier
-                        .weight(0.1f)
-                        .fillMaxHeight(),
-
-                    enter = slideInHorizontally(
-                        initialOffsetX = { -it },   // 🔥 Start from LEFT outside screen
-                        animationSpec = tween(
-                            durationMillis = 600,
-                            easing = LinearOutSlowInEasing
-                        )
-                    ) + fadeIn(
-                        animationSpec = tween(
-                            durationMillis = 500,
-                            easing = LinearEasing
-                        )
-                    ),
-
-                    exit = slideOutHorizontally(
-                        targetOffsetX = { it },     // 🔥 Move to RIGHT when hiding
-                        animationSpec = tween(
-                            durationMillis = 500,
-                            easing = FastOutLinearInEasing
-                        )
-                    ) + fadeOut(
-                        animationSpec = tween(
-                            durationMillis = 300,
-                            easing = LinearEasing
-                        )
-                    )
-                ) {
-                    Box(
+                if (mode != PlayerMode.REELS) {
+                    AnimatedVisibility(
+                        visible = isControlsVisible,
                         modifier = Modifier
-                            .fillMaxHeight()
-                            .weight(0.1f),
-                        contentAlignment = Alignment.Center
-                    ) {
+                            .weight(0.1f)
+                            .fillMaxHeight(),
 
-                        CustomVolumeController(
-                            playerModel = playerModel,
-                            exoPlayer = exoPlayer,
-                            onShowControls = showControlsState.value
+                        enter = slideInHorizontally(
+                            initialOffsetX = { -it },   // 🔥 Start from LEFT outside screen
+                            animationSpec = tween(
+                                durationMillis = 600,
+                                easing = LinearOutSlowInEasing
+                            )
+                        ) + fadeIn(
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                easing = LinearEasing
+                            )
+                        ),
+
+                        exit = slideOutHorizontally(
+                            targetOffsetX = { it },     // 🔥 Move to RIGHT when hiding
+                            animationSpec = tween(
+                                durationMillis = 500,
+                                easing = FastOutLinearInEasing
+                            )
+                        ) + fadeOut(
+                            animationSpec = tween(
+                                durationMillis = 300,
+                                easing = LinearEasing
+                            )
                         )
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(0.1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CustomVolumeController(
+                                playerModel = playerModel,
+                                exoPlayer = exoPlayer,
+                                onShowControls = showControlsState.value
+                            )
+                        }
                     }
                 }
+            }
 
+            if (mode != PlayerMode.OTT) {
+                ReelsFooter(
+                    onLikeClick = {
+                    },
+                    onShareClick = {
+
+                    }, onSettingsClick = {
+                        onSettingsClick(true)
+                    })
             }
 
         } else {
@@ -512,90 +519,93 @@ fun CustomPlayerController(
                 onForwardHide = { showForwardIcon = false },
                 onRewindHide = { showForwardIcon = false },
                 isZoomed = isZoomed,
-                onZoomChange = { isZoomed = it }
+                onZoomChange = { isZoomed = it },
+                mode = mode
             )
         }
 
         /* ---------- SKIP INTRO BUTTON ---------- */
 
-        AnimatedVisibility(
-            visible = showSkipIntro,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp, start = 8.dp)
-        ) {
-            Box(
+        if (mode != PlayerMode.REELS) {
+            AnimatedVisibility(
+                visible = showSkipIntro,
+                enter = fadeIn(),
+                exit = fadeOut(),
                 modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
-                    .clickable {
-                        onSkipIntroClicked(true)
-                        currentPlayerModel?.skipIntro?.endTime?.let { endTime ->
-                            if (isCasting) castUtils.seekOnCast(endTime)
-                            else exoPlayer.seekTo(endTime)
-                        }
-                    }
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp, start = 8.dp)
             ) {
-                Text(
-                    text = "Skip Intro",
-                    color = Color.Black,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        /* ---------- Next Episode BUTTON ---------- */
-
-        AnimatedVisibility(
-            visible = showNextEpisode,
-            enter = fadeIn(),
-            exit = fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp)
-        ) {
-            if (playerModelList != null && playerModelList.size > 1) {
-                val isLastItem = index >= playerModelList.lastIndex
-
                 Box(
                     modifier = Modifier
-                        .background(Color.Gray, RoundedCornerShape(4.dp))
-                        .clickable(enabled = !isLastItem) {
-                            if (!isLastItem) {
-                                nextEpisodeClicked = true
-                                hasShownNextEpisodeControls = false // 👈 RESET
-                                onNextEpisodeClick(index + 1)
+                        .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
+                        .clickable {
+                            onSkipIntroClicked(true)
+                            currentPlayerModel?.skipIntro?.endTime?.let { endTime ->
+                                if (isCasting) castUtils.seekOnCast(endTime)
+                                else exoPlayer.seekTo(endTime)
                             }
                         }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
-
-                    // 🔥 Animated progress overlay (LEFT → RIGHT)
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clip(RoundedCornerShape(4.dp))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(progress) // 👈 animation happens here
-                                .background(Color.White)
-                        )
-                    }
-
-                    // Text on top
                     Text(
-                        text = "Next Episode",
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                            .align(Alignment.Center),
+                        text = "Skip Intro",
                         color = Color.Black,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+
+            /* ---------- Next Episode BUTTON ---------- */
+
+            AnimatedVisibility(
+                visible = showNextEpisode,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp)
+            ) {
+                if (playerModelList != null && playerModelList.size > 1) {
+                    val isLastItem = index >= playerModelList.lastIndex
+
+                    Box(
+                        modifier = Modifier
+                            .background(Color.Gray, RoundedCornerShape(4.dp))
+                            .clickable(enabled = !isLastItem) {
+                                if (!isLastItem) {
+                                    nextEpisodeClicked = true
+                                    hasShownNextEpisodeControls = false // 👈 RESET
+                                    onNextEpisodeClick(index + 1)
+                                }
+                            }
+                    ) {
+
+                        // 🔥 Animated progress overlay (LEFT → RIGHT)
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clip(RoundedCornerShape(4.dp))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(progress) // 👈 animation happens here
+                                    .background(Color.White)
+                            )
+                        }
+
+                        // Text on top
+                        Text(
+                            text = "Next Episode",
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .align(Alignment.Center),
+                            color = Color.Black,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -658,7 +668,8 @@ fun CustomPlayerController(
                 },
                 expandSheet = {
                     expandSheet = it
-                }
+                },
+                mode = mode
             )
         }
 

@@ -115,4 +115,6 @@ dependencies {
     implementation(libs.interactivemedia)
     implementation(libs.play.services.ads)
 
+    implementation("androidx.compose.foundation:foundation:1.10.3")
+
 }

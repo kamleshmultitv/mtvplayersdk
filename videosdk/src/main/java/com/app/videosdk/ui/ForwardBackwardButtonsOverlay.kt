@@ -33,6 +33,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.PlayerCustomControls
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
+import com.app.videosdk.utils.PlayerMode
 import kotlinx.coroutines.delay
 
 @Composable
@@ -42,7 +43,8 @@ fun ForwardBackwardButtonsOverlay(
     context: Context,
     onRewindIconHide: () -> Unit,
     onForwardIconHide: () -> Unit,
-    isControllerVisible: Boolean
+    isControllerVisible: Boolean,
+    mode: PlayerMode? = null
 ) {
     val castUtils = remember { CastUtils(context, exoPlayer) }
     val isCasting = castUtils.isCasting()
@@ -122,7 +124,8 @@ fun ForwardBackwardButtonsOverlay(
         onForwardIconHide = onForwardIconHide,
         isControllerVisible = isControllerVisible,
         rewindRotation = rewindRotation,
-        forwardRotation = forwardRotation
+        forwardRotation = forwardRotation,
+        mode = mode
     )
 
 
@@ -156,7 +159,8 @@ private fun ForwardBackwardButtonsOverlayUi(
     onForwardIconHide: () -> Unit,
     isControllerVisible: Boolean,
     rewindRotation: Float,
-    forwardRotation: Float
+    forwardRotation: Float,
+    mode: PlayerMode? = null
 ) {
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -167,26 +171,28 @@ private fun ForwardBackwardButtonsOverlayUi(
             verticalAlignment = Alignment.CenterVertically
         ) {
 
-            /* ⏪ Rewind */
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = onRewind
+            if (mode != PlayerMode.REELS) {
+                /* ⏪ Rewind */
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-
-                    CustomIcon(
-                        resId = customControls?.rewindIconRes,
-                        defaultIcon = Icons.Default.Replay10,
-                        contentDescription = "Rewind 10s",
+                    IconButton(
                         modifier = Modifier
-                            .size(48.dp)
-                            .graphicsLayer(rotationZ = rewindRotation),
-                        tint = customControls?.iconTintRes
-                    )
+                            .fillMaxWidth(),
+                        onClick = onRewind
+                    ) {
+
+                        CustomIcon(
+                            resId = customControls?.rewindIconRes,
+                            defaultIcon = Icons.Default.Replay10,
+                            contentDescription = "Rewind 10s",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .graphicsLayer(rotationZ = rewindRotation),
+                            tint = customControls?.iconTintRes
+                        )
+                    }
                 }
             }
 
@@ -215,25 +221,27 @@ private fun ForwardBackwardButtonsOverlayUi(
             }
 
             /* ⏩ Forward */
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = onForward
+            if (mode != PlayerMode.REELS) {
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-
-                    CustomIcon(
-                        resId = customControls?.forwardIconRes,
-                        defaultIcon = Icons.Default.Forward10,
-                        contentDescription = "Forward 10s",
+                    IconButton(
                         modifier = Modifier
-                            .size(48.dp)
-                            .graphicsLayer(rotationZ = forwardRotation),
-                        tint = customControls?.iconTintRes
-                    )
+                            .fillMaxWidth(),
+                        onClick = onForward
+                    ) {
+
+                        CustomIcon(
+                            resId = customControls?.forwardIconRes,
+                            defaultIcon = Icons.Default.Forward10,
+                            contentDescription = "Forward 10s",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .graphicsLayer(rotationZ = forwardRotation),
+                            tint = customControls?.iconTintRes
+                        )
+                    }
                 }
             }
         }
@@ -261,6 +269,7 @@ fun ForwardBackwardButtonsOverlayPreview() {
         onForwardIconHide = { /* mock hide */ },
         isControllerVisible = true,
         rewindRotation = rewindRotation,
-        forwardRotation = forwardRotation
+        forwardRotation = forwardRotation,
+        PlayerMode.REELS
     )
 }
