@@ -140,8 +140,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.play.services.ads)
 
+
     // SDK
-      implementation(project(":videosdk"))
+       implementation(project(":videosdk"))
     // implementation(project(":mtvdownloader"))
 
     implementation(libs.mtvdownloadsdk)

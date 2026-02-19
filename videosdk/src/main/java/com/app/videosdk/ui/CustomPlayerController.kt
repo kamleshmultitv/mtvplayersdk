@@ -88,7 +88,8 @@ fun CustomPlayerController(
     isSkipIntroClicked: Boolean,
     onSkipIntroClicked: (Boolean) -> Unit,
     onNextEpisodeClick: (Int) -> Unit,
-    onChapterClick: () -> Unit = {}
+    onChapterClick: () -> Unit = {},
+    onCutClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -359,6 +360,10 @@ fun CustomPlayerController(
                 },
                 onChapterClick = {
                     onChapterClick()
+                },
+                onCutClick = {
+                    onCutClick()
+
                 }
             )
         }

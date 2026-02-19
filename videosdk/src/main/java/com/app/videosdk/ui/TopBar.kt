@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Lock
@@ -41,7 +42,8 @@ fun TopBar(
     onSettingsClick: () -> Unit,
     onFullScreenToggle: () -> Unit,
     onLockScreenToggle: () -> Unit,
-    onChapterClick: () -> Unit
+    onChapterClick: () -> Unit,
+    onCutClick: () -> Unit
 ) {
 
     Row(
@@ -91,6 +93,17 @@ fun TopBar(
         }
 
 
+        if (isFullScreen) {
+            IconButton(onClick = onCutClick) {
+                CustomIcon(
+                    resId = null,
+                    defaultIcon = Icons.Default.ContentCut,
+                    contentDescription = "Cut",
+                    modifier = Modifier.size(24.dp),
+                    tint = playerModel?.customControls?.iconTintRes
+                )
+            }
+        }
 
         if (isFullScreen && playerModel?.isChapterEnabled == true) {
             IconButton(onClick = onChapterClick) {

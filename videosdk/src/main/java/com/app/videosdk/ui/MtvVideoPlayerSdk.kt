@@ -1,5 +1,6 @@
 package com.app.videosdk.ui
 
+import android.net.Uri
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -64,12 +65,14 @@ import com.app.videosdk.model.CueType
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
+import com.app.videosdk.ui.cut.CutBottomSheet
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
+import androidx.core.net.toUri
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -144,6 +147,7 @@ fun MtvVideoPlayerSdk(
     var currentChapter by remember { mutableStateOf<Chapter?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     var hasActivatedFill by remember { mutableStateOf(false) }
+    var showCutSheet by remember { mutableStateOf(false) }
 
     var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
 
@@ -755,6 +759,9 @@ fun MtvVideoPlayerSdk(
                                         if (playerModel?.isChapterEnabled == true) {
                                             coroutineScope.launch { drawerState.open() }
                                         }
+                                    },
+                                    onCutClick = {
+                                        showCutSheet = true
                                     }
 
                                 )
@@ -790,6 +797,21 @@ fun MtvVideoPlayerSdk(
                                 exoPlayer = exoPlayer
                             ) { isSettingsClick = it }
                         }
+
+                        if (showCutSheet && exoPlayer != null && playbackUrl != null) {
+
+                            val duration = exoPlayer.duration
+                            val videoUri = playbackUrl.toUri()
+
+                            if (duration > 0) {
+                                CutBottomSheet(
+                                    videoUri = videoUri,
+                                    duration = duration,
+                                    onDismiss = { showCutSheet = false }
+                                )
+                            }
+                        }
+
                     }
                 }
             }

@@ -114,5 +114,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.ima)
     implementation(libs.interactivemedia)
     implementation(libs.play.services.ads)
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.common)
 
 }
