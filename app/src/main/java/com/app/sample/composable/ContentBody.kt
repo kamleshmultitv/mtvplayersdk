@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -161,7 +161,7 @@ fun ContentBody(
 
         }
 
-        if (downloadedContentList.isNotEmpty()) {
+        if (!isFullScreen && downloadedContentList.isNotEmpty()) {
             FloatingActionButton(
                 onClick = {
                     showDownloadedList = true
@@ -175,7 +175,7 @@ fun ContentBody(
             ) {
                 // ✅ FAB content (ICON / TEXT REQUIRED)
                 Icon(
-                    imageVector = Icons.Default.Person,
+                    imageVector = Icons.Default.Check,
                     contentDescription = "Downloads"
                 )
             }

@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("maven-publish")
+  //  id("maven-publish")
     id("kotlin-kapt")
 }
 
@@ -47,11 +47,11 @@ android {
     }
 
     // ✅ REQUIRED for AGP 8+ + JitPack
-    publishing {
+  /*  publishing {
         singleVariant("release") {
             withSourcesJar()
         }
-    }
+    }*/
 
 }
 
@@ -59,7 +59,7 @@ android {
  * ✅ Maven Publish (KEEP OUTSIDE android {})
  * This publishes ONLY downloader sdk (not app)
  */
-afterEvaluate {
+/*afterEvaluate {
     publishing {
         publications {
             create<MavenPublication>("release") {
@@ -71,7 +71,7 @@ afterEvaluate {
             }
         }
     }
-}
+}*/
 
 dependencies {
     implementation(libs.androidx.core.ktx)
