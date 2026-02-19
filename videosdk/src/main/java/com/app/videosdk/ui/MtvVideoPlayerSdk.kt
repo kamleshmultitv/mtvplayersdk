@@ -550,6 +550,14 @@ fun MtvVideoPlayerSdk(
         }
     }
 
+    LaunchedEffect(isFullScreen) {
+        if (!isFullScreen) {
+            zoomAccumulator = 1f
+            isFilled = false
+            hasActivatedFill = false
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -633,15 +641,13 @@ fun MtvVideoPlayerSdk(
                                 .fillMaxSize()
                                 .graphicsLayer {
 
-                                    val finalScale = when {
-                                        zoomAccumulator > fillScale -> zoomAccumulator
-                                        isFilled -> fillScale
-                                        else -> 1f
-                                    }
+                                    val finalScale =
+                                        if (isFullScreen) zoomAccumulator else 1f
 
                                     scaleX = finalScale
                                     scaleY = finalScale
                                 }
+
 
 
                                 // 🔥 PINCH ZOOM
@@ -649,34 +655,21 @@ fun MtvVideoPlayerSdk(
 
                                     detectTransformGestures { _, _, zoom, _ ->
 
-                                        if (!pipEnabled && !isAdsShowing && !isLockScreen) {
+                                        if (!pipEnabled && !isAdsShowing && !isLockScreen && isFullScreen) {
 
-                                            // 🔥 Auto enter fullscreen
-                                            if (!isFullScreen) {
-                                                isFullScreen = true
-                                                setFullScreen(true)
-                                                playerStateListener?.onFullScreenChanged(true)
-                                            }
-
-                                            // ✅ FIRST PINCH → ACTIVATE FIT MODE
                                             if (!hasActivatedFill) {
-
                                                 isFilled = true
                                                 hasActivatedFill = true
-
-                                                // Start zoom accumulator from fillScale
                                                 zoomAccumulator = fillScale
-
-                                            } else {
-
-                                                zoomAccumulator *= zoom
-                                                zoomAccumulator =
-                                                    zoomAccumulator.coerceIn(fillScale, 3f)
                                             }
+
+                                            zoomAccumulator *= zoom
+
+                                            // Allow zoom from normal (1x) to 3x
+                                            zoomAccumulator = zoomAccumulator.coerceIn(1f, 3f)
                                         }
                                     }
                                 }
-
 
                                 // 🔥 SINGLE TAP
                                 .pointerInput(Unit) {

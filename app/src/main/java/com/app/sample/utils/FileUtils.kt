@@ -6,8 +6,7 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.paging.compose.LazyPagingItems
-import com.app.mtvdownloader.local.entity.DownloadedContentEntity
-import com.app.mtvdownloader.model.DownloadModel
+import com.app.mtvdownloader.entity.DownloadEntity
 import com.app.sample.AppClass
 import com.app.sample.BuildConfig.DRM_LICENSE_URL
 import com.app.sample.R
@@ -239,20 +238,20 @@ object FileUtils {
                 gamAdsConfig = GAMAdsConfig(
                     verticalBan = "ca-app-pub-3940256099942544/6300978111",
                     horizontalBan = "/21775744923/example/fixed-size-banner",
-                    timeIntervalInMilliseconds = 300000,
+                    timeIntervalInMilliseconds = 600000,
                     isAdsEnabled = false
                 ),
                 skipIntro = SkipIntro(
                     startTime = 5000L,
                     endTime = 95000L,
-                    enableSkipIntro = false
+                    enableSkipIntro = true
                 ),
                 nextEpisode = NextEpisode(
                     showBeforeEndMs = "160000",
-                    enableNextEpisode = false
+                    enableNextEpisode = true
                 ),
                 cacheFactory = null,
-                isChapterEnabled = false,
+                isChapterEnabled = true,
                 chapters = listOf(
                     Chapter("intro", "Intro", 0L),
                     Chapter("main", "Main Content", 186000L),
@@ -284,7 +283,7 @@ object FileUtils {
 
     @OptIn(UnstableApi::class)
     fun buildContentListFromDownloaded(
-        downloadedContentEntity: DownloadedContentEntity
+        downloadedContentEntity: DownloadEntity
     ): List<PlayerModel> {
 
         val downloadCache = (applicationContext as AppClass).downloadCache
@@ -292,22 +291,22 @@ object FileUtils {
         val downloadManager = (applicationContext as AppClass).downloadManager
 
         // ✅ Determine if content is DRM: if licenseUri exists, it's DRM content
-        val isDrm = downloadedContentEntity.licenseUri.isNotBlank()
+        val isDrm = downloadedContentEntity.drm?.isNotBlank()
 
         return listOf(
             PlayerModel(
                 id = downloadedContentEntity.contentId,
                 // ▶️ Playback URL
-                hlsUrl = downloadedContentEntity.contentUrl,
-                mpdUrl = downloadedContentEntity.contentUrl,
+                hlsUrl = downloadedContentEntity.hlsUrl,
+                mpdUrl = downloadedContentEntity.mpdUrl,
 
                 // 🔐 DRM
-                drm = if (isDrm) "1" else "0",
-                drmToken = downloadedContentEntity.licenseUri,
+                drm = if (isDrm == true) "1" else "0",
+                drmToken = downloadedContentEntity.drmToken,
 
                 // 🖼️ Artwork
-                imageUrl = downloadedContentEntity.thumbnailUrl
-                    ?: downloadedContentEntity.seasonImage,
+                imageUrl = downloadedContentEntity.imageUrl
+                    ?: downloadedContentEntity.seasonBanner,
 
                 // 📝 Metadata
                 episodeTitle = downloadedContentEntity.title.orEmpty(),
@@ -347,7 +346,7 @@ object FileUtils {
     fun buildDownloadContentList(
         context: Context,
         contentItem: ContentItem?
-    ): DownloadModel? {
+    ): DownloadEntity? {
 
         if (contentItem == null) return null
 
@@ -358,8 +357,8 @@ object FileUtils {
         // Skip if no playable URL is available
         if (hlsUrl == null && mpdUrl == null) return null
 
-        return DownloadModel(
-            id = contentItem.id.orEmpty(),
+        return DownloadEntity(
+            contentId = contentItem.id.orEmpty(),
             seasonId = contentItem.seasonId.orEmpty(),
             hlsUrl = hlsUrl,
             mpdUrl = mpdUrl,

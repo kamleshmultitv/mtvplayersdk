@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.aol.sspt"
+        applicationId = "com.app.sample"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -141,10 +141,10 @@ dependencies {
     implementation(libs.play.services.ads)
 
     // SDK
-     implementation(project(":videosdk"))
-    // implementation(libs.mtvdownloadsdk)
+    implementation(project(":videosdk"))
+    // implementation(project(":mtvdownloader"))
 
-    implementation(libs.mtvplayersdk)
-  //  implementation(project(":mtvdownloader"))
+    implementation(libs.mtvdownloadsdk)
+    // implementation(libs.mtvplayersdk)
 
 }
