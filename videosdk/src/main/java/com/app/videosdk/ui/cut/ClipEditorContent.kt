@@ -1,13 +1,13 @@
 package com.app.videosdk.ui.cut
 
-import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,59 +17,54 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.app.videosdk.utils.PlayerUtils.exportClip
+import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.formatTime
 
 @Composable
 fun ClipEditorContent(
-    videoUri: Uri,
+    contentId: String? = null,
+    url: String? = null,
     duration: Long
 ) {
 
     val context = LocalContext.current
 
-    val clipDuration = 120_000L // 2 minutes
-    val maxStart = (duration - clipDuration).coerceAtLeast(0L)
-
-    var clipStart by remember { mutableLongStateOf(0L) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(8.dp)
     ) {
 
-        Text(text = "Select 2 minute clip")
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Slider(
-            value = clipStart.toFloat(),
-            onValueChange = {
-                clipStart = it.toLong()
-            },
-            valueRange = 0f..maxStart.toFloat()
-        )
+        Text("Select clip (30s - 2m)")
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Text(
-            text = "Start: ${formatTime(clipStart)}  |  End: ${formatTime(clipStart + clipDuration)}"
-        )
+        var startMs by remember { mutableLongStateOf(0L) }
+        var endMs by remember { mutableLongStateOf(120_000L) }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        YoutubeStyleTrimBar(
+            duration = duration,
+            modifier = Modifier.fillMaxWidth()
+        ) { start, end ->
+            startMs = start
+            endMs = end
+        }
+        Spacer(modifier = Modifier.height(12.dp))
 
         Button(
             onClick = {
-                exportClip(
-                    context = context,
-                    videoUri = videoUri,
-                    clipStart = clipStart
+                val shareUrl = PlayerUtils.createShareUrl(
+                    contentId = contentId,
+                    url = url,
+                    clipStart = startMs,
+                    clipEnd = endMs
                 )
+                PlayerUtils.shareLink(context, shareUrl)
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Save & Share")
+            Text("Share Clip")
         }
     }
 }

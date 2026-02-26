@@ -279,6 +279,9 @@ object PlayerUtils {
 
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
+        contentList?.get(selectedIndex)?.seekTo?.let { position ->
+            exoPlayer.seekTo(position)
+        }
         exoPlayer.playWhenReady = true
 
         return exoPlayer to adsLoader
@@ -552,6 +555,7 @@ object PlayerUtils {
         }
     }
 
+    // share clip
     @OptIn(UnstableApi::class)
     fun exportClip(
         context: Context,
@@ -627,5 +631,27 @@ object PlayerUtils {
         )
     }
 
+    fun createShareUrl(
+        contentId: String? = null,
+        url: String? = null,
+        clipStart: Long,
+        clipEnd: Long
+    ): String {
+        return "https://www.artofliving.app/watch?url=$url&contentId=$contentId&start=$clipStart&end=$clipEnd"
+    }
 
+    fun shareLink(
+        context: Context,
+        shareUrl: String
+    ) {
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, shareUrl)
+        }
+
+        context.startActivity(
+            Intent.createChooser(intent, "Share Clip")
+        )
+    }
 }

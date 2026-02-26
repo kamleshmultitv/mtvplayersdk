@@ -5,11 +5,19 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        create("release") {
+            storeFile = file("D:\\aol\\jks\\live_keystore\\aol.keystore")
+            storePassword = "aol@123456"
+            keyPassword = "aol@123456"
+            keyAlias = "artofliving"
+        }
+    }
     namespace = "com.app.sample"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.app.sample"
+        applicationId = "com.sspt.aol"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -21,13 +29,14 @@ android {
     buildTypes {
 
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+         /*   isMinifyEnabled = true
+            isShrinkResources = true*/
+            isDebuggable = true
 
-            proguardFiles(
+           /* proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
-            )
+            )*/
 
             buildConfigField(
                 "String",
@@ -49,11 +58,11 @@ android {
                 "STATIC_AUTH_TOKEN",
                 "\"abd07061a3dd9851e3c9dd551e68e26838b29e87b2baa479c0eb53c95cac2e6bd701b5588ca7a85de55c6504e0c84c44edc468ae6fdb7a48cf170ee055cd7b3a5960795cf0c3d2989f1aedec0d93fd9d\""
             )
-            //  signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release")
         }
 
         debug {
-            //  signingConfig = signingConfigs.getByName("release") // ✅ REQUIRED
+            signingConfig = signingConfigs.getByName("release") // ✅ REQUIRED
             isMinifyEnabled = false
             isShrinkResources = false
 
@@ -142,10 +151,10 @@ dependencies {
 
 
     // SDK
-       implementation(project(":videosdk"))
+    implementation(project(":videosdk"))
     // implementation(project(":mtvdownloader"))
 
     implementation(libs.mtvdownloadsdk)
-  //  implementation(libs.mtvplayersdk)
+    //  implementation(libs.mtvplayersdk)
 
 }

@@ -9,7 +9,8 @@ import androidx.compose.runtime.Composable
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CutBottomSheet(
-    videoUri: Uri,
+    contentId: String? = null,
+    url: String? = null,
     duration: Long,
     onDismiss: () -> Unit
 ) {
@@ -20,7 +21,8 @@ fun CutBottomSheet(
         sheetState = sheetState
     ) {
         ClipEditorContent(
-            videoUri = videoUri,
+            contentId = contentId,
+            url = url,
             duration = duration
         )
     }

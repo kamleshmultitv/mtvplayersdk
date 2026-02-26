@@ -9,6 +9,7 @@ data class PlayerModel(
     val id: String? = null,
     val hlsUrl: String? = null,
     val mpdUrl: String? = null,
+    val seekTo: Long? = null,
     val liveUrl: String? = null,
     val drm: String? = null,
     val drmToken: String? = null,

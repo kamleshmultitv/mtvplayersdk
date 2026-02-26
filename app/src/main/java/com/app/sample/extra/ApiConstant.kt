@@ -9,6 +9,7 @@ object ApiConstant {
     const val TOKEN = "ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SmhkWFJvYjNKcGVtVmtJanAwY25WbExDSjFjMlZ5Ym1GdFpTSTZJbVJsWm1GMWJIUmZZV1J0YVc0aUxDSjBiMnRsYmlJNklqVm1aREZqWmpKbVl6bG1ORFVpTENKaGNIQmZhV1FpT2pjeE55d2liM2R1WlhKZmFXUWlPalUzTUN3aVlYQndYMjVoYldVaU9pSmtaV1poZFd4MFgyRmtiV2x1SWl3aVpYaHdJam94Tnpjd01ESTVNekUwZlEueHJfVkdxRFhhc3NXQVFEbUFSLWtjamIzRE40NGM3b0kxZ3IzZzA1ZTF1NA=="
 
 
+    const val SUCCESS = 1
 }
 
 enum class ApiPathKeys(val value: String) {
@@ -16,8 +17,12 @@ enum class ApiPathKeys(val value: String) {
     CURRENT_OFFSET("current_offset"),
     MAX_COUNTER("max_counter"),
     GENRE_ID("genre_id"),
+
+    CONTENT_ID("content_id"),
     SEASON_ID("season_id"),
     CID("cid"),
+
+    LOCATION("loc"),
     ENCRYPTION("enc"),
 }
 

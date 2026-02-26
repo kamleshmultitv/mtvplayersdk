@@ -31,6 +31,7 @@ import com.app.sample.R
 import com.app.sample.composable.download.DownloadPlayer
 import com.app.sample.composable.download.DownloadedContentList
 import com.app.sample.model.ContentItem
+import com.app.sample.model.DeepLinkResponse
 import com.app.sample.model.OverrideContent
 import com.app.sample.utils.FileUtils.buildPlayerContentList
 import com.app.videosdk.listener.PipListener
@@ -40,10 +41,13 @@ import com.app.videosdk.ui.MtvVideoPlayerSdk
 @Composable
 fun ContentBody(
     context: Context,
+    contentItem: ContentItem? = null,
     pagingItems: LazyPagingItems<ContentItem>,
     selectedIndex: MutableIntState,
     overrideContent: OverrideContent?,
+    deepLinkContent: DeepLinkResponse?,
     pipListener: PipListener,
+    isDeepLink: Boolean? = false,
     isInPipMode: Boolean,
     isFullScreen: Boolean,
     onFullScreenChange: (Boolean) -> Unit,
@@ -52,12 +56,16 @@ fun ContentBody(
     // 🔥 IMPORTANT: no derivedStateOf here
     val contentList = remember(
         pagingItems.itemSnapshotList.items,
-        overrideContent
+        overrideContent,
+        deepLinkContent,
+        contentItem
     ) {
         buildPlayerContentList(
             context = context,
             pagingItems = pagingItems,
-            overrideContent = overrideContent
+            overrideContent = overrideContent,
+            deepLinkContent = deepLinkContent,
+            contentItem = contentItem
         )
     }
 
@@ -85,6 +93,7 @@ fun ContentBody(
                     index = selectedIndex.intValue,
                     pipListener = pipListener,
                     isInPipMode = isInPipMode,
+                    isDeepLink = isDeepLink,
                     onPlayerBack = {  },
                     setFullScreen = onFullScreenChange,
                     playerStateListener = object : PlayerStateListener {

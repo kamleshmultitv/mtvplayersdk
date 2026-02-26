@@ -81,6 +81,7 @@ fun MtvVideoPlayerSdk(
     index: Int? = 0,
     pipListener: PipListener? = null,
     isInPipMode: Boolean = false,
+    isDeepLink: Boolean? = false,
     startInFullScreen: Boolean = false,
     playerStateListener: PlayerStateListener? = null,
     onPlayerBack: (Boolean) -> Unit,
@@ -115,8 +116,13 @@ fun MtvVideoPlayerSdk(
     val selectedIndex = remember { mutableIntStateOf(safeIndex) }
 
     LaunchedEffect(index, contentList) {
-        val size = contentList?.size ?: return@LaunchedEffect
-        selectedIndex.intValue = index?.coerceIn(0, size - 1) ?: 0
+        val size = contentList?.size ?: 0
+        if (size == 0) {
+            selectedIndex.intValue = 0
+            return@LaunchedEffect
+        }
+        selectedIndex.intValue =
+            index?.coerceIn(0, size - 1) ?: 0
     }
 
     val playerModel = contentList?.getOrNull(selectedIndex.intValue)
@@ -653,7 +659,6 @@ fun MtvVideoPlayerSdk(
                                 }
 
 
-
                                 // 🔥 PINCH ZOOM
                                 .pointerInput(isFullScreen, pipEnabled, isAdsShowing) {
 
@@ -801,11 +806,11 @@ fun MtvVideoPlayerSdk(
                         if (showCutSheet && exoPlayer != null && playbackUrl != null) {
 
                             val duration = exoPlayer.duration
-                            val videoUri = playbackUrl.toUri()
 
                             if (duration > 0) {
                                 CutBottomSheet(
-                                    videoUri = videoUri,
+                                    contentId = playerModel?.id,
+                                    url = playbackUrl,
                                     duration = duration,
                                     onDismiss = { showCutSheet = false }
                                 )
