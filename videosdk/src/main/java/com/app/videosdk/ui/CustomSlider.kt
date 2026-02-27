@@ -154,7 +154,8 @@ fun CustomSlider(
 
                 onValueChangeFinished = {
 
-                    val seekPosition = (sliderPosition * duration).toLong()
+                    val baseOffset = playerModel?.seekTo ?: 0L
+                    val seekPosition = baseOffset + (sliderPosition * duration).toLong()
 
                     val nearestChapter = chapters.minByOrNull {
                         kotlin.math.abs(it.startMs - seekPosition)

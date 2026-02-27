@@ -24,7 +24,9 @@ fun ContentScreen(
     isDeepLink: Boolean,
     deepLinkContentId: String?,
     deepLinkUrl: String?,
-    deepLinkStart: Long
+    deepLinkStart: Long,
+    deepLinkEnd: Long,
+    deepLinkTotalClipDuration: Long
 ) {
     val context = LocalContext.current
     val pagingItems = viewModel.contentListData.collectAsLazyPagingItems()
@@ -41,7 +43,9 @@ fun ContentScreen(
         deepLinkContent = DeepLinkResponse(
             url = deepLinkUrl,
             contentId = deepLinkContentId,
-            seekTo = deepLinkStart
+            seekTo = deepLinkStart,
+            clipEndTime = deepLinkEnd,
+            totalClipDuration = deepLinkTotalClipDuration
         )
     }
     val contentItem = viewModel.contentDetailsState

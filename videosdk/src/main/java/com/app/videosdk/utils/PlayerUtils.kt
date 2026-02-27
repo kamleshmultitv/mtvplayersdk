@@ -242,9 +242,23 @@ object PlayerUtils {
             } else {
                 Log.d("PlayerUtils", "Using ONLINE MediaItem: $resolvedUri")
 
+                val deepStart = content?.seekTo ?: 0L
+                val deepEnd = content?.deepLinkEndMs
+
                 MediaItem.Builder()
                     .setUri(resolvedUri)
                     .apply {
+
+                        // ✅ THIS MAKES SEEK BAR = CLIP DURATION
+                        if (deepEnd != null && deepEnd > deepStart) {
+                            setClippingConfiguration(
+                                MediaItem.ClippingConfiguration.Builder()
+                                    .setStartPositionMs(deepStart)
+                                    .setEndPositionMs(deepEnd)
+                                    .build()
+                            )
+                        }
+
                         if (!drmToken.isNullOrBlank()) {
                             setDrmConfiguration(
                                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
@@ -635,9 +649,10 @@ object PlayerUtils {
         contentId: String? = null,
         url: String? = null,
         clipStart: Long,
-        clipEnd: Long
+        clipEnd: Long,
+        totalClipDuration: Long
     ): String {
-        return "https://www.artofliving.app/watch?url=$url&contentId=$contentId&start=$clipStart&end=$clipEnd"
+        return "https://www.artofliving.app/watch?url=$url&contentId=$contentId&start=$clipStart&end=$clipEnd&totalClipDuration=$totalClipDuration"
     }
 
     fun shareLink(

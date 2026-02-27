@@ -10,6 +10,8 @@ data class PlayerModel(
     val hlsUrl: String? = null,
     val mpdUrl: String? = null,
     val seekTo: Long? = null,
+    var deepLinkEndMs: Long? = null,
+    var deepLinkClipDuration: Long? = null,
     val liveUrl: String? = null,
     val drm: String? = null,
     val drmToken: String? = null,

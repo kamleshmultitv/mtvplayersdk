@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import com.app.mtvdownloader.utils.NotificationPermission
 import com.app.sample.composable.ContentScreen
@@ -26,7 +27,9 @@ class MainActivity : ComponentActivity(), PipListener {
     private val isDeepLinkState = mutableStateOf(false)
     private val deepLinkContentId = mutableStateOf<String?>(null)
     private val deepLinkUrl = mutableStateOf<String?>(null)
-    private val deepLinkStart = mutableStateOf(0L)
+    private val deepLinkStart = mutableLongStateOf(0L)
+    private val deepLinkEnd = mutableLongStateOf(0L)
+    private val deepLinkTotalClipDuration = mutableLongStateOf(0L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,7 +47,9 @@ class MainActivity : ComponentActivity(), PipListener {
                 isDeepLink = isDeepLinkState.value,
                 deepLinkContentId = deepLinkContentId.value,
                 deepLinkUrl = deepLinkUrl.value,
-                deepLinkStart = deepLinkStart.value
+                deepLinkStart = deepLinkStart.longValue,
+                deepLinkEnd = deepLinkEnd.longValue,
+                deepLinkTotalClipDuration = deepLinkTotalClipDuration.longValue
             )
         }
     }
@@ -63,6 +68,8 @@ class MainActivity : ComponentActivity(), PipListener {
             val contentId = data.getQueryParameter("contentId")
             val url = data.getQueryParameter("url")
             val start = data.getQueryParameter("start")?.toLongOrNull() ?: 0L
+            val end = data.getQueryParameter("end")?.toLongOrNull() ?: 0L
+            val totalClipDuration = data.getQueryParameter("totalClipDuration")?.toLongOrNull() ?: 0L
 
             if (!contentId.isNullOrEmpty()) {
 

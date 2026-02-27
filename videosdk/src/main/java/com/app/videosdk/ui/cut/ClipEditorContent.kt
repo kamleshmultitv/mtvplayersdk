@@ -1,24 +1,13 @@
 package com.app.videosdk.ui.cut
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.app.videosdk.utils.PlayerUtils
-import com.app.videosdk.utils.PlayerUtils.formatTime
 
 @Composable
 fun ClipEditorContent(
@@ -28,7 +17,6 @@ fun ClipEditorContent(
 ) {
 
     val context = LocalContext.current
-
 
     Column(
         modifier = Modifier
@@ -42,14 +30,17 @@ fun ClipEditorContent(
 
         var startMs by remember { mutableLongStateOf(0L) }
         var endMs by remember { mutableLongStateOf(120_000L) }
+        var totalClipDuration by remember { mutableLongStateOf(120_000L) }
 
         YoutubeStyleTrimBar(
             duration = duration,
             modifier = Modifier.fillMaxWidth()
-        ) { start, end ->
+        ) { start, end, total ->   // ✅ FIXED (3 params)
             startMs = start
             endMs = end
+            totalClipDuration = total
         }
+
         Spacer(modifier = Modifier.height(12.dp))
 
         Button(
@@ -58,7 +49,8 @@ fun ClipEditorContent(
                     contentId = contentId,
                     url = url,
                     clipStart = startMs,
-                    clipEnd = endMs
+                    clipEnd = endMs,
+                    totalClipDuration = totalClipDuration
                 )
                 PlayerUtils.shareLink(context, shareUrl)
             },

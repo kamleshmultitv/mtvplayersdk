@@ -3,26 +3,11 @@ package com.app.videosdk.ui.cut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,12 +16,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.app.videosdk.utils.PlayerUtils.formatTime
 
-
 @Composable
 fun YoutubeStyleTrimBar(
     duration: Long,
     modifier: Modifier = Modifier,
-    onRangeChanged: (Long, Long) -> Unit
+    onRangeChanged: (Long, Long, Long) -> Unit // ✅ added totalDuration
 ) {
 
     val minClip = 30_000L
@@ -49,11 +33,9 @@ fun YoutubeStyleTrimBar(
 
     var timelineWidthPx by remember { mutableFloatStateOf(1f) }
 
-    // 10 pixels per second → smooth timeline
     val totalSeconds = duration / 1000f
     val pxPerSecond = 10f
     val totalWidthPx = totalSeconds * pxPerSecond
-
     val totalWidthDp = with(density) { totalWidthPx.toDp() }
 
     Column(modifier = modifier) {
@@ -104,27 +86,25 @@ fun YoutubeStyleTrimBar(
                     .border(3.dp, Color(0xFF2196F3))
             ) {
 
-                // Start time (Top Left)
+                val startMs =
+                    (scrollState.value.toFloat() /
+                            scrollState.maxValue.toFloat() *
+                            (duration - selectedDuration)).toLong()
+
+                val endMs = startMs + selectedDuration
+
+                // Start time
                 Text(
-                    text = formatTime(
-                        (scrollState.value.toFloat() /
-                                scrollState.maxValue.toFloat() *
-                                (duration - selectedDuration)).toLong()
-                    ),
+                    text = formatTime(startMs),
                     color = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(4.dp)
                 )
 
-                // End time (Top Right)
+                // End time
                 Text(
-                    text = formatTime(
-                        ((scrollState.value.toFloat() /
-                                scrollState.maxValue.toFloat() *
-                                (duration - selectedDuration)).toLong()
-                                + selectedDuration)
-                    ),
+                    text = formatTime(endMs),
                     color = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -138,6 +118,7 @@ fun YoutubeStyleTrimBar(
                 if (timelineWidthPx <= 0) return@LaunchedEffect
 
                 val maxScroll = scrollState.maxValue.toFloat()
+                if (maxScroll == 0f) return@LaunchedEffect
 
                 val scrollPercent =
                     scrollState.value / maxScroll
@@ -147,7 +128,9 @@ fun YoutubeStyleTrimBar(
 
                 val endMs = startMs + selectedDuration
 
-                onRangeChanged(startMs, endMs)
+                val totalCropDuration = endMs - startMs // ✅ total duration
+
+                onRangeChanged(startMs, endMs, totalCropDuration)
             }
         }
 

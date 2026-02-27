@@ -133,6 +133,8 @@ object FileUtils {
                     mpdUrl = deeplink.url,
                     id = deeplink.contentId,
                     seekTo = deeplink.seekTo,
+                    deepLinkEndMs = deeplink.clipEndTime,
+                    deepLinkClipDuration = deeplink.totalClipDuration,
                     customControls = defaultControls()
                 )
             )
