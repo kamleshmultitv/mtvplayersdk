@@ -30,6 +30,7 @@ repositories {
 ```
 
 ### 2. Add SDK Dependency
+[![](https://jitpack.io/v/kamleshmultitv/mtvplayersdk.svg)](https://jitpack.io/#kamleshmultitv/mtvplayersdk)
 
 ```gradle
 dependencies {
