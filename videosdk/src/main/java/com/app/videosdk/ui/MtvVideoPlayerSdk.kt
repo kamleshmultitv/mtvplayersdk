@@ -1,6 +1,5 @@
 package com.app.videosdk.ui
 
-import android.net.Uri
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
@@ -40,11 +38,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import androidx.media3.common.C
@@ -67,14 +63,13 @@ import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
 import com.app.videosdk.ui.cut.CutBottomSheet
+import com.app.videosdk.utils.PlayerMode
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
-import androidx.core.net.toUri
-import com.app.videosdk.utils.PlayerMode
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -90,7 +85,6 @@ fun MtvVideoPlayerSdk(
     setFullScreen: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
 
     var contentDuration by remember { mutableLongStateOf(0L) }
 
@@ -617,10 +611,11 @@ fun MtvVideoPlayerSdk(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
-                                if (isFullScreen)
-                                    Modifier.fillMaxSize()
-                                else
-                                    Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
+                                when (currentMode) {
+                                    PlayerMode.FULL_SCREEN -> Modifier.fillMaxSize()
+                                    PlayerMode.REELS -> Modifier.fillMaxSize()
+                                    PlayerMode.MINI -> Modifier.aspectRatio(16f / 9f)
+                                }
                             )
                             .background(Color.Black)
                     ) {
