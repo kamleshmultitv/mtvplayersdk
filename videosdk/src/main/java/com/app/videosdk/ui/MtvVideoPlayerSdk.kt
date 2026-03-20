@@ -56,6 +56,7 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
+import com.app.videosdk.listener.PlayerController
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
@@ -82,6 +83,7 @@ fun MtvVideoPlayerSdk(
     isDeepLink: Boolean? = false,
     playerMode: PlayerMode = PlayerMode.MINI,
     playerStateListener: PlayerStateListener? = null,
+    controller: PlayerController? = null,
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit
 ) {
@@ -263,6 +265,10 @@ fun MtvVideoPlayerSdk(
 
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
+
+    LaunchedEffect(exoPlayer) {
+        controller?.exoPlayer = exoPlayer
+    }
 
     LaunchedEffect(exoPlayer, currentMode) {
         exoPlayer?.repeatMode =
