@@ -1,5 +1,6 @@
 package com.app.videosdk.ui
 
+import android.net.Uri
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
@@ -38,9 +40,11 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import androidx.media3.common.C
@@ -63,13 +67,14 @@ import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
 import com.app.videosdk.ui.cut.CutBottomSheet
-import com.app.videosdk.utils.PlayerMode
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
+import androidx.core.net.toUri
+import com.app.videosdk.utils.PlayerMode
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -85,6 +90,7 @@ fun MtvVideoPlayerSdk(
     setFullScreen: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
 
     var contentDuration by remember { mutableLongStateOf(0L) }
 
@@ -93,15 +99,6 @@ fun MtvVideoPlayerSdk(
         PlayerView(context).apply {
             useController = false
             layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-
-            // ✅ ✅ THIS IS THE FIX
-            isClickable = false
-            isFocusable = false
-            isFocusableInTouchMode = false
-
-            setOnTouchListener { _, _ ->
-                false // ❗ allow parent (pager) to handle touch
-            }
         }
     }
 
@@ -620,11 +617,10 @@ fun MtvVideoPlayerSdk(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
-                                when (currentMode) {
-                                    PlayerMode.FULL_SCREEN -> Modifier.fillMaxSize()
-                                    PlayerMode.REELS -> Modifier.fillMaxSize()
-                                    PlayerMode.MINI -> Modifier.aspectRatio(16f / 9f)
-                                }
+                                if (isFullScreen)
+                                    Modifier.fillMaxSize()
+                                else
+                                    Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
                             )
                             .background(Color.Black)
                     ) {
@@ -669,10 +665,9 @@ fun MtvVideoPlayerSdk(
                                 // 🔥 PINCH ZOOM
                                 .pointerInput(isFullScreen, pipEnabled, isAdsShowing) {
 
-                                    // ✅ ONLY ENABLE in FULL SCREEN
-                                    if (isFullScreen && !pipEnabled && !isAdsShowing && !isLockScreen) {
+                                    detectTransformGestures { _, _, zoom, _ ->
 
-                                        detectTransformGestures { _, _, zoom, _ ->
+                                        if (!pipEnabled && !isAdsShowing && !isLockScreen && isFullScreen) {
 
                                             if (!hasActivatedFill) {
                                                 isFilled = true
@@ -686,36 +681,32 @@ fun MtvVideoPlayerSdk(
                                             zoomAccumulator = zoomAccumulator.coerceIn(1f, 3f)
                                         }
                                     }
-
-                                    // ❗ else → DO NOTHING → allow pager to handle gestures
                                 }
 
                                 // 🔥 SINGLE TAP
-                                .pointerInput(currentMode) {
-                                    if (currentMode == PlayerMode.FULL_SCREEN) {
-                                        detectTapGestures(
-                                            onDoubleTap = {
-                                                hasActivatedFill = false
-                                                isFilled = false
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onDoubleTap = {
+                                            hasActivatedFill = false
+                                            isFilled = false
+                                            zoomAccumulator = 1f
+                                            // Reset zoom on double tap
+                                            if (zoomAccumulator > 1f) {
                                                 zoomAccumulator = 1f
-                                                // Reset zoom on double tap
-                                                if (zoomAccumulator > 1f) {
-                                                    zoomAccumulator = 1f
+                                            }
+                                        },
+                                        onTap = {
+                                            when {
+                                                isLockScreen -> {
+                                                    isLockOverlayVisible = true
                                                 }
-                                            },
-                                            onTap = {
-                                                when {
-                                                    isLockScreen -> {
-                                                        isLockOverlayVisible = true
-                                                    }
 
-                                                    !pipEnabled && !isSettingsClick -> {
-                                                        isControllerVisible = !isControllerVisible
-                                                    }
+                                                !pipEnabled && !isSettingsClick -> {
+                                                    isControllerVisible = !isControllerVisible
                                                 }
                                             }
-                                        )
-                                    }
+                                        }
+                                    )
                                 }
 
                         )
