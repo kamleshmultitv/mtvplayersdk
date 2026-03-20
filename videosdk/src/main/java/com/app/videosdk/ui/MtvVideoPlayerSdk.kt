@@ -660,9 +660,10 @@ fun MtvVideoPlayerSdk(
                                 // 🔥 PINCH ZOOM
                                 .pointerInput(isFullScreen, pipEnabled, isAdsShowing) {
 
-                                    detectTransformGestures { _, _, zoom, _ ->
+                                    // ✅ ONLY ENABLE in FULL SCREEN
+                                    if (isFullScreen && !pipEnabled && !isAdsShowing && !isLockScreen) {
 
-                                        if (!pipEnabled && !isAdsShowing && !isLockScreen && isFullScreen) {
+                                        detectTransformGestures { _, _, zoom, _ ->
 
                                             if (!hasActivatedFill) {
                                                 isFilled = true
@@ -676,32 +677,36 @@ fun MtvVideoPlayerSdk(
                                             zoomAccumulator = zoomAccumulator.coerceIn(1f, 3f)
                                         }
                                     }
+
+                                    // ❗ else → DO NOTHING → allow pager to handle gestures
                                 }
 
                                 // 🔥 SINGLE TAP
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onDoubleTap = {
-                                            hasActivatedFill = false
-                                            isFilled = false
-                                            zoomAccumulator = 1f
-                                            // Reset zoom on double tap
-                                            if (zoomAccumulator > 1f) {
+                                .pointerInput(currentMode) {
+                                    if (currentMode == PlayerMode.FULL_SCREEN) {
+                                        detectTapGestures(
+                                            onDoubleTap = {
+                                                hasActivatedFill = false
+                                                isFilled = false
                                                 zoomAccumulator = 1f
-                                            }
-                                        },
-                                        onTap = {
-                                            when {
-                                                isLockScreen -> {
-                                                    isLockOverlayVisible = true
+                                                // Reset zoom on double tap
+                                                if (zoomAccumulator > 1f) {
+                                                    zoomAccumulator = 1f
                                                 }
+                                            },
+                                            onTap = {
+                                                when {
+                                                    isLockScreen -> {
+                                                        isLockOverlayVisible = true
+                                                    }
 
-                                                !pipEnabled && !isSettingsClick -> {
-                                                    isControllerVisible = !isControllerVisible
+                                                    !pipEnabled && !isSettingsClick -> {
+                                                        isControllerVisible = !isControllerVisible
+                                                    }
                                                 }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
 
                         )

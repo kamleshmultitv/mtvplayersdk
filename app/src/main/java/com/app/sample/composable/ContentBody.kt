@@ -91,7 +91,7 @@ fun ContentBody(
                 val playerMode = if (isFullScreen) {
                     PlayerMode.FULL_SCREEN
                 } else {
-                    PlayerMode.REELS
+                    PlayerMode.MINI
                 }
 
                 MtvVideoPlayerSdk(
