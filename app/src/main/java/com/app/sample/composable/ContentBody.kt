@@ -37,6 +37,7 @@ import com.app.sample.utils.FileUtils.buildPlayerContentList
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun ContentBody(
@@ -84,18 +85,37 @@ fun ContentBody(
         Column(modifier = Modifier.fillMaxSize()) {
 
             // 🎬 SDK Video Player (KEYED)
-            key(
-                contentList,
-                selectedIndex.intValue
-            ) {
+            key(contentList, selectedIndex.intValue) {
+
+                // ✅ derive mode from existing boolean
+                val playerMode = if (isFullScreen) {
+                    PlayerMode.FULL_SCREEN
+                } else {
+                    PlayerMode.REELS
+                }
+
                 MtvVideoPlayerSdk(
                     contentList = contentList,
                     index = selectedIndex.intValue,
                     pipListener = pipListener,
                     isInPipMode = isInPipMode,
                     isDeepLink = isDeepLink,
-                    onPlayerBack = {  },
-                    setFullScreen = onFullScreenChange,
+
+                    // ✅ FIXED (dynamic mode)
+                    playerMode = playerMode,
+
+                    // ✅ Back handling (no logic change)
+                    onPlayerBack = {
+                        if (isFullScreen) {
+                            onFullScreenChange(false)
+                        }
+                    },
+
+                    // ✅ Fullscreen toggle (same as before)
+                    setFullScreen = { isFull ->
+                        onFullScreenChange(isFull)
+                    },
+
                     playerStateListener = object : PlayerStateListener {
 
                         override fun onPlayerReady(durationMs: Long) {
@@ -117,8 +137,7 @@ fun ContentBody(
                         override fun onAdStateChanged(isAdPlaying: Boolean) {
                             Log.d("CLIENT", "Ad playing = $isAdPlaying")
                         }
-                    },
-
+                    }
                 )
             }
 

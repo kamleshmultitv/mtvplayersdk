@@ -13,6 +13,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,6 +74,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import androidx.core.net.toUri
+import com.app.videosdk.utils.PlayerMode
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -82,7 +84,7 @@ fun MtvVideoPlayerSdk(
     pipListener: PipListener? = null,
     isInPipMode: Boolean = false,
     isDeepLink: Boolean? = false,
-    startInFullScreen: Boolean = false,
+    playerMode: PlayerMode = PlayerMode.MINI,
     playerStateListener: PlayerStateListener? = null,
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit
@@ -127,14 +129,14 @@ fun MtvVideoPlayerSdk(
 
     val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
-    var isFullScreen by remember(startInFullScreen) {
-        mutableStateOf(startInFullScreen)
+    var currentMode by remember(playerMode) {
+        mutableStateOf(playerMode)
     }
 
-    LaunchedEffect(startInFullScreen) {
-        if (startInFullScreen) {
-            setFullScreen(true)
-        }
+    val isFullScreen = currentMode == PlayerMode.FULL_SCREEN
+
+    LaunchedEffect(currentMode) {
+        setFullScreen(currentMode == PlayerMode.FULL_SCREEN)
     }
 
     FullScreenHandler(isFullScreen)
@@ -572,10 +574,11 @@ fun MtvVideoPlayerSdk(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                if (isFullScreen)
-                    Modifier.fillMaxSize()
-                else
-                    Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
+                when (currentMode) {
+                    PlayerMode.FULL_SCREEN -> Modifier.fillMaxSize()
+                    PlayerMode.REELS -> Modifier.fillMaxSize()
+                    PlayerMode.MINI -> Modifier.aspectRatio(16f / 9f)
+                }
             )
     ) {
 
@@ -729,8 +732,9 @@ fun MtvVideoPlayerSdk(
                                     totalDuration = contentDuration,
                                     pipListener = pipListener,
                                     isFullScreen = { full ->
-                                        isFullScreen = full
-                                        setFullScreen(full)
+                                        val newMode = if (full) PlayerMode.FULL_SCREEN else PlayerMode.MINI
+                                        currentMode = newMode
+                                        setFullScreen(full) // ✅ notify parent
                                         playerStateListener?.onFullScreenChanged(full)
                                     },
                                     isLockScreen = { isLockScreen = it },
@@ -744,10 +748,9 @@ fun MtvVideoPlayerSdk(
                                     onSettingsButtonClick = { isSettingsClick = it },
                                     isLoading = isLoading,
                                     onBackPressed = {
-                                        if (isFullScreen) {
-                                            isFullScreen = false
-                                            setFullScreen(false)
-                                            playerStateListener?.onFullScreenChanged(false)
+                                        if (currentMode == PlayerMode.FULL_SCREEN) {
+                                            currentMode = PlayerMode.MINI
+                                            setFullScreen(false) // ✅ sync parent
                                         } else {
                                             onPlayerBack(true)
                                         }

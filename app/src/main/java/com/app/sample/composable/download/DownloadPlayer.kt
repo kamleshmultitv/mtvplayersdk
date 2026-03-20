@@ -12,6 +12,7 @@ import com.app.sample.R
 import com.app.sample.utils.FileUtils.buildContentListFromDownloaded
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun DownloadPlayer(
@@ -46,7 +47,7 @@ fun DownloadPlayer(
         MtvVideoPlayerSdk(
             contentList = contentList,
             index = 0,
-            startInFullScreen = true,
+            playerMode = PlayerMode.FULL_SCREEN,
             onPlayerBack = {},
             setFullScreen = {  },
             playerStateListener = object : PlayerStateListener {
