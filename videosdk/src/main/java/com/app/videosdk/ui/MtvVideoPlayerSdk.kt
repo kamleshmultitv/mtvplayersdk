@@ -84,6 +84,7 @@ fun MtvVideoPlayerSdk(
     playerMode: PlayerMode = PlayerMode.MINI,
     playerStateListener: PlayerStateListener? = null,
     controller: PlayerController? = null,
+    isMutedInitially: Boolean = true,
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit
 ) {
@@ -265,6 +266,10 @@ fun MtvVideoPlayerSdk(
 
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
+
+    LaunchedEffect(isMutedInitially, exoPlayer) {
+        exoPlayer?.volume = if (isMutedInitially) 0f else 1f
+    }
 
     LaunchedEffect(exoPlayer) {
         controller?.exoPlayer = exoPlayer
