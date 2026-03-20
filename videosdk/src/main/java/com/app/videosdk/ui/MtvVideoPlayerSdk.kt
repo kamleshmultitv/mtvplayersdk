@@ -1,6 +1,5 @@
 package com.app.videosdk.ui
 
-import android.net.Uri
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
@@ -44,7 +42,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import androidx.media3.common.C
@@ -67,14 +64,13 @@ import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
 import com.app.videosdk.ui.cut.CutBottomSheet
+import com.app.videosdk.utils.PlayerMode
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
-import androidx.core.net.toUri
-import com.app.videosdk.utils.PlayerMode
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -267,6 +263,15 @@ fun MtvVideoPlayerSdk(
 
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
+
+    LaunchedEffect(exoPlayer, currentMode) {
+        exoPlayer?.repeatMode =
+            if (currentMode == PlayerMode.REELS) {
+                Player.REPEAT_MODE_ONE   // 🔥 replay same video
+            } else {
+                Player.REPEAT_MODE_OFF   // normal behavior
+            }
+    }
 
     val lBandCuePoints = remember(contentDuration, selectedIndex.intValue) {
         val interval = playerModel?.gamAdsConfig?.timeIntervalInMilliseconds
