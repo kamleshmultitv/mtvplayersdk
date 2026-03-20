@@ -21,4 +21,5 @@ interface PlayerStateListener {
     fun onPipModeChanged(isInPip: Boolean) {}
 
     fun onAdStateChanged(isAdPlaying: Boolean) {}
+    fun onMuteStateChanged(isMuted: Boolean) {}
 }

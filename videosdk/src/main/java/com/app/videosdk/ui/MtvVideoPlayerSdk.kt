@@ -310,6 +310,9 @@ fun MtvVideoPlayerSdk(
         val player = exoPlayer ?: return@DisposableEffect onDispose {}
 
         val listener = object : Player.Listener {
+            override fun onVolumeChanged(volume: Float) {
+                playerStateListener?.onMuteStateChanged(volume == 0f)
+            }
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 hasActivatedFill = false
                 lastVideoSize = videoSize
