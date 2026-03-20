@@ -617,10 +617,11 @@ fun MtvVideoPlayerSdk(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
-                                if (isFullScreen)
-                                    Modifier.fillMaxSize()
-                                else
-                                    Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
+                                when (currentMode) {
+                                    PlayerMode.FULL_SCREEN -> Modifier.fillMaxSize()
+                                    PlayerMode.REELS -> Modifier.fillMaxSize()
+                                    PlayerMode.MINI -> Modifier.aspectRatio(16f / 9f)
+                                }
                             )
                             .background(Color.Black)
                     ) {
