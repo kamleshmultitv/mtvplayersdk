@@ -93,6 +93,15 @@ fun MtvVideoPlayerSdk(
         PlayerView(context).apply {
             useController = false
             layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+
+            // ✅ ✅ THIS IS THE FIX
+            isClickable = false
+            isFocusable = false
+            isFocusableInTouchMode = false
+
+            setOnTouchListener { _, _ ->
+                false // ❗ allow parent (pager) to handle touch
+            }
         }
     }
 
