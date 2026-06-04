@@ -26,6 +26,7 @@ fun CenterControls(
     exoPlayer: ExoPlayer,
     castUtils: CastUtils,
     isCasting: Boolean,
+    isFullScreen: Boolean,
     onShowControls: (Boolean) -> Unit,
     onForward: () -> Unit,
     onRewind: () -> Unit,
@@ -78,7 +79,8 @@ fun CenterControls(
                 context = LocalContext.current,
                 onRewindIconHide = onRewindHide,
                 onForwardIconHide = onForwardHide,
-                isControllerVisible = true
+                isControllerVisible = true,
+                isFullScreen = isFullScreen
             )
 
             if (isLoading) {

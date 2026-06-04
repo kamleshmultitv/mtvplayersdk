@@ -35,6 +35,7 @@ data class PlayerModel(
     val skipIntro: SkipIntro? = null,
     val nextEpisode: NextEpisode? = null,
     val customControls: PlayerCustomControls? = null,
+    val isClipEnabled: Boolean = false,
     val isChapterEnabled: Boolean = false,
     val chapters: List<Chapter>? = null,
     val cacheFactory: CacheDataSource.Factory? = null,

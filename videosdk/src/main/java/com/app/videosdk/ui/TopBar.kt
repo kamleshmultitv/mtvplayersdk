@@ -93,14 +93,14 @@ fun TopBar(
         }
 
 
-        if (isFullScreen) {
+        if (isFullScreen && playerModel?.isClipEnabled == true) {
             IconButton(onClick = onCutClick) {
                 CustomIcon(
                     resId = null,
                     defaultIcon = Icons.Default.ContentCut,
                     contentDescription = "Cut",
                     modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
+                    tint = playerModel.customControls?.iconTintRes
                 )
             }
         }

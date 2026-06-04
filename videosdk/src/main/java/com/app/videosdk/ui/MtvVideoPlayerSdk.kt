@@ -143,7 +143,7 @@ fun MtvVideoPlayerSdk(
     var isLockScreen by remember { mutableStateOf(false) }
     var showUnlockConfirm by remember { mutableStateOf(false) }
     var isLockOverlayVisible by remember { mutableStateOf(true) }
-    var pipEnabled = isInPipMode
+    var pipEnabled by remember { mutableStateOf(isInPipMode) }
     var isLoading by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
     var isAdsShowing by remember { mutableStateOf(false) }
@@ -163,6 +163,10 @@ fun MtvVideoPlayerSdk(
     }
 
     val isLive = playerModel?.isLive == true
+
+    LaunchedEffect(isInPipMode) {
+        pipEnabled = isInPipMode
+    }
 
     val playbackUrl = remember(playerModel) {
         val url = when {
@@ -704,7 +708,7 @@ fun MtvVideoPlayerSdk(
                                 }
 
                                 // 🔥 SINGLE TAP
-                                .pointerInput(Unit) {
+                                .pointerInput(pipEnabled, isSettingsClick, isLockScreen) {
                                     detectTapGestures(
                                         onDoubleTap = {
                                             hasActivatedFill = false
@@ -764,7 +768,13 @@ fun MtvVideoPlayerSdk(
                                     modifier = Modifier.fillMaxSize(),
                                     isControllerVisible,
                                     onShowControls = { isControllerVisible = it },
-                                    isPipEnabled = { pipEnabled = it },
+                                    isPipEnabled = {
+                                        pipEnabled = it
+                                        if (it) {
+                                            isControllerVisible = false
+                                            isSettingsClick = false
+                                        }
+                                    },
                                     onSettingsButtonClick = { isSettingsClick = it },
                                     isLoading = isLoading,
                                     onBackPressed = {

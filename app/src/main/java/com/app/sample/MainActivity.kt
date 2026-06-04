@@ -2,6 +2,7 @@ package com.app.sample
 
 import android.app.PictureInPictureParams
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
@@ -96,11 +97,30 @@ class MainActivity : ComponentActivity(), PipListener {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        updatePipState(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) isInPictureInPictureMode else false
+        )
+    }
+
     @Deprecated("Deprecated in android.app.Activity")
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode)
+        updatePipState(isInPictureInPictureMode)
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        updatePipState(isInPictureInPictureMode)
+    }
+
+    private fun updatePipState(isInPictureInPictureMode: Boolean) {
         pipState.value = isInPictureInPictureMode
     }
 }

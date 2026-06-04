@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -42,7 +43,8 @@ fun ForwardBackwardButtonsOverlay(
     context: Context,
     onRewindIconHide: () -> Unit,
     onForwardIconHide: () -> Unit,
-    isControllerVisible: Boolean
+    isControllerVisible: Boolean,
+    isFullScreen: Boolean
 ) {
     val castUtils = remember { CastUtils(context, exoPlayer) }
     val isCasting = castUtils.isCasting()
@@ -121,6 +123,7 @@ fun ForwardBackwardButtonsOverlay(
         onRewindIconHide = onRewindIconHide,
         onForwardIconHide = onForwardIconHide,
         isControllerVisible = isControllerVisible,
+        playPauseIconSize = if (isFullScreen) 48.dp else 34.dp,
         rewindRotation = rewindRotation,
         forwardRotation = forwardRotation
     )
@@ -155,6 +158,7 @@ private fun ForwardBackwardButtonsOverlayUi(
     onRewindIconHide: () -> Unit,
     onForwardIconHide: () -> Unit,
     isControllerVisible: Boolean,
+    playPauseIconSize: Dp,
     rewindRotation: Float,
     forwardRotation: Float
 ) {
@@ -207,7 +211,7 @@ private fun ForwardBackwardButtonsOverlayUi(
                             resId = if (isPlaying) customControls?.pauseIconRes else customControls?.playIconRes,
                             defaultIcon = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = "Play/Pause",
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(playPauseIconSize),
                             tint = customControls?.iconTintRes
                         )
                     }
@@ -260,6 +264,7 @@ fun ForwardBackwardButtonsOverlayPreview() {
         onRewindIconHide = { /* mock hide */ },
         onForwardIconHide = { /* mock hide */ },
         isControllerVisible = true,
+        playPauseIconSize = 48.dp,
         rewindRotation = rewindRotation,
         forwardRotation = forwardRotation
     )

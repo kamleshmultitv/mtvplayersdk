@@ -209,7 +209,8 @@ object FileUtils {
             nextEpisode = override?.nextEpisode ?: defaultNextEpisode(),
 
             cacheFactory = null,
-            isChapterEnabled = true,
+            isClipEnabled = false,
+            isChapterEnabled = false,
             chapters = defaultChapters(),
 
             customControls = defaultControls()
