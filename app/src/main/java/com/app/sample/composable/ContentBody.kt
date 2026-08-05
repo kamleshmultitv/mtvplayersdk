@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
@@ -36,6 +37,7 @@ import com.app.sample.model.OverrideContent
 import com.app.sample.utils.FileUtils.buildPlayerContentList
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
+import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.ui.MtvVideoPlayerSdk
 import com.app.videosdk.utils.PlayerMode
 
@@ -85,7 +87,7 @@ fun ContentBody(
         Column(modifier = Modifier.fillMaxSize()) {
 
             // 🎬 SDK Video Player (KEYED)
-            key(contentList, selectedIndex.intValue) {
+            key(contentList) {
 
                 // ✅ derive mode from existing boolean
                 val playerMode = if (isFullScreen) {
@@ -103,6 +105,16 @@ fun ContentBody(
 
                     // ✅ FIXED (dynamic mode)
                     playerMode = playerMode,
+
+                    onIndexChanged = { newIndex ->
+                        selectedIndex.intValue = newIndex
+                    },
+
+                    episodeNowPlayingStyle = EpisodeNowPlayingStyle(
+                        pillBackgroundColor = Color(0xFF00C853),
+                        pillTextColor = Color.White,
+                        pillDotColor = Color.White
+                    ),
 
                     // ✅ Back handling (no logic change)
                     onPlayerBack = {

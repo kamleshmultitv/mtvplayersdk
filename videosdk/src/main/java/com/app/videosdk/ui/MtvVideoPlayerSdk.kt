@@ -1,9 +1,12 @@
 package com.app.videosdk.ui
 
+import android.content.res.Configuration
+import android.view.LayoutInflater
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -54,6 +57,7 @@ import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import com.app.videosdk.R
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerController
@@ -61,6 +65,7 @@ import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
+import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
@@ -86,7 +91,9 @@ fun MtvVideoPlayerSdk(
     controller: PlayerController? = null,
     isMutedInitially: Boolean = true,
     onPlayerBack: (Boolean) -> Unit,
-    setFullScreen: (Boolean) -> Unit
+    setFullScreen: (Boolean) -> Unit,
+    onIndexChanged: (Int) -> Unit = {},
+    episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle()
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -95,7 +102,8 @@ fun MtvVideoPlayerSdk(
 
 
     val playerView = remember {
-        PlayerView(context).apply {
+        (LayoutInflater.from(context)
+            .inflate(R.layout.mtv_video_player_view, null, false) as PlayerView).apply {
             useController = false
             layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         }
@@ -122,23 +130,73 @@ fun MtvVideoPlayerSdk(
             selectedIndex.intValue = 0
             return@LaunchedEffect
         }
-        selectedIndex.intValue =
-            index?.coerceIn(0, size - 1) ?: 0
+
+        val safeExternalIndex = index?.coerceIn(0, size - 1) ?: 0
+        selectedIndex.intValue = safeExternalIndex
+
+        if (index != null && index != safeExternalIndex) {
+            onIndexChanged(safeExternalIndex)
+        }
+    }
+
+    fun changeSelectedIndex(newIndex: Int) {
+        val size = contentList?.size ?: 0
+        if (size == 0) return
+
+        val safeIndex = newIndex.coerceIn(0, size - 1)
+        if (selectedIndex.intValue == safeIndex) return
+
+        selectedIndex.intValue = safeIndex
+        onIndexChanged(safeIndex)
     }
 
     val playerModel = contentList?.getOrNull(selectedIndex.intValue)
 
-    var currentMode by remember(playerMode) {
-        mutableStateOf(playerMode)
+    var currentMode by remember { mutableStateOf(playerMode) }
+
+    LaunchedEffect(playerMode) {
+        currentMode = playerMode
     }
 
-    val isFullScreen = currentMode == PlayerMode.FULL_SCREEN
+    val initialDisplayMode = remember {
+        when (playerMode) {
+            PlayerMode.FULL_SCREEN ->
+                if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    PlayerMode.FULL_SCREEN
+                } else {
+                    PlayerMode.MINI
+                }
 
-    LaunchedEffect(currentMode) {
-        setFullScreen(currentMode == PlayerMode.FULL_SCREEN)
+            else -> playerMode
+        }
     }
 
-    FullScreenHandler(isFullScreen)
+    var displayMode by remember { mutableStateOf(initialDisplayMode) }
+
+    LaunchedEffect(currentMode, configuration.orientation) {
+        displayMode = when (currentMode) {
+            PlayerMode.FULL_SCREEN ->
+                if (configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    PlayerMode.FULL_SCREEN
+                } else {
+                    displayMode
+                }
+
+            PlayerMode.MINI ->
+                if (configuration.orientation == Configuration.ORIENTATION_PORTRAIT) {
+                    PlayerMode.MINI
+                } else {
+                    displayMode
+                }
+
+            PlayerMode.REELS -> PlayerMode.REELS
+        }
+    }
+
+    val isFullScreen = displayMode == PlayerMode.FULL_SCREEN
+    val shouldRequestFullScreen = currentMode == PlayerMode.FULL_SCREEN
+
+    FullScreenHandler(shouldRequestFullScreen)
     var isControllerVisible by remember { mutableStateOf(false) }
     var isLockScreen by remember { mutableStateOf(false) }
     var showUnlockConfirm by remember { mutableStateOf(false) }
@@ -374,7 +432,7 @@ fun MtvVideoPlayerSdk(
                         val total = contentList?.size ?: 0
                         val nextIndex = selectedIndex.intValue + 1
                         if (nextIndex < total) {
-                            selectedIndex.intValue = nextIndex
+                            changeSelectedIndex(nextIndex)
                         }
 
                         playerStateListener?.onPlaybackCompleted()
@@ -593,16 +651,17 @@ fun MtvVideoPlayerSdk(
         }
     }
 
+    val playerSizeModifier = when (displayMode) {
+        PlayerMode.FULL_SCREEN -> Modifier.fillMaxSize()
+        PlayerMode.REELS -> Modifier.fillMaxSize()
+        PlayerMode.MINI -> Modifier.aspectRatio(16f / 9f)
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                when (currentMode) {
-                    PlayerMode.FULL_SCREEN -> Modifier.fillMaxSize()
-                    PlayerMode.REELS -> Modifier.fillMaxSize()
-                    PlayerMode.MINI -> Modifier.aspectRatio(16f / 9f)
-                }
-            )
+            .animateContentSize(animationSpec = tween(durationMillis = 260))
+            .then(playerSizeModifier)
     ) {
 
         // 🔥 Drawer RTL only
@@ -639,13 +698,8 @@ fun MtvVideoPlayerSdk(
                         isVisible = showLShapeAd && !isAdsShowing && !pipEnabled,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .then(
-                                when (currentMode) {
-                                    PlayerMode.FULL_SCREEN -> Modifier.fillMaxSize()
-                                    PlayerMode.REELS -> Modifier.fillMaxSize()
-                                    PlayerMode.MINI -> Modifier.aspectRatio(16f / 9f)
-                                }
-                            )
+                            .animateContentSize(animationSpec = tween(durationMillis = 260))
+                            .then(playerSizeModifier)
                             .background(Color.Black)
                     ) {
 
@@ -765,8 +819,9 @@ fun MtvVideoPlayerSdk(
                                     isCurrentlyFullScreen = isFullScreen,
                                     isCurrentlyLockScreen = isLockScreen,
                                     exoPlayer = player,
+                                    episodeNowPlayingStyle = episodeNowPlayingStyle,
                                     modifier = Modifier.fillMaxSize(),
-                                    isControllerVisible,
+                                    isControlsVisible = isControllerVisible,
                                     onShowControls = { isControllerVisible = it },
                                     isPipEnabled = {
                                         pipEnabled = it
@@ -789,10 +844,10 @@ fun MtvVideoPlayerSdk(
                                             if (playerModel?.gamAdsConfig?.isAdsEnabled == true)
                                                 lBandCuePoints
                                             else emptyList()*/,
-                                    playContent = { selectedIndex.intValue = it },
+                                    playContent = { changeSelectedIndex(it) },
                                     isSkipIntroClicked = isSkipIntroClicked,
                                     onSkipIntroClicked = { isSkipIntroClicked = it },
-                                    onNextEpisodeClick = { selectedIndex.intValue = it },
+                                    onNextEpisodeClick = { changeSelectedIndex(it) },
                                     onChapterClick = {
                                         if (playerModel?.isChapterEnabled == true) {
                                             coroutineScope.launch { drawerState.open() }
