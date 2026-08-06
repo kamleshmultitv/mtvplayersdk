@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -60,6 +61,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.rememberAsyncImagePainter
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.CuePoint
+import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
@@ -76,6 +78,7 @@ fun CustomPlayerController(
     isCurrentlyFullScreen: Boolean,
     isCurrentlyLockScreen: Boolean,
     exoPlayer: ExoPlayer,
+    episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle(),
     modifier: Modifier,
     isControlsVisible: Boolean,
     onShowControls: (Boolean) -> Unit,
@@ -310,7 +313,10 @@ fun CustomPlayerController(
         /* ---- TOP BAR ---- */
         AnimatedVisibility(
             visible = isControlsVisible,
-            modifier = Modifier.align(Alignment.TopCenter),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = if (isCurrentlyFullScreen) 8.dp else 16.dp)
+                .zIndex(2f),
 
             enter = slideInVertically(
                 initialOffsetY = { -it },   // 🔥 start ABOVE the screen
@@ -673,6 +679,8 @@ fun CustomPlayerController(
             EpisodeSelectionSheet(
                 expandSheet = true,
                 playerModelList = playerModelList,
+                currentIndex = index,
+                nowPlayingStyle = episodeNowPlayingStyle,
                 isCasting = isCasting,
                 exoPlayer = exoPlayer,
                 onDismiss = { expandSheet = false },

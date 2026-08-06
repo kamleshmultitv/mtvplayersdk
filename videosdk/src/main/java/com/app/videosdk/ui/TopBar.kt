@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -49,8 +48,7 @@ fun TopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
-            .padding(top = 16.dp),
+            .height(56.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
 
@@ -155,7 +153,10 @@ fun TopBar(
 
         // FIXED: Moved Fullscreen button OUTSIDE the if(isFullScreen) block 
         // to make it visible in Portrait mode.
-        IconButton(onClick = onFullScreenToggle) {
+        IconButton(
+            onClick = onFullScreenToggle,
+            modifier = Modifier.size(56.dp)
+        ) {
             CustomIcon(
                 resId = if (isFullScreen) playerModel?.customControls?.exitFullScreenIconRes else playerModel?.customControls?.fullScreenIconRes,
                 defaultIcon = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,

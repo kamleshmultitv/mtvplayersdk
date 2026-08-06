@@ -3,6 +3,8 @@ package com.app.videosdk.ui
 import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,7 +16,6 @@ import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -162,6 +163,10 @@ private fun ForwardBackwardButtonsOverlayUi(
     rewindRotation: Float,
     forwardRotation: Float
 ) {
+    val rewindInteractionSource = remember { MutableInteractionSource() }
+    val playPauseInteractionSource = remember { MutableInteractionSource() }
+    val forwardInteractionSource = remember { MutableInteractionSource() }
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -176,10 +181,15 @@ private fun ForwardBackwardButtonsOverlayUi(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                IconButton(
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = onRewind
+                        .size(56.dp)
+                        .clickable(
+                            interactionSource = rewindInteractionSource,
+                            indication = null,
+                            onClick = onRewind
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
 
                     CustomIcon(
@@ -201,10 +211,15 @@ private fun ForwardBackwardButtonsOverlayUi(
                 contentAlignment = Alignment.Center
             ) {
                 if (isControllerVisible) {
-                    IconButton(
+                    Box(
                         modifier = Modifier
-                            .fillMaxSize(),
-                        onClick = onPlayPause
+                            .size(56.dp)
+                            .clickable(
+                                interactionSource = playPauseInteractionSource,
+                                indication = null,
+                                onClick = onPlayPause
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
 
                         CustomIcon(
@@ -223,10 +238,15 @@ private fun ForwardBackwardButtonsOverlayUi(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                IconButton(
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth(),
-                    onClick = onForward
+                        .size(56.dp)
+                        .clickable(
+                            interactionSource = forwardInteractionSource,
+                            indication = null,
+                            onClick = onForward
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
 
                     CustomIcon(
