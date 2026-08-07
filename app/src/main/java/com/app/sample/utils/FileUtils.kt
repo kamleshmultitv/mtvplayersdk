@@ -28,6 +28,10 @@ import org.json.JSONObject
 
 object FileUtils {
 
+    // TODO(TESTING): Remove this sample-app fallback once the API always supplies a rating.
+    // The videosdk module intentionally has no hardcoded/default age classification.
+    private const val TEST_AGE_RATING = "U/A 13+"
+
     /* ---------------------------------- */
     /* DRM TOKEN                           */
     /* ---------------------------------- */
@@ -112,6 +116,7 @@ object FileUtils {
             // ---------- CASE 2: Submit WITH URL ----------
             return listOf(
                 PlayerModel(
+                    ageRating = TEST_AGE_RATING,
                     hlsUrl = if (!override.isLive) override.url else null,
                     liveUrl = if (override.isLive) override.url else null,
                     mpdUrl = override.url,
@@ -129,6 +134,7 @@ object FileUtils {
             // ---------- CASE 2: Submit WITH URL ----------
             return listOf(
                 PlayerModel(
+                    ageRating = TEST_AGE_RATING,
                     hlsUrl =  deeplink.url ,
                     mpdUrl = deeplink.url,
                     id = deeplink.contentId,
@@ -179,6 +185,7 @@ object FileUtils {
 
         return PlayerModel(
             id = content.id.orEmpty(),
+            ageRating = resolveAgeRatingForTesting(content),
             hlsUrl = hls,
             mpdUrl = mpd,
             liveUrl = null,
@@ -215,6 +222,19 @@ object FileUtils {
 
             customControls = defaultControls()
         )
+    }
+
+    private fun resolveAgeRatingForTesting(content: ContentItem): String {
+        val backendRating = content.ageRating?.takeIf { it.isNotBlank() }
+        Log.d(
+            "AgeRating",
+            if (backendRating != null) {
+                "Using backend age rating for content ${content.id}: $backendRating"
+            } else {
+                "No backend age rating for content ${content.id}; using test fallback: $TEST_AGE_RATING"
+            }
+        )
+        return backendRating ?: TEST_AGE_RATING
     }
 
     private fun defaultAdsConfig() = AdsConfig(
@@ -282,6 +302,7 @@ object FileUtils {
         return listOf(
             PlayerModel(
                 id = downloadedContentEntity.contentId,
+                ageRating = TEST_AGE_RATING,
                 // ▶️ Playback URL
                 hlsUrl = downloadedContentEntity.hlsUrl,
                 mpdUrl = downloadedContentEntity.mpdUrl,

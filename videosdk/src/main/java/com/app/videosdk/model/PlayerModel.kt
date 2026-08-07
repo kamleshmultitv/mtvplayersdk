@@ -1,10 +1,13 @@
 package com.app.videosdk.model
 
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.offline.DownloadManager
 import okhttp3.Cache
 
+@OptIn(UnstableApi::class)
 data class PlayerModel(
     val id: String? = null,
     val hlsUrl: String? = null,
@@ -40,5 +43,28 @@ data class PlayerModel(
     val chapters: List<Chapter>? = null,
     val cacheFactory: CacheDataSource.Factory? = null,
     val downloadManager: DownloadManager? = null,
-    val downloadCache: SimpleCache? = null
+    val downloadCache: SimpleCache? = null,
+
+    /** Human-readable title supplied by the content API. */
+    val title: String? = null,
+
+    /** Direct playback URL used when no format-specific URL is supplied. */
+    val videoUrl: String? = null,
+
+    /** Thumbnail supplied by the content API. */
+    val thumbnail: String? = null,
+
+    /**
+     * Age classification supplied by the content API (for example `U/A 13+`).
+     *
+     * The SDK renders this value verbatim. `null`, empty, and whitespace-only values
+     * suppress the age-rating overlay.
+     */
+    val ageRating: String? = null,
+
+    /**
+     * Alternate backend field supported for APIs that name the classification
+     * `contentRating`. [ageRating] takes precedence when both contain a value.
+     */
+    val contentRating: String? = null
 )

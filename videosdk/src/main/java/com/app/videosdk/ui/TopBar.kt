@@ -36,6 +36,7 @@ fun TopBar(
     context: Context,
     castUtils: CastUtils,
     pipListener: PipListener?,
+    showContentTitle: Boolean = true,
     isPipEnabled: (Boolean) -> Unit,
     onBackPressed: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -44,6 +45,11 @@ fun TopBar(
     onChapterClick: () -> Unit,
     onCutClick: () -> Unit
 ) {
+    val episodeTitle = playerModel?.episodeTitle?.takeIf { it.isNotBlank() }
+    val heading = playerModel?.seasonTitle?.takeIf { it.isNotBlank() }
+        ?: playerModel?.title?.takeIf { it.isNotBlank() }
+        ?: episodeTitle
+    val subheading = episodeTitle?.takeUnless { it == heading }
 
     Row(
         modifier = Modifier
@@ -61,33 +67,36 @@ fun TopBar(
             )
         }
 
-        Column(modifier = Modifier.weight(1f)) {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            if (showContentTitle) {
+                Column {
 
-            playerModel?.seasonTitle
-                ?.takeIf { it.isNotBlank() }
-                ?.let {
-                    Text(
-                        text = it,
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                    heading?.let {
+                            Text(
+                                text = it,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
-            playerModel?.episodeTitle
-                ?.takeIf { it.isNotBlank() }
-                ?.let {
-                    Text(
-                        text = it,
-                        color = Color.Gray,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    subheading?.let {
+                            Text(
+                                text = it,
+                                color = Color.Gray,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                 }
+            }
         }
 
 

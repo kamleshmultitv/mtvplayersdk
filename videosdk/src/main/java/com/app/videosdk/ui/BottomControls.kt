@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -108,70 +109,70 @@ fun BottomControls(
             chapters = model?.chapters ?: emptyList()
         )
 
-        /* ---------- BOTTOM ACTION BAR ---------- */
+        /* ---------- BOTTOM ACTION BAR (FULLSCREEN ONLY) ---------- */
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        if (isFullScreen) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
 
-            if (!isLive) {
+                if (!isLive) {
 
-                /* ---------- LEFT : NEXT ---------- */
+                    /* ---------- LEFT : NEXT ---------- */
 
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
-                        val isLastItem = index >= playerModelList.lastIndex
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (playerModelList != null && playerModelList.size > 1) {
+                            val isLastItem = index >= playerModelList.lastIndex
 
-                        Row(
-                            modifier = Modifier
-                                .clickable(enabled = !isLastItem) {
-                                    if (!isLastItem) onNext(index + 1)
-                                }
-                                .padding(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CustomIcon(
-                                resId = model?.customControls?.nextEpisodeIconRes,
-                                defaultIcon = Icons.Default.SkipNext,
-                                contentDescription = "Next Episode",
-                                modifier = Modifier.size(16.dp),
-                                tint = model?.customControls?.iconTintRes
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .clickable(enabled = !isLastItem) {
+                                        if (!isLastItem) onNext(index + 1)
+                                    }
+                                    .padding(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CustomIcon(
+                                    resId = model?.customControls?.nextEpisodeIconRes,
+                                    defaultIcon = Icons.Default.SkipNext,
+                                    contentDescription = "Next Episode",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = model?.customControls?.iconTintRes
+                                )
 
-                            Text(
-                                modifier = Modifier.padding(start = 4.dp),
-                                text = "Next Ep.",
-                                color = if (isLastItem) Color.Gray else Color.White
+                                Text(
+                                    modifier = Modifier.padding(start = 4.dp),
+                                    text = "Next Ep.",
+                                    color = if (isLastItem) Color.Gray else Color.White
+                                )
+                            }
+                        }
+                    }
+
+                    /* ---------- CENTER : EPISODES ---------- */
+
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        if (playerModelList != null && playerModelList.size > 1) {
+                            SeasonSelector(
+                                playerModel = model,
+                                exoPlayer = exoPlayer,
+                                onShowControls = {},
+                                pausePlayer = {},
+                                expandSheet = { expandSheet(it) }
                             )
                         }
                     }
+
+                } else {
+                    Spacer(modifier = Modifier.weight(2f))
                 }
 
-                /* ---------- CENTER : EPISODES ---------- */
-
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
-                        SeasonSelector(
-                            playerModel = model,
-                            exoPlayer = exoPlayer,
-                            onShowControls = {},
-                            pausePlayer = {},
-                            expandSheet = {
-                                expandSheet(it)}
-                        )
-                    }
-                }
-
-            } else {
-                Spacer(modifier = Modifier.weight(2f))
+                Box(modifier = Modifier.weight(1f))
             }
-
-            Box(modifier = Modifier.weight(1f))
         }
     }
 }
-
-

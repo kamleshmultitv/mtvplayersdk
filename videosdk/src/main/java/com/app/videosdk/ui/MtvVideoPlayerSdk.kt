@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import androidx.media3.common.C
@@ -66,6 +67,7 @@ import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
 import com.app.videosdk.model.EpisodeNowPlayingStyle
+import com.app.videosdk.model.AgeRatingResolver
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
@@ -150,7 +152,24 @@ fun MtvVideoPlayerSdk(
         onIndexChanged(safeIndex)
     }
 
-    val playerModel = contentList?.getOrNull(selectedIndex.intValue)
+    var requestedVideo by remember { mutableStateOf<PlayerModel?>(null) }
+    var playRequestId by remember { mutableLongStateOf(0L) }
+
+    DisposableEffect(controller) {
+        val listener: (PlayerModel, Long) -> Unit = { video, requestId ->
+            requestedVideo = video
+            playRequestId = requestId
+        }
+        controller?.attachPlayRequestListener(listener)
+        onDispose { controller?.detachPlayRequestListener(listener) }
+    }
+
+    val playerModel = requestedVideo ?: contentList?.getOrNull(selectedIndex.intValue)
+    val ageRating = remember(playerModel) { AgeRatingResolver.resolve(playerModel) }
+    val activeContentList = remember(requestedVideo, contentList, playerModel) {
+        if (requestedVideo != null && playerModel != null) listOf(playerModel) else contentList
+    }
+    val activeIndex = if (requestedVideo != null) 0 else selectedIndex.intValue
 
     var currentMode by remember { mutableStateOf(playerMode) }
 
@@ -229,7 +248,7 @@ fun MtvVideoPlayerSdk(
     val playbackUrl = remember(playerModel) {
         val url = when {
             // Live content always uses liveUrl
-            isLive -> playerModel.liveUrl
+            isLive && !playerModel.liveUrl.isNullOrEmpty() -> playerModel.liveUrl
 
             // DRM content must use MPD
             playerModel?.drm == "1" && !playerModel.mpdUrl.isNullOrEmpty() -> playerModel.mpdUrl
@@ -237,6 +256,7 @@ fun MtvVideoPlayerSdk(
             // Non‑DRM: prefer HLS, then MPD as fallback
             !playerModel?.hlsUrl.isNullOrEmpty() -> playerModel.hlsUrl
             !playerModel?.mpdUrl.isNullOrEmpty() -> playerModel.mpdUrl
+            !playerModel?.videoUrl.isNullOrEmpty() -> playerModel.videoUrl
 
             else -> ""
         }
@@ -304,9 +324,9 @@ fun MtvVideoPlayerSdk(
     }
 
 
-    val playerWithAds = remember(selectedIndex.intValue, playbackUrl) {
+    val playerWithAds = remember(playerModel, activeIndex, playRequestId, playbackUrl) {
         val model = playerModel ?: return@remember null
-        val urlString = playbackUrl ?: ""
+        val urlString = playbackUrl
 
         android.util.Log.d(
             "MtvVideoPlayerSdk",
@@ -315,8 +335,8 @@ fun MtvVideoPlayerSdk(
 
         PlayerUtils.createPlayer(
             context = context,
-            contentList,
-            selectedIndex.intValue,
+            activeContentList,
+            activeIndex,
             videoUrl = urlString,
             drmToken = model.drmToken,
             srt = subtitleUri,
@@ -372,9 +392,26 @@ fun MtvVideoPlayerSdk(
     // 🔥 Position Tracker for Auto-Show Controls (Intro / Next Episode)
     var hasShownNextEpisodeControls by remember(selectedIndex.intValue) { mutableStateOf(false) }
     var hasShownSkipIntroControls by remember(selectedIndex.intValue) { mutableStateOf(false) }
+    var ageRatingPresentationKey by remember(playerModel, activeIndex, playRequestId) {
+        mutableLongStateOf(0L)
+    }
+    var isAgeRatingPresentationActive by remember(playerModel, activeIndex, playRequestId) {
+        mutableStateOf(false)
+    }
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(exoPlayer, playerModel) {
         val player = exoPlayer ?: return@DisposableEffect onDispose {}
+        var hasPresentedForThisPlayback = false
+        var restartArmed = false
+
+        fun presentAgeRatingIfNeeded() {
+            if (ageRating == null || !player.isPlaying) return
+            if (!hasPresentedForThisPlayback || restartArmed) {
+                ageRatingPresentationKey++
+                hasPresentedForThisPlayback = true
+                restartArmed = false
+            }
+        }
 
         val listener = object : Player.Listener {
             override fun onVolumeChanged(volume: Float) {
@@ -429,6 +466,7 @@ fun MtvVideoPlayerSdk(
 
                     Player.STATE_ENDED -> {
                         isLoading = false
+                        restartArmed = true
                         val total = contentList?.size ?: 0
                         val nextIndex = selectedIndex.intValue + 1
                         if (nextIndex < total) {
@@ -456,6 +494,27 @@ fun MtvVideoPlayerSdk(
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 playerStateListener?.onPlayStateChanged(isPlaying)
+                if (isPlaying) presentAgeRatingIfNeeded()
+            }
+
+            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
+                    restartArmed = true
+                    presentAgeRatingIfNeeded()
+                }
+            }
+
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int
+            ) {
+                if (reason == Player.DISCONTINUITY_REASON_SEEK &&
+                    oldPosition.positionMs > 1_000L && newPosition.positionMs <= 1_000L
+                ) {
+                    restartArmed = true
+                    presentAgeRatingIfNeeded()
+                }
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -494,6 +553,7 @@ fun MtvVideoPlayerSdk(
         }
 
         player.addListener(listener)
+        presentAgeRatingIfNeeded()
 
         onDispose {
             player.removeListener(listener)
@@ -805,8 +865,8 @@ fun MtvVideoPlayerSdk(
                         ) {
                             exoPlayer?.let { player ->
                                 CustomPlayerController(
-                                    playerModelList = contentList,
-                                    index = selectedIndex.intValue,
+                                    playerModelList = activeContentList,
+                                    index = activeIndex,
                                     totalDuration = contentDuration,
                                     pipListener = pipListener,
                                     isFullScreen = { full ->
@@ -848,6 +908,7 @@ fun MtvVideoPlayerSdk(
                                     isSkipIntroClicked = isSkipIntroClicked,
                                     onSkipIntroClicked = { isSkipIntroClicked = it },
                                     onNextEpisodeClick = { changeSelectedIndex(it) },
+                                    showContentTitle = !isAgeRatingPresentationActive,
                                     onChapterClick = {
                                         if (playerModel?.isChapterEnabled == true) {
                                             coroutineScope.launch { drawerState.open() }
@@ -859,6 +920,21 @@ fun MtvVideoPlayerSdk(
 
                                 )
                             }
+                        }
+
+                        // Rating and title share one visual slot. The title is hidden
+                        // until this badge completes its own collapse animation.
+                        ageRating?.let { rating ->
+                            PlayerAgeRatingOverlay(
+                                ageRating = rating,
+                                presentationKey = ageRatingPresentationKey,
+                                isInPictureInPicture = pipEnabled || isInPipMode,
+                                modifier = Modifier.align(Alignment.TopStart),
+                                titleSlotTopPadding = if (isFullScreen) 32.dp else 40.dp,
+                                onPresentationActiveChanged = {
+                                    isAgeRatingPresentationActive = it
+                                }
+                            )
                         }
 
                         // 🔒 Lock Overlay
@@ -891,7 +967,7 @@ fun MtvVideoPlayerSdk(
                             ) { isSettingsClick = it }
                         }
 
-                        if (showCutSheet && exoPlayer != null && playbackUrl != null) {
+                        if (showCutSheet && exoPlayer != null) {
 
                             val duration = exoPlayer.duration
 

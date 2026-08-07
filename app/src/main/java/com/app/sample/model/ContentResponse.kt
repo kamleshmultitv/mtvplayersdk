@@ -61,6 +61,12 @@ data class LayoutThumbsItem(
 
 data class ContentItem(
 
+	@field:SerializedName(
+		value = "ageRating",
+		alternate = ["contentRating", "age_rating", "content_rating"]
+	)
+	val ageRating: String? = null,
+
 	@field:SerializedName("comment_count")
 	val commentCount: String? = null,
 

@@ -339,6 +339,7 @@ object PlayerUtils {
         val mpd = content?.mpdUrl
         val hls = content?.hlsUrl
         val live = content?.liveUrl
+        val direct = content?.videoUrl
 
         // ✅ STRICT RULE
         // DRM → DASH ONLY
@@ -347,6 +348,7 @@ object PlayerUtils {
             content?.drm == "1" && !mpd.isNullOrBlank() -> mpd   // ✅ FIX
             content?.drm != "1" && !hls.isNullOrBlank() -> hls
             !live.isNullOrBlank() -> live
+            !direct.isNullOrBlank() -> direct
             else -> null
         }?.trim()
 

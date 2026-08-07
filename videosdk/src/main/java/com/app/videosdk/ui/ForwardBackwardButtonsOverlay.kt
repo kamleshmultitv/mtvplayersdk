@@ -125,6 +125,7 @@ fun ForwardBackwardButtonsOverlay(
         onForwardIconHide = onForwardIconHide,
         isControllerVisible = isControllerVisible,
         playPauseIconSize = if (isFullScreen) 48.dp else 34.dp,
+        seekIconSize = if (isFullScreen) 48.dp else 36.dp,
         rewindRotation = rewindRotation,
         forwardRotation = forwardRotation
     )
@@ -160,6 +161,7 @@ private fun ForwardBackwardButtonsOverlayUi(
     onForwardIconHide: () -> Unit,
     isControllerVisible: Boolean,
     playPauseIconSize: Dp,
+    seekIconSize: Dp,
     rewindRotation: Float,
     forwardRotation: Float
 ) {
@@ -197,7 +199,7 @@ private fun ForwardBackwardButtonsOverlayUi(
                         defaultIcon = Icons.Default.Replay10,
                         contentDescription = "Rewind 10s",
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(seekIconSize)
                             .graphicsLayer(rotationZ = rewindRotation),
                         tint = customControls?.iconTintRes
                     )
@@ -254,7 +256,7 @@ private fun ForwardBackwardButtonsOverlayUi(
                         defaultIcon = Icons.Default.Forward10,
                         contentDescription = "Forward 10s",
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(seekIconSize)
                             .graphicsLayer(rotationZ = forwardRotation),
                         tint = customControls?.iconTintRes
                     )
@@ -285,6 +287,7 @@ fun ForwardBackwardButtonsOverlayPreview() {
         onForwardIconHide = { /* mock hide */ },
         isControllerVisible = true,
         playPauseIconSize = 48.dp,
+        seekIconSize = 48.dp,
         rewindRotation = rewindRotation,
         forwardRotation = forwardRotation
     )

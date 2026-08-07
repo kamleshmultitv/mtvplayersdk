@@ -22,11 +22,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -91,6 +96,7 @@ fun CustomPlayerController(
     isSkipIntroClicked: Boolean,
     onSkipIntroClicked: (Boolean) -> Unit,
     onNextEpisodeClick: (Int) -> Unit,
+    showContentTitle: Boolean = true,
     onChapterClick: () -> Unit = {},
     onCutClick: () -> Unit = {}
 ) {
@@ -307,6 +313,11 @@ fun CustomPlayerController(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Horizontal
+                )
+            )
             .padding(16.dp)
     ) {
 
@@ -315,7 +326,7 @@ fun CustomPlayerController(
             visible = isControlsVisible,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = if (isCurrentlyFullScreen) 8.dp else 16.dp)
+                .padding(top = if (isCurrentlyFullScreen) 4.dp else 12.dp)
                 .zIndex(2f),
 
             enter = slideInVertically(
@@ -351,6 +362,7 @@ fun CustomPlayerController(
                 context = context,
                 castUtils = castUtils,
                 pipListener = pipListener,
+                showContentTitle = showContentTitle,
                 isPipEnabled = isPipEnabled,
                 onBackPressed = onBackPressed,
                 onSettingsClick = {
@@ -449,6 +461,7 @@ fun CustomPlayerController(
                         castUtils = castUtils,
                         isCasting = isCasting,
                         isFullScreen = isCurrentlyFullScreen,
+                        verticalOffset = (-6).dp,
                         onShowControls = showControlsState.value,
                         onForward = { showForwardIcon = true },
                         onRewind = { showRewindIcon = true },
@@ -519,6 +532,7 @@ fun CustomPlayerController(
                 castUtils = castUtils,
                 isCasting = isCasting,
                 isFullScreen = isCurrentlyFullScreen,
+                verticalOffset = 0.dp,
                 onShowControls = showControlsState.value,
                 onForward = { showForwardIcon = true },
                 onRewind = { showRewindIcon = true },

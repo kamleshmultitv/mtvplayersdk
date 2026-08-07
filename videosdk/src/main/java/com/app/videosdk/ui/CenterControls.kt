@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -14,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.PlayerModel
@@ -27,6 +29,7 @@ fun CenterControls(
     castUtils: CastUtils,
     isCasting: Boolean,
     isFullScreen: Boolean,
+    verticalOffset: Dp = 0.dp,
     onShowControls: (Boolean) -> Unit,
     onForward: () -> Unit,
     onRewind: () -> Unit,
@@ -63,7 +66,9 @@ fun CenterControls(
         }
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .offset(y = verticalOffset),
         contentAlignment = Alignment.Center
     ) {
         Box(
