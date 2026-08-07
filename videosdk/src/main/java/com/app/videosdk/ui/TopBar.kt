@@ -1,11 +1,13 @@
 package com.app.videosdk.ui
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoStories
@@ -19,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,15 +49,26 @@ fun TopBar(
     onCutClick: () -> Unit
 ) {
     val episodeTitle = playerModel?.episodeTitle?.takeIf { it.isNotBlank() }
-    val heading = playerModel?.seasonTitle?.takeIf { it.isNotBlank() }
+    val seasonTitle = playerModel?.seasonTitle?.takeIf { it.isNotBlank() }
+    val heading = episodeTitle
         ?: playerModel?.title?.takeIf { it.isNotBlank() }
-        ?: episodeTitle
-    val subheading = episodeTitle?.takeUnless { it == heading }
+        ?: seasonTitle
+    val subheading = seasonTitle?.takeUnless { it == heading }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.70f),
+                        Color.Black.copy(alpha = 0.35f),
+                        Color.Transparent
+                    )
+                )
+            )
+            .then(if (isFullScreen) Modifier.statusBarsPadding() else Modifier)
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
 
@@ -68,33 +82,36 @@ fun TopBar(
         }
 
         androidx.compose.foundation.layout.Box(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 2.dp, end = 8.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             if (showContentTitle) {
                 Column {
-
                     heading?.let {
-                            Text(
-                                text = it,
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        Text(
+                            text = it,
+                            color = Color.White,
+                            fontSize = if (isFullScreen) 16.sp else 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
-                    subheading?.let {
+                    if (isFullScreen) {
+                        subheading?.let {
                             Text(
                                 text = it,
-                                color = Color.Gray,
+                                color = Color.White.copy(alpha = 0.75f),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                    }
                 }
             }
         }
@@ -125,7 +142,7 @@ fun TopBar(
         }
 
 
-        if (castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
+        if (isFullScreen && castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
             CastButton()
         }
 

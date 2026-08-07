@@ -1,5 +1,6 @@
 package com.app.videosdk.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.rememberAsyncImagePainter
 import com.app.videosdk.model.EpisodeNowPlayingStyle
@@ -44,6 +46,16 @@ fun EpisodeSelectionSheet(
     onShowControls: (Boolean) -> Unit,
     playContent: (Int) -> Unit
 ) {
+
+    fun closeSheet() {
+        if (!isCasting) exoPlayer.play()
+        onShowControls(false)
+        onDismiss()
+    }
+
+    BackHandler(enabled = expandSheet) {
+        closeSheet()
+    }
 
     val transitionState = remember {
         MutableTransitionState(false)
@@ -80,7 +92,7 @@ fun EpisodeSelectionSheet(
     ) {
 
         val backgroundAlpha by animateFloatAsState(
-            targetValue = if (expandSheet) 0.90f else 0f,
+            targetValue = if (expandSheet) 1f else 0f,
             animationSpec = tween(400),
             label = "backgroundAlpha"
         )
@@ -89,6 +101,7 @@ fun EpisodeSelectionSheet(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = backgroundAlpha))
+                .zIndex(20f)
                 // 🔒 Block background clicks
                 .clickable(
                     indication = null,
@@ -105,7 +118,7 @@ fun EpisodeSelectionSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp, end = 16.dp)
+                        .padding(top = 24.dp, start = 24.dp, end = 24.dp)
                 ) {
 
                     Text(
@@ -123,9 +136,7 @@ fun EpisodeSelectionSheet(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .clickable {
-                                if (!isCasting) exoPlayer.play()
-                                onShowControls(false)
-                                onDismiss()
+                                closeSheet()
                             }
                     )
                 }

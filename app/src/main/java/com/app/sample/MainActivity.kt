@@ -3,15 +3,12 @@ package com.app.sample
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,10 +37,6 @@ class MainActivity : ComponentActivity(), PipListener {
         handleDeepLink(intent)
 
         NotificationPermission.requestIfRequired(this)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
-        )
 
         setContent {
             ContentScreen(

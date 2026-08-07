@@ -22,16 +22,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -126,6 +121,12 @@ fun CustomPlayerController(
     var onSeek by remember { mutableStateOf(false) }
     val currentPlayerModel = playerModelList?.getOrNull(index)
     var expandSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isCurrentlyFullScreen, expandSheet) {
+        if (!isCurrentlyFullScreen && expandSheet) {
+            expandSheet = false
+        }
+    }
 
 
     /* ---------------- SKIP INTRO ---------------- */
@@ -228,10 +229,11 @@ fun CustomPlayerController(
     /* ⭐ FIX 2: SINGLE SOURCE OF TRUTH FOR VISIBILITY */
     val shouldForceShowControls by remember(
         isInNextEpisodeWindow,
-        showSkipIntro
+        showSkipIntro,
+        expandSheet
     ) {
         derivedStateOf {
-            isInNextEpisodeWindow || showSkipIntro
+            isInNextEpisodeWindow || showSkipIntro || expandSheet
         }
     }
 
@@ -313,17 +315,11 @@ fun CustomPlayerController(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
-            .windowInsetsPadding(
-                WindowInsets.safeDrawing.only(
-                    WindowInsetsSides.Horizontal
-                )
-            )
-            .padding(16.dp)
     ) {
 
         /* ---- TOP BAR ---- */
         AnimatedVisibility(
-            visible = isControlsVisible,
+            visible = isControlsVisible && !expandSheet,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = if (isCurrentlyFullScreen) 4.dp else 12.dp)
@@ -386,9 +382,15 @@ fun CustomPlayerController(
             )
         }
 
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+
         /* ---------- CENTER AREA ---------- */
 
-        if (isCurrentlyFullScreen) {
+        if (isCurrentlyFullScreen && !expandSheet) {
 
             Row(modifier = Modifier.fillMaxSize()) {
 
@@ -546,7 +548,7 @@ fun CustomPlayerController(
         /* ---------- SKIP INTRO BUTTON ---------- */
 
         AnimatedVisibility(
-            visible = showSkipIntro,
+            visible = showSkipIntro && !expandSheet,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -577,7 +579,7 @@ fun CustomPlayerController(
         /* ---------- Next Episode BUTTON ---------- */
 
         AnimatedVisibility(
-            visible = showNextEpisode,
+            visible = showNextEpisode && !expandSheet,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -631,7 +633,7 @@ fun CustomPlayerController(
         /* ---------- BOTTOM CONTROLS ---------- */
 
         AnimatedVisibility(
-            visible = isControlsVisible,
+            visible = isControlsVisible && !expandSheet,
             modifier = Modifier.align(Alignment.BottomCenter),
 
             enter = slideInVertically(
@@ -684,12 +686,18 @@ fun CustomPlayerController(
                     }
                 },
                 expandSheet = {
-                    expandSheet = it
+                    if (isCurrentlyFullScreen) {
+                        expandSheet = it
+                    } else {
+                        expandSheet = false
+                    }
                 }
             )
         }
 
-        if (expandSheet) {
+        }
+
+        if (expandSheet && isCurrentlyFullScreen) {
             EpisodeSelectionSheet(
                 expandSheet = true,
                 playerModelList = playerModelList,
