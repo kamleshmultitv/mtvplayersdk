@@ -48,20 +48,9 @@ fun ContentScreen(
             totalClipDuration = deepLinkTotalClipDuration
         )
     }
-    val contentItem = viewModel.contentDetailsState
-
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isDeepLink) {
         if (!isDeepLink) {
-            viewModel.getContentDetails()
-        }
-    }
-
-    LaunchedEffect(contentItem) {
-        if (contentItem == null) {
-            //  viewModel.setContent()
-        } else {
-            // You received detail response
-            // So skip paging API
+            viewModel.getSeason()
         }
     }
 
@@ -70,7 +59,7 @@ fun ContentScreen(
         //  is LoadState.Error -> ErrorView()
         else -> ContentBody(
             context = context,
-            contentItem = contentItem,
+            contentItem = null,
             pagingItems = pagingItems,
             selectedIndex = selectedIndex,
             overrideContent = overrideContent,
@@ -84,4 +73,3 @@ fun ContentScreen(
         )
     }
 }
-

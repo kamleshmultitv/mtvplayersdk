@@ -314,7 +314,6 @@ fun CustomPlayerController(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
     ) {
 
         /* ---- TOP BAR ---- */
@@ -322,7 +321,7 @@ fun CustomPlayerController(
             visible = isControlsVisible && !expandSheet,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = if (isCurrentlyFullScreen) 4.dp else 12.dp)
+                .padding(top = if (isCurrentlyFullScreen) 4.dp else 8.dp)
                 .zIndex(2f),
 
             enter = slideInVertically(

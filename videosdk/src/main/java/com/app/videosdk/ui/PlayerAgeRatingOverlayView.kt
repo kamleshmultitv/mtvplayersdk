@@ -32,8 +32,8 @@ class PlayerAgeRatingOverlayView @JvmOverloads constructor(
 ) : AppCompatTextView(context, attrs, defStyleAttr), DefaultLifecycleObserver {
 
     private val density = resources.displayMetrics.density
-    private val baseStartMargin = (64 * density).toInt()
-    private val baseTopMargin = (44 * density).toInt()
+    private val baseStartMargin = (54 * density).toInt()
+    private val baseTopMargin = (27 * density).toInt()
     private var systemInsets = Insets.NONE
     private var lifecycleOwner: LifecycleOwner? = null
     private var inPictureInPicture = false

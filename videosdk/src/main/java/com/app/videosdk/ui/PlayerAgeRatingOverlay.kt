@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -57,7 +58,8 @@ fun PlayerAgeRatingOverlay(
     modifier: Modifier = Modifier,
     initialDelayMillis: Long = AGE_RATING_DELAY_MILLIS,
     visibleDurationMillis: Long = AGE_RATING_VISIBLE_MILLIS,
-    titleSlotTopPadding: Dp = 44.dp,
+    titleSlotTopPadding: Dp = 27.dp,
+    applyStatusBarPadding: Boolean = false,
     onPresentationActiveChanged: (Boolean) -> Unit = {}
 ) {
     if (ageRating.isNullOrBlank()) return
@@ -111,8 +113,9 @@ fun PlayerAgeRatingOverlay(
             .windowInsetsPadding(WindowInsets.safeDrawing.only(
                 androidx.compose.foundation.layout.WindowInsetsSides.Horizontal
             ))
+            .then(if (applyStatusBarPadding) Modifier.statusBarsPadding() else Modifier)
             .padding(
-                start = 64.dp,
+                start = 54.dp,
                 top = titleSlotTopPadding
             ),
         contentAlignment = Alignment.TopStart

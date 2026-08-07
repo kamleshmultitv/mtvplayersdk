@@ -930,7 +930,8 @@ fun MtvVideoPlayerSdk(
                                 presentationKey = ageRatingPresentationKey,
                                 isInPictureInPicture = pipEnabled || isInPipMode,
                                 modifier = Modifier.align(Alignment.TopStart),
-                                titleSlotTopPadding = if (isFullScreen) 32.dp else 40.dp,
+                                titleSlotTopPadding = if (isFullScreen) 19.dp else 23.dp,
+                                applyStatusBarPadding = isFullScreen,
                                 onPresentationActiveChanged = {
                                     isAgeRatingPresentationActive = it
                                 }
