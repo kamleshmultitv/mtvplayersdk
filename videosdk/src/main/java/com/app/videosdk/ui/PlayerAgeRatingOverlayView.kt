@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -53,10 +54,24 @@ class PlayerAgeRatingOverlayView @JvmOverloads constructor(
             (10 * density).toInt(),
             (6 * density).toInt()
         )
-        background = GradientDrawable().apply {
+        val badgeBackground = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 6 * density
             setColor(0xAD000000.toInt())
+        }
+        val redAccent = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadii = floatArrayOf(
+                6 * density, 6 * density,
+                0f, 0f,
+                0f, 0f,
+                6 * density, 6 * density
+            )
+            setColor(Color.RED)
+        }
+        background = LayerDrawable(arrayOf(badgeBackground, redAccent)).apply {
+            setLayerWidth(1, (4 * density).toInt())
+            setLayerGravity(1, Gravity.START or Gravity.FILL_VERTICAL)
         }
         alpha = 0f
         visibility = View.GONE

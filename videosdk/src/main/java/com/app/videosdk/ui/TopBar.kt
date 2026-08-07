@@ -63,7 +63,6 @@ fun TopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             .then(
                 if (isFullScreen) {
                     Modifier.background(
@@ -79,6 +78,7 @@ fun TopBar(
                     Modifier
                 }
             )
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             .then(if (isFullScreen) Modifier.statusBarsPadding() else Modifier)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically

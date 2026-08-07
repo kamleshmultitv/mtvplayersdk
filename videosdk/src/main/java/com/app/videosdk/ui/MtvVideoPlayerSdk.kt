@@ -798,15 +798,23 @@ fun MtvVideoPlayerSdk(
                                     scaleX = finalScale
                                     scaleY = finalScale
                                 }
+                        )
 
-
+                        // Keep gesture handling on a Compose layer above PlayerView.
+                        // AndroidView can otherwise consume the first multi-touch gesture
+                        // after the controller overlay has disappeared.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
                                 // 🔥 PINCH ZOOM
-                                .pointerInput(isFullScreen, pipEnabled, isAdsShowing) {
-
+                                .pointerInput(
+                                    isFullScreen,
+                                    pipEnabled,
+                                    isAdsShowing,
+                                    isLockScreen
+                                ) {
                                     detectTransformGestures { _, _, zoom, _ ->
-
                                         if (!pipEnabled && !isAdsShowing && !isLockScreen && isFullScreen) {
-
                                             if (!hasActivatedFill) {
                                                 isFilled = true
                                                 hasActivatedFill = true
@@ -846,7 +854,6 @@ fun MtvVideoPlayerSdk(
                                         }
                                     )
                                 }
-
                         )
 
                         // 🔄 Loading

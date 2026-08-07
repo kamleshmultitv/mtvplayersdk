@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -321,7 +322,6 @@ fun CustomPlayerController(
             visible = isControlsVisible && !expandSheet,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = if (isCurrentlyFullScreen) 4.dp else 8.dp)
                 .zIndex(2f),
 
             enter = slideInVertically(
@@ -633,7 +633,9 @@ fun CustomPlayerController(
 
         AnimatedVisibility(
             visible = isControlsVisible && !expandSheet,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = if (isCurrentlyFullScreen) 0.dp else 8.dp),
 
             enter = slideInVertically(
                 initialOffsetY = { it },   // from bottom

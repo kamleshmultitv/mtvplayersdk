@@ -26,6 +26,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -140,10 +144,17 @@ fun PlayerAgeRatingOverlay(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
                     .background(
-                        color = Color.Black.copy(alpha = 0.68f),
-                        shape = RoundedCornerShape(6.dp)
+                        color = Color.Black.copy(alpha = 0.68f)
                     )
+                    .drawBehind {
+                        drawRect(
+                            color = Color.Red,
+                            topLeft = Offset.Zero,
+                            size = Size(4.dp.toPx(), size.height)
+                        )
+                    }
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             )
         }
