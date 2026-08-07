@@ -212,10 +212,11 @@ fun MtvVideoPlayerSdk(
         }
     }
 
-    val isFullScreen = displayMode == PlayerMode.FULL_SCREEN
-    val shouldRequestFullScreen = currentMode == PlayerMode.FULL_SCREEN
+    // Fullscreen controls follow the requested player mode immediately. displayMode
+    // remains orientation-aware and is used only to animate the player dimensions.
+    val isFullScreen = currentMode == PlayerMode.FULL_SCREEN
 
-    FullScreenHandler(shouldRequestFullScreen)
+    FullScreenHandler(isFullScreen)
     var isControllerVisible by remember { mutableStateOf(false) }
     var isLockScreen by remember { mutableStateOf(false) }
     var showUnlockConfirm by remember { mutableStateOf(false) }
