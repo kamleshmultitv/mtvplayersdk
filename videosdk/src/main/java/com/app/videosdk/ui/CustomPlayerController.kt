@@ -121,6 +121,12 @@ fun CustomPlayerController(
     val currentPlayerModel = playerModelList?.getOrNull(index)
     var expandSheet by remember { mutableStateOf(false) }
 
+    LaunchedEffect(isCurrentlyFullScreen, expandSheet) {
+        if (!isCurrentlyFullScreen && expandSheet) {
+            expandSheet = false
+        }
+    }
+
 
     /* ---------------- SKIP INTRO ---------------- */
 
@@ -222,10 +228,11 @@ fun CustomPlayerController(
     /* ⭐ FIX 2: SINGLE SOURCE OF TRUTH FOR VISIBILITY */
     val shouldForceShowControls by remember(
         isInNextEpisodeWindow,
-        showSkipIntro
+        showSkipIntro,
+        expandSheet
     ) {
         derivedStateOf {
-            isInNextEpisodeWindow || showSkipIntro
+            isInNextEpisodeWindow || showSkipIntro || expandSheet
         }
     }
 
@@ -307,15 +314,13 @@ fun CustomPlayerController(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
-            .padding(16.dp)
     ) {
 
         /* ---- TOP BAR ---- */
         AnimatedVisibility(
-            visible = isControlsVisible,
+            visible = isControlsVisible && !expandSheet,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = if (isCurrentlyFullScreen) 8.dp else 16.dp)
                 .zIndex(2f),
 
             enter = slideInVertically(
@@ -374,9 +379,15 @@ fun CustomPlayerController(
             )
         }
 
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+
         /* ---------- CENTER AREA ---------- */
 
-        if (isCurrentlyFullScreen) {
+        if (isCurrentlyFullScreen && !expandSheet) {
 
             Row(modifier = Modifier.fillMaxSize()) {
 
@@ -532,7 +543,7 @@ fun CustomPlayerController(
         /* ---------- SKIP INTRO BUTTON ---------- */
 
         AnimatedVisibility(
-            visible = showSkipIntro,
+            visible = showSkipIntro && !expandSheet,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -563,7 +574,7 @@ fun CustomPlayerController(
         /* ---------- Next Episode BUTTON ---------- */
 
         AnimatedVisibility(
-            visible = showNextEpisode,
+            visible = showNextEpisode && !expandSheet,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -617,7 +628,7 @@ fun CustomPlayerController(
         /* ---------- BOTTOM CONTROLS ---------- */
 
         AnimatedVisibility(
-            visible = isControlsVisible,
+            visible = isControlsVisible && !expandSheet,
             modifier = Modifier.align(Alignment.BottomCenter),
 
             enter = slideInVertically(
@@ -670,12 +681,18 @@ fun CustomPlayerController(
                     }
                 },
                 expandSheet = {
-                    expandSheet = it
+                    if (isCurrentlyFullScreen) {
+                        expandSheet = it
+                    } else {
+                        expandSheet = false
+                    }
                 }
             )
         }
 
-        if (expandSheet) {
+        }
+
+        if (expandSheet && isCurrentlyFullScreen) {
             EpisodeSelectionSheet(
                 expandSheet = true,
                 playerModelList = playerModelList,

@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.getValue
@@ -78,11 +80,21 @@ fun ContentBody(
 
     var showDownloadedList by remember { mutableStateOf(false) }
     var selectedItem by remember { mutableStateOf<DownloadEntity?>(null) }
+    var showSdkEdgeCases by remember { mutableStateOf(false) }
+    var isSdkEdgeCaseFullScreen by remember { mutableStateOf(false) }
+    var isSdkEdgeCaseStatusBarSafe by remember { mutableStateOf(true) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(R.color.black))
+            .then(
+                if (!isFullScreen && (!showSdkEdgeCases || (!isSdkEdgeCaseFullScreen && isSdkEdgeCaseStatusBarSafe))) {
+                    Modifier.statusBarsPadding()
+                } else {
+                    Modifier
+                }
+            )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
@@ -221,6 +233,22 @@ fun ContentBody(
             }
         }
 
+        if (false && !isFullScreen) {
+            FloatingActionButton(
+                onClick = {
+                    showSdkEdgeCases = true
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 32.dp, bottom = 160.dp),
+                containerColor = Color(0xFFFFB300),
+                contentColor = Color.Black,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("QA")
+            }
+        }
+
         if (showDownloadedList) {
             DownloadedContentList(downloadContentList = downloadedContentList,
                 onItemClick = { item ->
@@ -236,6 +264,20 @@ fun ContentBody(
                 onBack = {
                     selectedItem = null
                 })
+        }
+
+        if (showSdkEdgeCases) {
+            SdkEdgeCaseScreen(
+                pipListener = pipListener,
+                isInPipMode = isInPipMode,
+                onFullScreenChange = { isSdkEdgeCaseFullScreen = it },
+                onStatusBarSafeAreaChange = { isSdkEdgeCaseStatusBarSafe = it },
+                onClose = {
+                    isSdkEdgeCaseFullScreen = false
+                    isSdkEdgeCaseStatusBarSafe = true
+                    showSdkEdgeCases = false
+                }
+            )
         }
     }
 }
