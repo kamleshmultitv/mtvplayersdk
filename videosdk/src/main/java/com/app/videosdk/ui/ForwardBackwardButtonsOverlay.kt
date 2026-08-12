@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.PlayerCustomControls
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 import kotlinx.coroutines.delay
@@ -45,7 +46,8 @@ fun ForwardBackwardButtonsOverlay(
     onRewindIconHide: () -> Unit,
     onForwardIconHide: () -> Unit,
     isControllerVisible: Boolean,
-    isFullScreen: Boolean
+    isFullScreen: Boolean,
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
     val castUtils = remember { CastUtils(context, exoPlayer) }
     val isCasting = castUtils.isCasting()
@@ -86,31 +88,36 @@ fun ForwardBackwardButtonsOverlay(
         isPlaying = isPlaying,
         isCasting = isCasting,
         customControls = customControls,
+        controlsConfig = controlsConfig,
         onRewind = {
-            rewindAnimTrigger++
+            if (controlsConfig.seekBack.enabled) {
+                rewindAnimTrigger++
 
-            val newPosition = maxOf(
-                (if (isCasting) castUtils.getCastPosition()
-                else exoPlayer.currentPosition) - 10_000,
-                0
-            )
-            if (isCasting) castUtils.seekOnCast(newPosition)
-            else exoPlayer.seekTo(newPosition)
+                val newPosition = maxOf(
+                    (if (isCasting) castUtils.getCastPosition()
+                    else exoPlayer.currentPosition) - (controlsConfig.seekBack.safeSeconds * 1000L),
+                    0
+                )
+                if (isCasting) castUtils.seekOnCast(newPosition)
+                else exoPlayer.seekTo(newPosition)
+            }
         },
         onForward = {
-            forwardAnimTrigger++
+            if (controlsConfig.seekForward.enabled) {
+                forwardAnimTrigger++
 
-            val duration =
-                if (isCasting) castUtils.getCastDuration()
-                else exoPlayer.duration
+                val duration =
+                    if (isCasting) castUtils.getCastDuration()
+                    else exoPlayer.duration
 
-            val newPosition = minOf(
-                (if (isCasting) castUtils.getCastPosition()
-                else exoPlayer.currentPosition) + 10_000,
-                duration
-            )
-            if (isCasting) castUtils.seekOnCast(newPosition)
-            else exoPlayer.seekTo(newPosition)
+                val newPosition = minOf(
+                    (if (isCasting) castUtils.getCastPosition()
+                    else exoPlayer.currentPosition) + (controlsConfig.seekForward.safeSeconds * 1000L),
+                    duration
+                )
+                if (isCasting) castUtils.seekOnCast(newPosition)
+                else exoPlayer.seekTo(newPosition)
+            }
         },
         onPlayPause = {
             if (isPlaying) {
@@ -154,6 +161,7 @@ private fun ForwardBackwardButtonsOverlayUi(
     isPlaying: Boolean,
     isCasting: Boolean,
     customControls: PlayerCustomControls?,
+    controlsConfig: PlayerControlsConfig,
     onRewind: () -> Unit,
     onForward: () -> Unit,
     onPlayPause: () -> Unit,
@@ -183,26 +191,28 @@ private fun ForwardBackwardButtonsOverlayUi(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clickable(
-                            interactionSource = rewindInteractionSource,
-                            indication = null,
-                            onClick = onRewind
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-
-                    CustomIcon(
-                        resId = customControls?.rewindIconRes,
-                        defaultIcon = Icons.Default.Replay10,
-                        contentDescription = "Rewind 10s",
+                if (controlsConfig.seekBack.enabled) {
+                    Box(
                         modifier = Modifier
-                            .size(seekIconSize)
-                            .graphicsLayer(rotationZ = rewindRotation),
-                        tint = customControls?.iconTintRes
-                    )
+                            .size(56.dp)
+                            .clickable(
+                                interactionSource = rewindInteractionSource,
+                                indication = null,
+                                onClick = onRewind
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        CustomIcon(
+                            resId = customControls?.rewindIconRes,
+                            defaultIcon = Icons.Default.Replay10,
+                            contentDescription = "Rewind ${controlsConfig.seekBack.safeSeconds}s",
+                            modifier = Modifier
+                                .size(seekIconSize)
+                                .graphicsLayer(rotationZ = rewindRotation),
+                            tint = customControls?.iconTintRes
+                        )
+                    }
                 }
             }
 
@@ -212,7 +222,7 @@ private fun ForwardBackwardButtonsOverlayUi(
                     .height(48.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (isControllerVisible) {
+                if (isControllerVisible && ((isPlaying && controlsConfig.pause) || (!isPlaying && controlsConfig.play))) {
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -240,26 +250,28 @@ private fun ForwardBackwardButtonsOverlayUi(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clickable(
-                            interactionSource = forwardInteractionSource,
-                            indication = null,
-                            onClick = onForward
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-
-                    CustomIcon(
-                        resId = customControls?.forwardIconRes,
-                        defaultIcon = Icons.Default.Forward10,
-                        contentDescription = "Forward 10s",
+                if (controlsConfig.seekForward.enabled) {
+                    Box(
                         modifier = Modifier
-                            .size(seekIconSize)
-                            .graphicsLayer(rotationZ = forwardRotation),
-                        tint = customControls?.iconTintRes
-                    )
+                            .size(56.dp)
+                            .clickable(
+                                interactionSource = forwardInteractionSource,
+                                indication = null,
+                                onClick = onForward
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        CustomIcon(
+                            resId = customControls?.forwardIconRes,
+                            defaultIcon = Icons.Default.Forward10,
+                            contentDescription = "Forward ${controlsConfig.seekForward.safeSeconds}s",
+                            modifier = Modifier
+                                .size(seekIconSize)
+                                .graphicsLayer(rotationZ = forwardRotation),
+                            tint = customControls?.iconTintRes
+                        )
+                    }
                 }
             }
         }
@@ -280,6 +292,7 @@ fun ForwardBackwardButtonsOverlayPreview() {
         isPlaying = isPlaying,
         isCasting = false, // Not casting for preview
         customControls = customControls,
+        controlsConfig = PlayerControlsConfig(),
         onRewind = { /* mock seek back */ },
         onForward = { /* mock seek forward */ },
         onPlayPause = { isPlaying = !isPlaying },

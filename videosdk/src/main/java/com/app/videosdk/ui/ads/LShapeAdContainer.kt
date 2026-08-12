@@ -6,6 +6,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -20,7 +24,10 @@ fun LShapeAdContainer(
     playerModel: PlayerModel? = null,
     isFullScreen: Boolean = false,
     isVisible: Boolean,
+    bannerAdsEnabled: Boolean? = null,
+    closeButtonEnabled: Boolean = true,
     modifier: Modifier = Modifier,
+    onCloseClick: () -> Unit = {},
     videoContent: @Composable () -> Unit
 ) {
 
@@ -29,7 +36,7 @@ fun LShapeAdContainer(
         val showAds =
             isVisible &&
                     isFullScreen &&
-                    playerModel?.gamAdsConfig?.isAdsEnabled == true
+                    (bannerAdsEnabled ?: (playerModel?.gamAdsConfig?.isAdsEnabled == true))
 
         val bottomHeight = 75.dp
 
@@ -65,7 +72,7 @@ fun LShapeAdContainer(
             ) {
                 if (showAds) {
                     LBandBanner(
-                        adUnitId = playerModel.gamAdsConfig.verticalBan ?: "",
+                        adUnitId = playerModel?.gamAdsConfig?.verticalBan.orEmpty(),
                         adSize = AdSize.MEDIUM_RECTANGLE
                     )
                 }
@@ -135,11 +142,27 @@ fun LShapeAdContainer(
                 ) {
                     if (showAds) {
                         LBandBanner(
-                            adUnitId = playerModel.gamAdsConfig.horizontalBan ?: "",
+                            adUnitId = playerModel?.gamAdsConfig?.horizontalBan.orEmpty(),
                             adSize = AdSize.LEADERBOARD
                         )
                     }
                 }
+            }
+        }
+
+        if (showAds && closeButtonEnabled) {
+            IconButton(
+                onClick = onCloseClick,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .background(Color.Black.copy(alpha = 0.45f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close Ad",
+                    tint = Color.White
+                )
             }
         }
     }

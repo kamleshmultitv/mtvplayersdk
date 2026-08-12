@@ -11,16 +11,23 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -41,6 +48,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -68,7 +76,13 @@ import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
 import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.model.AgeRatingResolver
+import com.app.videosdk.model.FreePreviewConfig
+import com.app.videosdk.model.FreePreviewEndConfig
+import com.app.videosdk.model.PlayerAdsConfig
+import com.app.videosdk.model.PlayerConfig
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.model.WatermarkConfig
+import com.app.videosdk.model.WatermarkPosition
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
 import com.app.videosdk.ui.cut.CutBottomSheet
@@ -76,6 +90,7 @@ import com.app.videosdk.utils.PlayerMode
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
+import coil.compose.rememberAsyncImagePainter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -92,10 +107,15 @@ fun MtvVideoPlayerSdk(
     playerStateListener: PlayerStateListener? = null,
     controller: PlayerController? = null,
     isMutedInitially: Boolean = true,
-    onPlayerBack: (Boolean) -> Unit,
-    setFullScreen: (Boolean) -> Unit,
+    onPlayerBack: (Boolean) -> Unit = {},
+    setFullScreen: (Boolean) -> Unit = {},
     onIndexChanged: (Int) -> Unit = {},
-    episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle()
+    episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle(),
+    showControls: Boolean = true,
+    playerConfig: PlayerConfig = PlayerConfig(),
+    onCurrentIndexChanged: (Int) -> Unit = {},
+    onPreviewPrimaryAction: () -> Unit = {},
+    onPreviewSecondaryAction: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -126,6 +146,11 @@ fun MtvVideoPlayerSdk(
 
     val selectedIndex = remember { mutableIntStateOf(safeIndex) }
 
+    fun notifyIndexChanged(newIndex: Int) {
+        onIndexChanged(newIndex)
+        onCurrentIndexChanged(newIndex)
+    }
+
     LaunchedEffect(index, contentList) {
         val size = contentList?.size ?: 0
         if (size == 0) {
@@ -137,7 +162,7 @@ fun MtvVideoPlayerSdk(
         selectedIndex.intValue = safeExternalIndex
 
         if (index != null && index != safeExternalIndex) {
-            onIndexChanged(safeExternalIndex)
+            notifyIndexChanged(safeExternalIndex)
         }
     }
 
@@ -149,7 +174,7 @@ fun MtvVideoPlayerSdk(
         if (selectedIndex.intValue == safeIndex) return
 
         selectedIndex.intValue = safeIndex
-        onIndexChanged(safeIndex)
+        notifyIndexChanged(safeIndex)
     }
 
     var requestedVideo by remember { mutableStateOf<PlayerModel?>(null) }
@@ -218,6 +243,12 @@ fun MtvVideoPlayerSdk(
 
     FullScreenHandler(isFullScreen)
     var isControllerVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(showControls) {
+        if (!showControls) {
+            isControllerVisible = false
+        }
+    }
+
     var isLockScreen by remember { mutableStateOf(false) }
     var showUnlockConfirm by remember { mutableStateOf(false) }
     var isLockOverlayVisible by remember { mutableStateOf(true) }
@@ -229,18 +260,50 @@ fun MtvVideoPlayerSdk(
     val triggeredLBands = remember { mutableSetOf<String>() }
     val coroutineScope = rememberCoroutineScope()
     var lastVideoSize by remember { mutableStateOf<VideoSize?>(null) }
+    var hasRenderedFirstFrame by remember(playerModel, activeIndex, playRequestId) {
+        mutableStateOf(false)
+    }
     var currentChapter by remember { mutableStateOf<Chapter?>(null) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     var hasActivatedFill by remember { mutableStateOf(false) }
     var showCutSheet by remember { mutableStateOf(false) }
 
     var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
+    var hasPreviewLimitTriggered by remember(playerModel, activeIndex, playRequestId) {
+        mutableStateOf(false)
+    }
+    var isPreviewDialogVisible by remember(playerModel, activeIndex, playRequestId) {
+        mutableStateOf(false)
+    }
 
     val imaCuePoints = remember {
         mutableStateListOf<CuePoint>()
     }
 
     val isLive = playerModel?.isLive == true
+    val defaultPlayerConfig = remember { PlayerConfig() }
+    val defaultAdsConfig = remember { PlayerAdsConfig() }
+    val isDefaultPlayerConfig = playerConfig == defaultPlayerConfig
+    val hasExplicitAdsConfig = playerConfig.ads != defaultAdsConfig
+    val hasExplicitControlsConfig = playerConfig.controls != defaultPlayerConfig.controls
+
+    val effectiveVmapAdsEnabled =
+        if (hasExplicitAdsConfig) {
+            playerConfig.ads.googleAdsEnabled && playerConfig.ads.vmapAdsEnabled
+        } else {
+            playerModel?.adsConfig?.enableAds == true
+        }
+
+    val effectiveBannerAdsEnabled =
+        if (hasExplicitAdsConfig) {
+            playerConfig.ads.googleAdsEnabled && playerConfig.ads.bannerAdsEnabled
+        } else {
+            playerModel?.gamAdsConfig?.isAdsEnabled == true
+        }
+
+    val effectiveAdsConfig = remember(playerModel?.adsConfig, effectiveVmapAdsEnabled) {
+        playerModel?.adsConfig?.copy(enableAds = effectiveVmapAdsEnabled)
+    }
 
     LaunchedEffect(isInPipMode) {
         pipEnabled = isInPipMode
@@ -271,7 +334,21 @@ fun MtvVideoPlayerSdk(
         url
     }
 
-    val subtitleUri = if (isLive) "" else playerModel?.srt.orEmpty()
+    val effectiveSubtitleEnabled = isDefaultPlayerConfig || playerConfig.subtitleEnabled
+    val subtitleUri = if (isLive || !effectiveSubtitleEnabled) "" else playerModel?.srt.orEmpty()
+    val shouldAutoPlay = remember(playbackUrl, currentMode, isDefaultPlayerConfig, playerConfig) {
+        if (playbackUrl.isNullOrBlank()) {
+            false
+        } else if (isDefaultPlayerConfig) {
+            true
+        } else {
+            when (currentMode) {
+                PlayerMode.REELS -> playerConfig.autoPlayAssets
+                PlayerMode.MINI -> playerConfig.autoPlayFeature || playerConfig.autoPlayDetail
+                PlayerMode.FULL_SCREEN -> playerConfig.autoPlayDetail || playerConfig.autoPlayFeature
+            }
+        }
+    }
 
     var containerSize by remember { mutableStateOf(Size.Zero) }
     var fillScale by remember { mutableFloatStateOf(1f) }
@@ -325,7 +402,15 @@ fun MtvVideoPlayerSdk(
     }
 
 
-    val playerWithAds = remember(playerModel, activeIndex, playRequestId, playbackUrl) {
+    val playerWithAds = remember(
+        playerModel,
+        activeIndex,
+        playRequestId,
+        playbackUrl,
+        subtitleUri,
+        effectiveAdsConfig,
+        shouldAutoPlay
+    ) {
         val model = playerModel ?: return@remember null
         val urlString = playbackUrl
 
@@ -342,16 +427,48 @@ fun MtvVideoPlayerSdk(
             drmToken = model.drmToken,
             srt = subtitleUri,
             playerView = playerView,
-            adsConfig = model.adsConfig,
-            adsListener = adsListener
+            adsConfig = effectiveAdsConfig,
+            adsListener = adsListener,
+            playWhenReady = shouldAutoPlay
         )
     }
 
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
+    val freePreview = playerConfig.freePreview
+    val freePreviewEnd = playerConfig.freePreviewEnd
 
     LaunchedEffect(isMutedInitially, exoPlayer) {
         exoPlayer?.volume = if (isMutedInitially) 0f else 1f
+    }
+
+    LaunchedEffect(exoPlayer, freePreview, freePreviewEnd, activeIndex, playRequestId) {
+        val player = exoPlayer ?: return@LaunchedEffect
+        val preview = freePreview ?: return@LaunchedEffect
+
+        if (!preview.enabled) return@LaunchedEffect
+
+        val limitMs =
+            when {
+                preview.durationMs > 0L -> preview.durationMs
+                freePreviewEnd?.durationMs != null && freePreviewEnd.durationMs > 0L ->
+                    freePreviewEnd.durationMs
+                else -> 0L
+            }
+
+        if (limitMs <= 0L) return@LaunchedEffect
+
+        while (!hasPreviewLimitTriggered) {
+            if (player.currentPosition >= limitMs) {
+                hasPreviewLimitTriggered = true
+                player.pause()
+                if (freePreviewEnd?.enabled == true || preview.popupAllowed) {
+                    isPreviewDialogVisible = true
+                }
+                break
+            }
+            delay(250L)
+        }
     }
 
     LaunchedEffect(exoPlayer) {
@@ -367,15 +484,41 @@ fun MtvVideoPlayerSdk(
             }
     }
 
-    val lBandCuePoints = remember(contentDuration, selectedIndex.intValue) {
-        val interval = playerModel?.gamAdsConfig?.timeIntervalInMilliseconds
-        if (contentDuration <= 0L || interval == null || interval <= 0L) {
+    val lBandCuePoints = remember(
+        contentDuration,
+        selectedIndex.intValue,
+        effectiveBannerAdsEnabled,
+        hasExplicitAdsConfig,
+        playerConfig.ads,
+        playerModel?.gamAdsConfig?.timeIntervalInMilliseconds
+    ) {
+        val interval =
+            if (hasExplicitAdsConfig) {
+                playerConfig.ads.gapDurationMs
+            } else {
+                playerModel?.gamAdsConfig?.timeIntervalInMilliseconds
+            }
+
+        if (!effectiveBannerAdsEnabled || contentDuration <= 0L || interval == null || interval <= 0L) {
             emptyList()
         } else {
             val cueList = mutableListOf<CuePoint>()
-            var position = interval
+            val startMs =
+                if (hasExplicitAdsConfig && playerConfig.ads.startTimeSec > 0) {
+                    playerConfig.ads.startTimeSec.toLong() * 1000L
+                } else {
+                    interval
+                }
+            val configuredEndMs =
+                if (hasExplicitAdsConfig && playerConfig.ads.endTimeSec > 0) {
+                    playerConfig.ads.endTimeSec.toLong() * 1000L
+                } else {
+                    contentDuration
+                }
+            val endMs = configuredEndMs.coerceAtMost(contentDuration)
+            var position = startMs
             var count = 1
-            while (position < contentDuration) {
+            while (position in 1L..endMs) {
                 cueList.add(
                     CuePoint(
                         positionMs = position,
@@ -428,6 +571,10 @@ fun MtvVideoPlayerSdk(
                 )
                 isFilled = false
                 zoomAccumulator = 1f
+            }
+
+            override fun onRenderedFirstFrame() {
+                hasRenderedFirstFrame = true
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -598,6 +745,7 @@ fun MtvVideoPlayerSdk(
 
                 if (!triggeredLBands.contains(cue.id)
                     && currentPos >= cue.positionMs
+                    && effectiveBannerAdsEnabled
                     && !isAdsShowing
                     && !pipEnabled
                     && isFullScreen
@@ -757,11 +905,14 @@ fun MtvVideoPlayerSdk(
                         playerModel = playerModel,
                         isFullScreen = isFullScreen,
                         isVisible = showLShapeAd && !isAdsShowing && !pipEnabled,
+                        bannerAdsEnabled = effectiveBannerAdsEnabled,
+                        closeButtonEnabled = hasExplicitAdsConfig && playerConfig.ads.closeButtonEnabled,
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateContentSize(animationSpec = tween(durationMillis = 260))
                             .then(playerSizeModifier)
-                            .background(Color.Black)
+                            .background(Color.Black),
+                        onCloseClick = { showLShapeAd = false }
                     ) {
 
                         AndroidView(
@@ -801,6 +952,12 @@ fun MtvVideoPlayerSdk(
                                 }
                         )
 
+                        if (isLive && !hasRenderedFirstFrame) {
+                            LiveImagePlaceholder(playerConfig.liveImageUrl)
+                        }
+
+                        PlayerWatermarkOverlay(playerConfig.watermark)
+
                         // Keep gesture handling on a Compose layer above PlayerView.
                         // AndroidView can otherwise consume the first multi-touch gesture
                         // after the controller overlay has disappeared.
@@ -831,7 +988,7 @@ fun MtvVideoPlayerSdk(
                                 }
 
                                 // 🔥 SINGLE TAP
-                                .pointerInput(pipEnabled, isSettingsClick, isLockScreen) {
+                                .pointerInput(pipEnabled, isSettingsClick, isLockScreen, showControls) {
                                     detectTapGestures(
                                         onDoubleTap = {
                                             hasActivatedFill = false
@@ -848,7 +1005,7 @@ fun MtvVideoPlayerSdk(
                                                     isLockOverlayVisible = true
                                                 }
 
-                                                !pipEnabled && !isSettingsClick -> {
+                                                showControls && !pipEnabled && !isSettingsClick -> {
                                                     isControllerVisible = !isControllerVisible
                                                 }
                                             }
@@ -867,7 +1024,7 @@ fun MtvVideoPlayerSdk(
 
                         // 🎛 Controller
                         AnimatedVisibility(
-                            visible = isControllerVisible && !pipEnabled && !isLockScreen,
+                            visible = showControls && isControllerVisible && !pipEnabled && !isLockScreen,
                             enter = fadeIn(),
                             exit = fadeOut()
                         ) {
@@ -924,7 +1081,10 @@ fun MtvVideoPlayerSdk(
                                     },
                                     onCutClick = {
                                         showCutSheet = true
-                                    }
+                                    },
+                                    controlsConfig = playerConfig.controls,
+                                    showPreviousControl = hasExplicitControlsConfig &&
+                                            playerConfig.controls.previous
 
                                 )
                             }
@@ -996,4 +1156,114 @@ fun MtvVideoPlayerSdk(
         }
     }
 
+    if (isPreviewDialogVisible) {
+        PreviewLimitDialog(
+            freePreview = freePreview,
+            freePreviewEnd = freePreviewEnd,
+            onPrimary = {
+                isPreviewDialogVisible = false
+                onPreviewPrimaryAction()
+            },
+            onSecondary = {
+                isPreviewDialogVisible = false
+                onPreviewSecondaryAction()
+            },
+            onDismiss = {
+                isPreviewDialogVisible = false
+            }
+        )
+    }
+
 }
+
+@Composable
+private fun PreviewLimitDialog(
+    freePreview: FreePreviewConfig?,
+    freePreviewEnd: FreePreviewEndConfig?,
+    onPrimary: () -> Unit,
+    onSecondary: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val endConfig = freePreviewEnd?.takeIf { it.enabled }
+    val message =
+        if (endConfig != null) {
+            endConfig.popupText
+        } else {
+            freePreview?.popupText
+        }.orEmpty().ifBlank { "Preview ended" }
+
+    val primaryLabel =
+        if (endConfig != null) {
+            endConfig.primaryButtonLabel
+        } else {
+            freePreview?.buttonLabel
+        }.orEmpty().ifBlank { "Continue" }
+
+    val secondaryLabel =
+        if (endConfig != null) {
+            endConfig.secondaryButtonLabel
+        } else {
+            null
+        }?.takeIf { it.isNotBlank() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = {
+            Text(text = message)
+        },
+        confirmButton = {
+            Button(onClick = onPrimary) {
+                Text(text = primaryLabel)
+            }
+        },
+        dismissButton = {
+            secondaryLabel?.let { label ->
+                Button(onClick = onSecondary) {
+                    Text(text = label)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun BoxScope.LiveImagePlaceholder(liveImageUrl: String?) {
+    val imageUrl = liveImageUrl?.takeIf { it.isNotBlank() } ?: return
+
+    Image(
+        painter = rememberAsyncImagePainter(imageUrl),
+        contentDescription = "Live Placeholder",
+        contentScale = ContentScale.Crop,
+        modifier = Modifier.fillMaxSize()
+    )
+}
+
+@Composable
+private fun BoxScope.PlayerWatermarkOverlay(watermark: WatermarkConfig?) {
+    val config = watermark?.takeIf { it.enabled } ?: return
+    val imageUrl = config.imageUrl?.takeIf { it.isNotBlank() } ?: return
+
+    Image(
+        painter = rememberAsyncImagePainter(imageUrl),
+        contentDescription = "Watermark",
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .align(config.position.toAlignment())
+            .padding(16.dp)
+            .sizeIn(
+                minWidth = 72.dp,
+                minHeight = 32.dp,
+                maxWidth = 140.dp,
+                maxHeight = 72.dp
+            )
+    )
+}
+
+private fun WatermarkPosition.toAlignment(): Alignment =
+    when (this) {
+        WatermarkPosition.TOP_LEFT -> Alignment.TopStart
+        WatermarkPosition.TOP_RIGHT -> Alignment.TopEnd
+        WatermarkPosition.BOTTOM_LEFT -> Alignment.BottomStart
+        WatermarkPosition.BOTTOM_RIGHT -> Alignment.BottomEnd
+        WatermarkPosition.CENTER -> Alignment.Center
+    }

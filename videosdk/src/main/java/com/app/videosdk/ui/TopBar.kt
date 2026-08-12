@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import com.app.videosdk.listener.PipListener
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 
@@ -44,6 +45,7 @@ fun TopBar(
     context: Context,
     castUtils: CastUtils,
     pipListener: PipListener?,
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
     showContentTitle: Boolean = true,
     isPipEnabled: (Boolean) -> Unit,
     onBackPressed: () -> Unit,
@@ -160,20 +162,24 @@ fun TopBar(
 
         // PIP and Settings remain visible only in FullScreen (VOD context)
         if (isFullScreen) {
-            PipButton(
-                playerModel,
-                pipListener = pipListener,
-                isPipEnabled = isPipEnabled
-            )
-
-            IconButton(onClick = onSettingsClick) {
-                CustomIcon(
-                    resId = playerModel?.customControls?.settingsIconRes,
-                    defaultIcon = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
+            if (controlsConfig.pip) {
+                PipButton(
+                    playerModel,
+                    pipListener = pipListener,
+                    isPipEnabled = isPipEnabled
                 )
+            }
+
+            if (controlsConfig.settings) {
+                IconButton(onClick = onSettingsClick) {
+                    CustomIcon(
+                        resId = playerModel?.customControls?.settingsIconRes,
+                        defaultIcon = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        modifier = Modifier.size(24.dp),
+                        tint = playerModel?.customControls?.iconTintRes
+                    )
+                }
             }
         }
 
@@ -191,18 +197,22 @@ fun TopBar(
 
         // FIXED: Moved Fullscreen button OUTSIDE the if(isFullScreen) block 
         // to make it visible in Portrait mode.
-        IconButton(
-            onClick = onFullScreenToggle,
-            modifier = Modifier.size(56.dp)
-        ) {
-            CustomIcon(
-                resId = if (isFullScreen) playerModel?.customControls?.exitFullScreenIconRes else playerModel?.customControls?.fullScreenIconRes,
-                defaultIcon = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                contentDescription = "Toggle Fullscreen",
-                modifier = Modifier.size(24.dp),
-                tint = playerModel?.customControls?.iconTintRes
-            )
+        val showFullScreenButton =
+            if (isFullScreen) controlsConfig.exitFullscreen else controlsConfig.fullscreen
 
+        if (showFullScreenButton) {
+            IconButton(
+                onClick = onFullScreenToggle,
+                modifier = Modifier.size(56.dp)
+            ) {
+                CustomIcon(
+                    resId = if (isFullScreen) playerModel?.customControls?.exitFullScreenIconRes else playerModel?.customControls?.fullScreenIconRes,
+                    defaultIcon = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                    contentDescription = "Toggle Fullscreen",
+                    modifier = Modifier.size(24.dp),
+                    tint = playerModel?.customControls?.iconTintRes
+                )
+            }
         }
     }
 }

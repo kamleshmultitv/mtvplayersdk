@@ -64,7 +64,8 @@ object PlayerUtils {
         playerView: PlayerView? = null,
         adsConfig: AdsConfig? = null,
         adsListener: AdsListener? = null,
-        existingAdsLoader: ImaAdsLoader? = null
+        existingAdsLoader: ImaAdsLoader? = null,
+        playWhenReady: Boolean = true
     ): Pair<ExoPlayer, ImaAdsLoader?> {
 
         val content = contentList?.get(selectedIndex)
@@ -296,7 +297,7 @@ object PlayerUtils {
         contentList?.get(selectedIndex)?.seekTo?.let { position ->
             exoPlayer.seekTo(position)
         }
-        exoPlayer.playWhenReady = true
+        exoPlayer.playWhenReady = playWhenReady
 
         return exoPlayer to adsLoader
     }

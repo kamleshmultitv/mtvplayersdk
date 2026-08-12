@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 
@@ -36,7 +37,8 @@ fun CenterControls(
     onForwardHide: () -> Unit,
     onRewindHide: () -> Unit,
     isZoomed: Boolean,
-    onZoomChange: (Boolean) -> Unit
+    onZoomChange: (Boolean) -> Unit,
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
     val gestureModifier = Modifier
         .pointerInput(Unit) {
@@ -50,17 +52,27 @@ fun CenterControls(
                 onTap = { onShowControls(false) },
                 onDoubleTap = { offset ->
                     val isLeft = offset.x < size.width / 2
-                    val current =
-                        if (isCasting) castUtils.getCastPosition()
-                        else exoPlayer.currentPosition
+                    val isSeekAllowed =
+                        if (isLeft) controlsConfig.seekBack.enabled
+                        else controlsConfig.seekForward.enabled
 
-                    val newPosition =
-                        maxOf(current + if (isLeft) -10_000 else 10_000, 0)
+                    if (isSeekAllowed) {
+                        val current =
+                            if (isCasting) castUtils.getCastPosition()
+                            else exoPlayer.currentPosition
 
-                    if (isCasting) castUtils.seekOnCast(newPosition)
-                    else exoPlayer.seekTo(newPosition)
+                        val seekSeconds =
+                            if (isLeft) controlsConfig.seekBack.safeSeconds
+                            else controlsConfig.seekForward.safeSeconds
 
-                    if (isLeft) onRewind() else onForward()
+                        val newPosition =
+                            maxOf(current + if (isLeft) -(seekSeconds * 1000L) else seekSeconds * 1000L, 0)
+
+                        if (isCasting) castUtils.seekOnCast(newPosition)
+                        else exoPlayer.seekTo(newPosition)
+
+                        if (isLeft) onRewind() else onForward()
+                    }
                 }
             )
         }
@@ -85,7 +97,8 @@ fun CenterControls(
                 onRewindIconHide = onRewindHide,
                 onForwardIconHide = onForwardHide,
                 isControllerVisible = true,
-                isFullScreen = isFullScreen
+                isFullScreen = isFullScreen,
+                controlsConfig = controlsConfig
             )
 
             if (isLoading) {

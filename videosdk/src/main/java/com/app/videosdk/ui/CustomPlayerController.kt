@@ -63,6 +63,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.EpisodeNowPlayingStyle
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
@@ -94,7 +95,9 @@ fun CustomPlayerController(
     onNextEpisodeClick: (Int) -> Unit,
     showContentTitle: Boolean = true,
     onChapterClick: () -> Unit = {},
-    onCutClick: () -> Unit = {}
+    onCutClick: () -> Unit = {},
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
+    showPreviousControl: Boolean = false
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -149,12 +152,14 @@ fun CustomPlayerController(
         currentPosition,
         currentPlayerModel,
         nextEpisodeClicked,
-        duration
+        duration,
+        controlsConfig.next
     ) {
         derivedStateOf {
             val next = currentPlayerModel?.nextEpisode ?: return@derivedStateOf false
 
             if (
+                !controlsConfig.next ||
                 exoPlayer.isPlayingAd ||          // 🔥 KEY FIX
                 duration <= 0L ||
                 currentPosition <= 0L ||
@@ -176,12 +181,14 @@ fun CustomPlayerController(
         currentPosition,
         currentPlayerModel,
         nextEpisodeClicked,
-        duration
+        duration,
+        controlsConfig.next
     ) {
         derivedStateOf {
             val next = currentPlayerModel?.nextEpisode ?: return@derivedStateOf false
 
             if (
+                !controlsConfig.next ||
                 exoPlayer.isPlayingAd ||          // 🔥 KEY FIX
                 duration <= 0L ||
                 currentPosition <= 0L ||
@@ -291,10 +298,11 @@ fun CustomPlayerController(
 
     var hasShownNextEpisodeControls by remember(index) { mutableStateOf(false) }
 
-    LaunchedEffect(currentPosition, currentPlayerModel) {
+    LaunchedEffect(currentPosition, currentPlayerModel, controlsConfig.next) {
         val next = currentPlayerModel?.nextEpisode ?: return@LaunchedEffect
 
         if (
+            controlsConfig.next &&
             !hasShownNextEpisodeControls &&
             !currentPlayerModel.isLive &&
             next.enableNextEpisode &&
@@ -357,6 +365,7 @@ fun CustomPlayerController(
                 context = context,
                 castUtils = castUtils,
                 pipListener = pipListener,
+                controlsConfig = controlsConfig,
                 showContentTitle = showContentTitle,
                 isPipEnabled = isPipEnabled,
                 onBackPressed = onBackPressed,
@@ -469,13 +478,14 @@ fun CustomPlayerController(
                         onForwardHide = { showForwardIcon = false },
                         onRewindHide = { showForwardIcon = false },
                         isZoomed = isZoomed,
-                        onZoomChange = { isZoomed = it }
+                        onZoomChange = { isZoomed = it },
+                        controlsConfig = controlsConfig
                     )
                 }
 
                 /* ---- VOLUME (RIGHT) ---- */
                 AnimatedVisibility(
-                    visible = isControlsVisible,
+                    visible = isControlsVisible && (controlsConfig.mute || controlsConfig.unmute),
                     modifier = Modifier
                         .weight(0.1f)
                         .fillMaxHeight(),
@@ -516,7 +526,8 @@ fun CustomPlayerController(
                         CustomVolumeController(
                             playerModel = playerModel,
                             exoPlayer = exoPlayer,
-                            onShowControls = showControlsState.value
+                            onShowControls = showControlsState.value,
+                            controlsConfig = controlsConfig
                         )
                     }
                 }
@@ -540,7 +551,8 @@ fun CustomPlayerController(
                 onForwardHide = { showForwardIcon = false },
                 onRewindHide = { showForwardIcon = false },
                 isZoomed = isZoomed,
-                onZoomChange = { isZoomed = it }
+                onZoomChange = { isZoomed = it },
+                controlsConfig = controlsConfig
             )
         }
 
@@ -578,7 +590,7 @@ fun CustomPlayerController(
         /* ---------- Next Episode BUTTON ---------- */
 
         AnimatedVisibility(
-            visible = showNextEpisode && !expandSheet,
+            visible = controlsConfig.next && showNextEpisode && !expandSheet,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier
@@ -692,7 +704,10 @@ fun CustomPlayerController(
                     } else {
                         expandSheet = false
                     }
-                }
+                },
+                onPrevious = playContent,
+                controlsConfig = controlsConfig,
+                showPreviousControl = showPreviousControl,
             )
         }
 
