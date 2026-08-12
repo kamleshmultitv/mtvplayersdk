@@ -286,6 +286,7 @@ fun MtvVideoPlayerSdk(
     val isDefaultPlayerConfig = playerConfig == defaultPlayerConfig
     val hasExplicitAdsConfig = playerConfig.ads != defaultAdsConfig
     val hasExplicitControlsConfig = playerConfig.controls != defaultPlayerConfig.controls
+    val consumedPrerollKeys = remember { mutableSetOf<String>() }
 
     val effectiveVmapAdsEnabled =
         if (hasExplicitAdsConfig) {
@@ -336,6 +337,21 @@ fun MtvVideoPlayerSdk(
 
     val effectiveSubtitleEnabled = isDefaultPlayerConfig || playerConfig.subtitleEnabled
     val subtitleUri = if (isLive || !effectiveSubtitleEnabled) "" else playerModel?.srt.orEmpty()
+    val prerollKey = remember(playerModel, effectiveAdsConfig?.adTagUrl, playbackUrl) {
+        buildPrerollKey(
+            playerModel = playerModel,
+            adTagUrl = effectiveAdsConfig?.adTagUrl,
+            playbackUrl = playbackUrl
+        )
+    }
+    val playbackSessionKey = remember(playerModel?.id, playbackUrl, activeIndex, playRequestId) {
+        buildPlaybackSessionKey(
+            playerModel = playerModel,
+            playbackUrl = playbackUrl,
+            activeIndex = activeIndex,
+            playRequestId = playRequestId
+        )
+    }
     val shouldAutoPlay = remember(playbackUrl, currentMode, isDefaultPlayerConfig, playerConfig) {
         if (playbackUrl.isNullOrBlank()) {
             false
@@ -361,7 +377,7 @@ fun MtvVideoPlayerSdk(
         label = "scale"
     )
 
-    val adsListener = remember {
+    val adsListener = remember(prerollKey, playerStateListener) {
         object : AdsListener {
 
             override fun onAdsLoaded() {
@@ -370,6 +386,7 @@ fun MtvVideoPlayerSdk(
             }
 
             override fun onAdStarted() {
+                prerollKey?.let { consumedPrerollKeys.add(it) }
                 isControllerVisible = false
                 isAdsShowing = true
                 showLShapeAd = false
@@ -403,16 +420,14 @@ fun MtvVideoPlayerSdk(
 
 
     val playerWithAds = remember(
-        playerModel,
-        activeIndex,
-        playRequestId,
-        playbackUrl,
-        subtitleUri,
-        effectiveAdsConfig,
-        shouldAutoPlay
+        playbackSessionKey,
+        subtitleUri
     ) {
         val model = playerModel ?: return@remember null
         val urlString = playbackUrl
+        val isPrerollConsumed = prerollKey != null && consumedPrerollKeys.contains(prerollKey)
+        val adsConfigForNewPlayer =
+            effectiveAdsConfig?.copy(enableAds = effectiveVmapAdsEnabled && !isPrerollConsumed)
 
         android.util.Log.d(
             "MtvVideoPlayerSdk",
@@ -427,7 +442,7 @@ fun MtvVideoPlayerSdk(
             drmToken = model.drmToken,
             srt = subtitleUri,
             playerView = playerView,
-            adsConfig = effectiveAdsConfig,
+            adsConfig = adsConfigForNewPlayer,
             adsListener = adsListener,
             playWhenReady = shouldAutoPlay
         )
@@ -543,7 +558,7 @@ fun MtvVideoPlayerSdk(
         mutableStateOf(false)
     }
 
-    DisposableEffect(exoPlayer, playerModel) {
+    DisposableEffect(exoPlayer) {
         val player = exoPlayer ?: return@DisposableEffect onDispose {}
         var hasPresentedForThisPlayback = false
         var restartArmed = false
@@ -1267,3 +1282,42 @@ private fun WatermarkPosition.toAlignment(): Alignment =
         WatermarkPosition.BOTTOM_RIGHT -> Alignment.BottomEnd
         WatermarkPosition.CENTER -> Alignment.Center
     }
+
+private fun buildPrerollKey(
+    playerModel: PlayerModel?,
+    adTagUrl: String?,
+    playbackUrl: String?
+): String? {
+    val adTag = adTagUrl?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    val contentParts = listOfNotNull(
+        playerModel?.id?.trim()?.takeIf { it.isNotBlank() },
+        playerModel?.hlsUrl?.toPrerollKeyUrl(),
+        playbackUrl.toPrerollKeyUrl()
+    ).distinct()
+
+    if (contentParts.isEmpty()) return null
+
+    return (contentParts + adTag).joinToString(separator = "|")
+}
+
+private fun buildPlaybackSessionKey(
+    playerModel: PlayerModel?,
+    playbackUrl: String?,
+    activeIndex: Int,
+    playRequestId: Long
+): String {
+    val contentParts = listOfNotNull(
+        playerModel?.id?.trim()?.takeIf { it.isNotBlank() },
+        playerModel?.hlsUrl?.toPrerollKeyUrl(),
+        playbackUrl.toPrerollKeyUrl()
+    ).distinct()
+
+    return (contentParts + activeIndex.toString() + playRequestId.toString())
+        .joinToString(separator = "|")
+}
+
+private fun String?.toPrerollKeyUrl(): String? =
+    this
+        ?.trim()
+        ?.substringBefore("?")
+        ?.takeIf { it.isNotBlank() }
