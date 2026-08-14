@@ -1,6 +1,8 @@
 package com.app.videosdk.utils
 
 import android.content.Context
+import android.net.Uri
+import android.util.Log
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter
@@ -14,11 +16,18 @@ import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.Session
 import com.google.android.gms.cast.framework.SessionManagerListener
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
+import com.google.android.gms.common.images.WebImage
 
 class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
 
     private val sessionManager = CastContext.getSharedInstance(context).sessionManager
     private var playerModel: PlayerModel? = null
+
+    private data class CastMediaSource(
+        val url: String,
+        val contentType: String,
+        val streamType: Int
+    )
 
     private val sessionListener = object : SessionManagerListener<Session> {
         override fun onSessionStarted(session: Session, sessionId: String) {
@@ -52,19 +61,23 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
 
     private fun startOrRestartCastSession(model: PlayerModel, reset: Boolean) {
         val mediaClient = getRemoteMediaClient() ?: return
+        val mediaSource = resolveCastMediaSource(model) ?: run {
+            Log.e(TAG, "Cast load skipped: no playable URL for content id=${model.id}")
+            return
+        }
 
         // Get the current playback position from ExoPlayer if available
         var currentPosition: Long = exoPlayer.currentPosition
 
         // If a Cast session already exists, try getting the position from the Cast client
-        if (sessionManager.currentCastSession != null) {
+        if (mediaClient.hasMediaSession()) {
             currentPosition = mediaClient.approximateStreamPosition
         }
 
         pauseLocalPlayback()
-        val mediaInfo = MediaInfo.Builder(model.hlsUrl ?: return).apply {
-            setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
-            setContentType("application/x-mpegURL") // Correct MIME type for HLS
+        val mediaInfo = MediaInfo.Builder(mediaSource.url).apply {
+            setStreamType(mediaSource.streamType)
+            setContentType(mediaSource.contentType)
             setMetadata(buildMediaMetadata(model))
         }.build()
 
@@ -80,7 +93,22 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
             ) // Seek to the last known position
         }.build()
 
-        mediaClient.load(mediaLoadRequestData)
+        Log.d(
+            TAG,
+            "Loading cast media: contentType=${mediaSource.contentType}, reset=$reset, position=$currentPosition, url=${mediaSource.url}"
+        )
+
+        mediaClient.load(mediaLoadRequestData).setResultCallback { result ->
+            val status = result.status
+            if (status.isSuccess) {
+                Log.d(TAG, "Cast media load succeeded")
+            } else {
+                Log.e(
+                    TAG,
+                    "Cast media load failed: code=${status.statusCode}, message=${status.statusMessage}"
+                )
+            }
+        }
     }
 
 
@@ -100,6 +128,10 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
         sessionManager.currentCastSession?.let {
             startCasting(true)
         }
+    }
+
+    fun release() {
+        sessionManager.removeSessionManagerListener(sessionListener, Session::class.java)
     }
 
     private fun startCasting(reset: Boolean) {
@@ -123,7 +155,61 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
 
     private fun buildMediaMetadata(model: PlayerModel): MediaMetadata {
         return MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE).apply {
-            putString(MediaMetadata.KEY_TITLE, model.episodeTitle ?: "Unknown Title")
+            putString(
+                MediaMetadata.KEY_TITLE,
+                model.episodeTitle
+                    ?: model.title
+                    ?: model.seasonTitle
+                    ?: "Unknown Title"
+            )
+            val subtitle = model.episodeDescription
+                ?: model.description
+                ?: model.seasonDescription
+            subtitle?.let { putString(MediaMetadata.KEY_SUBTITLE, it) }
+
+            val imageUrl = model.imageUrl ?: model.thumbnail
+            if (!imageUrl.isNullOrBlank()) {
+                addImage(WebImage(Uri.parse(imageUrl)))
+            }
+        }
+    }
+
+    private fun resolveCastMediaSource(model: PlayerModel): CastMediaSource? {
+        val streamType =
+            if (model.isLive) MediaInfo.STREAM_TYPE_LIVE else MediaInfo.STREAM_TYPE_BUFFERED
+
+        val urlAndType = when {
+            model.isLive && !model.liveUrl.isNullOrBlank() ->
+                model.liveUrl to HLS_MIME_TYPE
+
+            model.drm == "1" && !model.mpdUrl.isNullOrBlank() ->
+                model.mpdUrl to DASH_MIME_TYPE
+
+            !model.hlsUrl.isNullOrBlank() ->
+                model.hlsUrl to HLS_MIME_TYPE
+
+            !model.mpdUrl.isNullOrBlank() ->
+                model.mpdUrl to DASH_MIME_TYPE
+
+            !model.videoUrl.isNullOrBlank() ->
+                model.videoUrl to inferContentType(model.videoUrl)
+
+            else -> null
+        } ?: return null
+
+        return CastMediaSource(
+            url = urlAndType.first.trim(),
+            contentType = urlAndType.second,
+            streamType = streamType
+        )
+    }
+
+    private fun inferContentType(url: String): String {
+        val path = url.substringBefore("?").lowercase()
+        return when {
+            path.endsWith(".m3u8") -> HLS_MIME_TYPE
+            path.endsWith(".mpd") -> DASH_MIME_TYPE
+            else -> MP4_MIME_TYPE
         }
     }
 
@@ -187,5 +273,12 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
         return mediaRouter.routes.any { route ->
             route.isEnabled && route.matchesSelector(selector)
         }
+    }
+
+    companion object {
+        private const val TAG = "CastUtils"
+        private const val HLS_MIME_TYPE = "application/x-mpegURL"
+        private const val DASH_MIME_TYPE = "application/dash+xml"
+        private const val MP4_MIME_TYPE = "video/mp4"
     }
 }

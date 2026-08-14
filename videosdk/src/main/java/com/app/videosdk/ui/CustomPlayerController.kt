@@ -80,6 +80,7 @@ fun CustomPlayerController(
     isCurrentlyFullScreen: Boolean,
     isCurrentlyLockScreen: Boolean,
     exoPlayer: ExoPlayer,
+    externalCastUtils: CastUtils? = null,
     episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle(),
     modifier: Modifier,
     isControlsVisible: Boolean,
@@ -106,9 +107,10 @@ fun CustomPlayerController(
     val fullScreenState = rememberUpdatedState(isFullScreen)
     val lockScreenState = rememberUpdatedState(isLockScreen)
 
-    val castUtils = remember(context, exoPlayer) {
+    val rememberedCastUtils = remember(context, exoPlayer) {
         CastUtils(context, exoPlayer)
     }
+    val castUtils = externalCastUtils ?: rememberedCastUtils
     val isCasting by remember { derivedStateOf { castUtils.isCasting() } }
 
     var isZoomed by remember { mutableStateOf(false) }
@@ -125,6 +127,20 @@ fun CustomPlayerController(
     var onSeek by remember { mutableStateOf(false) }
     val currentPlayerModel = playerModelList?.getOrNull(index)
     var expandSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(castUtils, currentPlayerModel, externalCastUtils) {
+        if (externalCastUtils == null) {
+            castUtils.setupCastSession(currentPlayerModel)
+        }
+    }
+
+    DisposableEffect(castUtils, externalCastUtils) {
+        onDispose {
+            if (externalCastUtils == null) {
+                castUtils.release()
+            }
+        }
+    }
 
     LaunchedEffect(isCurrentlyFullScreen, expandSheet) {
         if (!isCurrentlyFullScreen && expandSheet) {

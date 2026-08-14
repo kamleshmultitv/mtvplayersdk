@@ -32,7 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.fragment.app.FragmentActivity
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
@@ -156,7 +155,7 @@ fun TopBar(
         }
 
 
-        if (isFullScreen && castUtils.isCastTVAvailable(context) && context is FragmentActivity) {
+        if (isFullScreen) {
             CastButton()
         }
 

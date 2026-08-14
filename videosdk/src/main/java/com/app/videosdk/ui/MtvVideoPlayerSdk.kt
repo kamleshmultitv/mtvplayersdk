@@ -86,6 +86,7 @@ import com.app.videosdk.model.WatermarkPosition
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
 import com.app.videosdk.ui.cut.CutBottomSheet
+import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerMode
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
@@ -452,6 +453,17 @@ fun MtvVideoPlayerSdk(
     val adsLoader = playerWithAds?.second
     val freePreview = playerConfig.freePreview
     val freePreviewEnd = playerConfig.freePreviewEnd
+    val castUtils = remember(context, exoPlayer) {
+        exoPlayer?.let { CastUtils(context, it) }
+    }
+
+    LaunchedEffect(castUtils, playerModel) {
+        castUtils?.setupCastSession(playerModel)
+    }
+
+    DisposableEffect(castUtils) {
+        onDispose { castUtils?.release() }
+    }
 
     LaunchedEffect(isMutedInitially, exoPlayer) {
         exoPlayer?.volume = if (isMutedInitially) 0f else 1f
@@ -1059,6 +1071,7 @@ fun MtvVideoPlayerSdk(
                                     isCurrentlyFullScreen = isFullScreen,
                                     isCurrentlyLockScreen = isLockScreen,
                                     exoPlayer = player,
+                                    externalCastUtils = castUtils,
                                     episodeNowPlayingStyle = episodeNowPlayingStyle,
                                     modifier = Modifier.fillMaxSize(),
                                     isControlsVisible = isControllerVisible,

@@ -7,17 +7,17 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.fragment.app.FragmentActivity
 import com.app.mtvdownloader.utils.NotificationPermission
 import com.app.sample.composable.ContentScreen
 import com.app.sample.viewModel.ContentViewModel
 import com.app.videosdk.listener.PipListener
 
-class MainActivity : ComponentActivity(), PipListener {
+class MainActivity : FragmentActivity(), PipListener {
 
     private val viewModel: ContentViewModel by viewModels()
 
