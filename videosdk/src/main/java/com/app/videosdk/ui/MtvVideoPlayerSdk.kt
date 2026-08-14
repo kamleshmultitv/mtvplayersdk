@@ -1,6 +1,7 @@
 package com.app.videosdk.ui
 
 import android.content.res.Configuration
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
@@ -330,7 +331,7 @@ fun MtvVideoPlayerSdk(
         // ✅ DEBUG: Log URL selection
         android.util.Log.d(
             "MtvVideoPlayerSdk",
-            "Selected playbackUrl: $url (DRM=${playerModel?.drm}, isLive=$isLive)"
+            "Selected playbackUrl: ${url.redactUrlForLog()} (DRM=${playerModel?.drm}, isLive=$isLive)"
         )
 
         url
@@ -432,7 +433,7 @@ fun MtvVideoPlayerSdk(
 
         android.util.Log.d(
             "MtvVideoPlayerSdk",
-            "Creating player with url: $urlString, drmToken: ${if (model.drmToken.isNullOrBlank()) "null" else "present"}"
+            "Creating player with url: ${urlString.redactUrlForLog()}, drmToken: ${if (model.drmToken.isNullOrBlank()) "null" else "present"}"
         )
 
         PlayerUtils.createPlayer(
@@ -453,8 +454,8 @@ fun MtvVideoPlayerSdk(
     val adsLoader = playerWithAds?.second
     val freePreview = playerConfig.freePreview
     val freePreviewEnd = playerConfig.freePreviewEnd
-    val castUtils = remember(context, exoPlayer) {
-        exoPlayer?.let { CastUtils(context, it) }
+    val castUtils = remember(context, exoPlayer, playerStateListener) {
+        exoPlayer?.let { CastUtils(context, it, playerStateListener) }
     }
 
     LaunchedEffect(castUtils, playerModel) {
@@ -1334,3 +1335,41 @@ private fun String?.toPrerollKeyUrl(): String? =
         ?.trim()
         ?.substringBefore("?")
         ?.takeIf { it.isNotBlank() }
+
+private fun String?.redactUrlForLog(): String {
+    val raw = this?.trim().orEmpty()
+    if (raw.isBlank()) return "null"
+
+    return runCatching {
+        val uri = Uri.parse(raw)
+        val scheme = uri.scheme
+        val host = uri.host
+        val hasQuery = !uri.encodedQuery.isNullOrBlank()
+
+        if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+            val lastPathSegment = uri.lastPathSegment
+                ?.takeIf { it.isNotBlank() }
+                ?.let {
+                    if (it.length > MAX_PLAYBACK_LOG_URL_SEGMENT_LENGTH) {
+                        it.take(MAX_PLAYBACK_LOG_URL_SEGMENT_LENGTH) + "..."
+                    } else {
+                        it
+                    }
+                }
+                ?: "media"
+            "$scheme://$host/.../$lastPathSegment${if (hasQuery) "?<redacted>" else ""}"
+        } else {
+            val withoutQuery = raw.substringBefore("?")
+            val safeValue =
+                if (withoutQuery.length > MAX_PLAYBACK_LOG_URL_LENGTH) {
+                    withoutQuery.take(MAX_PLAYBACK_LOG_URL_LENGTH) + "..."
+                } else {
+                    withoutQuery
+                }
+            "$safeValue${if (hasQuery || raw.contains("?")) "?<redacted>" else ""}"
+        }
+    }.getOrDefault("<redacted>")
+}
+
+private const val MAX_PLAYBACK_LOG_URL_LENGTH = 96
+private const val MAX_PLAYBACK_LOG_URL_SEGMENT_LENGTH = 64

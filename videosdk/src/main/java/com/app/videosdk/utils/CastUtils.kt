@@ -2,32 +2,63 @@ package com.app.videosdk.utils
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter
+import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.PlayerModel
 import com.google.android.gms.cast.CastMediaControlIntent
+import com.google.android.gms.cast.MediaError
 import com.google.android.gms.cast.MediaInfo
 import com.google.android.gms.cast.MediaLoadRequestData
 import com.google.android.gms.cast.MediaMetadata
 import com.google.android.gms.cast.MediaSeekOptions
+import com.google.android.gms.cast.MediaStatus
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.Session
 import com.google.android.gms.cast.framework.SessionManagerListener
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.google.android.gms.common.images.WebImage
+import org.json.JSONObject
 
-class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
+class CastUtils(
+    context: Context,
+    private val exoPlayer: ExoPlayer,
+    private val playerStateListener: PlayerStateListener? = null
+) {
 
     private val sessionManager = CastContext.getSharedInstance(context).sessionManager
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var playerModel: PlayerModel? = null
+    private var observedMediaClient: RemoteMediaClient? = null
+    private var activeLoadToken = 0
+    private var waitingForReceiverPlayback = false
+    private var castPlaybackFailureDispatched = false
+    private var lastLoggedStatusKey: String? = null
+    private var playbackStartTimeoutRunnable: Runnable? = null
 
     private data class CastMediaSource(
         val url: String,
         val contentType: String,
         val streamType: Int
     )
+
+    private val remoteMediaClientCallback = object : RemoteMediaClient.Callback() {
+        override fun onStatusUpdated() {
+            handleRemoteMediaStatusUpdated("status")
+        }
+
+        override fun onMetadataUpdated() {
+            handleRemoteMediaStatusUpdated("metadata")
+        }
+
+        override fun onMediaError(mediaError: MediaError) {
+            handleReceiverMediaError(mediaError)
+        }
+    }
 
     private val sessionListener = object : SessionManagerListener<Session> {
         override fun onSessionStarted(session: Session, sessionId: String) {
@@ -65,6 +96,12 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
             Log.e(TAG, "Cast load skipped: no playable URL for content id=${model.id}")
             return
         }
+        observeRemoteMediaClient(mediaClient)
+        activeLoadToken += 1
+        val loadToken = activeLoadToken
+        waitingForReceiverPlayback = true
+        castPlaybackFailureDispatched = false
+        lastLoggedStatusKey = null
 
         // Get the current playback position from ExoPlayer if available
         var currentPosition: Long = exoPlayer.currentPosition
@@ -75,15 +112,19 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
         }
 
         pauseLocalPlayback()
+        val castCustomData = buildCastCustomData(model)
         val mediaInfo = MediaInfo.Builder(mediaSource.url).apply {
+            setContentUrl(mediaSource.url)
             setStreamType(mediaSource.streamType)
             setContentType(mediaSource.contentType)
             setMetadata(buildMediaMetadata(model))
+            castCustomData?.let { setCustomData(it) }
         }.build()
 
         val mediaLoadRequestData = MediaLoadRequestData.Builder().apply {
             setMediaInfo(mediaInfo)
             setAutoplay(true)
+            castCustomData?.let { setCustomData(it) }
             setCurrentTime(
                 if (reset) {
                     0L
@@ -93,19 +134,22 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
             ) // Seek to the last known position
         }.build()
 
-        Log.d(
-            TAG,
-            "Loading cast media: contentType=${mediaSource.contentType}, reset=$reset, position=$currentPosition, url=${mediaSource.url}"
-        )
+        logPreparedMediaInfo(mediaInfo, mediaSource, reset, currentPosition, castCustomData)
+        schedulePlaybackStartTimeout(loadToken)
 
         mediaClient.load(mediaLoadRequestData).setResultCallback { result ->
+            if (loadToken != activeLoadToken) return@setResultCallback
+
             val status = result.status
             if (status.isSuccess) {
-                Log.d(TAG, "Cast media load succeeded")
+                Log.d(TAG, "Cast media load accepted by sender; waiting for receiver playback state")
+                logRemoteMediaStatus("load-accepted", mediaClient.mediaStatus, mediaClient)
+                mediaClient.requestStatus()
             } else {
-                Log.e(
-                    TAG,
-                    "Cast media load failed: code=${status.statusCode}, message=${status.statusMessage}"
+                dispatchCastPlaybackFailure(
+                    message = "Cast media load request failed: code=${status.statusCode}, message=${status.statusMessage}",
+                    mediaStatus = mediaClient.mediaStatus,
+                    mediaClient = mediaClient
                 )
             }
         }
@@ -132,6 +176,8 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
 
     fun release() {
         sessionManager.removeSessionManagerListener(sessionListener, Session::class.java)
+        cancelPlaybackStartTimeout()
+        unobserveRemoteMediaClient()
     }
 
     private fun startCasting(reset: Boolean) {
@@ -141,7 +187,10 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
     }
 
     private fun stopCasting() {
+        cancelPlaybackStartTimeout()
+        waitingForReceiverPlayback = false
         stopMediaOnCast()
+        unobserveRemoteMediaClient()
         resumeLocalPlayback()
     }
 
@@ -172,6 +221,226 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
                 addImage(WebImage(Uri.parse(imageUrl)))
             }
         }
+    }
+
+    private fun buildCastCustomData(model: PlayerModel): JSONObject? {
+        if (model.drm != "1") return null
+
+        val customData = JSONObject().apply {
+            put("drmScheme", WIDEVINE_SCHEME)
+            put("drmType", WIDEVINE_SCHEME)
+            put("protectionSystem", WIDEVINE_PROTECTION_SYSTEM)
+        }
+
+        model.drmToken
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { licenseUrl ->
+                customData.put("licenseUrl", licenseUrl)
+                customData.put("drmLicenseUrl", licenseUrl)
+                customData.put("widevineLicenseUrl", licenseUrl)
+                customData.put("drmToken", licenseUrl)
+                customData.put(
+                    "drm",
+                    JSONObject().apply {
+                        put("scheme", WIDEVINE_SCHEME)
+                        put("protectionSystem", WIDEVINE_PROTECTION_SYSTEM)
+                        put("licenseUrl", licenseUrl)
+                    }
+                )
+            }
+
+        return customData
+    }
+
+    private fun observeRemoteMediaClient(mediaClient: RemoteMediaClient) {
+        if (observedMediaClient === mediaClient) return
+
+        observedMediaClient?.unregisterCallback(remoteMediaClientCallback)
+        observedMediaClient = mediaClient
+        mediaClient.registerCallback(remoteMediaClientCallback)
+    }
+
+    private fun unobserveRemoteMediaClient() {
+        observedMediaClient?.unregisterCallback(remoteMediaClientCallback)
+        observedMediaClient = null
+    }
+
+    private fun handleRemoteMediaStatusUpdated(source: String) {
+        val mediaClient = observedMediaClient ?: getRemoteMediaClient() ?: return
+        val mediaStatus = mediaClient.mediaStatus
+        val mediaInfo = mediaStatus?.mediaInfo ?: mediaClient.mediaInfo
+        val playerState = mediaStatus?.playerState ?: mediaClient.playerState
+        val idleReason = mediaStatus?.idleReason ?: mediaClient.idleReason
+
+        logRemoteMediaStatus(source, mediaStatus, mediaClient)
+        playerStateListener?.onCastPlaybackStateChanged(
+            playerState,
+            idleReason,
+            mediaInfo?.contentType,
+            mediaInfo?.contentId,
+            mediaInfo?.contentUrl
+        )
+
+        when (playerState) {
+            MediaStatus.PLAYER_STATE_PLAYING,
+            MediaStatus.PLAYER_STATE_PAUSED -> markReceiverPlaybackStarted(playerState)
+
+            MediaStatus.PLAYER_STATE_IDLE -> {
+                if (idleReason == MediaStatus.IDLE_REASON_ERROR) {
+                    dispatchCastPlaybackFailure(
+                        message = "Cast receiver entered IDLE with ERROR before playback started",
+                        mediaStatus = mediaStatus,
+                        mediaClient = mediaClient
+                    )
+                }
+            }
+        }
+    }
+
+    private fun handleReceiverMediaError(mediaError: MediaError) {
+        val mediaClient = observedMediaClient ?: getRemoteMediaClient()
+        val message =
+            "Cast receiver media error: type=${mediaError.type}, reason=${mediaError.reason}, " +
+                    "detailedCode=${mediaError.detailedErrorCode}, requestId=${mediaError.requestId}, " +
+                    "customDataKeys=${customDataKeysForLog(mediaError.customData)}"
+
+        dispatchCastPlaybackFailure(
+            message = message,
+            mediaStatus = mediaClient?.mediaStatus,
+            mediaClient = mediaClient
+        )
+    }
+
+    private fun markReceiverPlaybackStarted(playerState: Int) {
+        if (waitingForReceiverPlayback) {
+            Log.d(
+                TAG,
+                "Cast receiver playback started: playerState=${playerStateName(playerState)}($playerState)"
+            )
+        }
+        waitingForReceiverPlayback = false
+        cancelPlaybackStartTimeout()
+    }
+
+    private fun schedulePlaybackStartTimeout(loadToken: Int) {
+        cancelPlaybackStartTimeout()
+        playbackStartTimeoutRunnable = Runnable {
+            handlePlaybackStartTimeout(loadToken)
+        }
+        mainHandler.postDelayed(playbackStartTimeoutRunnable!!, CAST_PLAYBACK_START_TIMEOUT_MS)
+    }
+
+    private fun cancelPlaybackStartTimeout() {
+        playbackStartTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        playbackStartTimeoutRunnable = null
+    }
+
+    private fun handlePlaybackStartTimeout(loadToken: Int) {
+        if (loadToken != activeLoadToken || !waitingForReceiverPlayback) return
+
+        val mediaClient = observedMediaClient ?: getRemoteMediaClient()
+        val mediaStatus = mediaClient?.mediaStatus
+        val playerState = mediaStatus?.playerState ?: mediaClient?.playerState
+        val idleReason = mediaStatus?.idleReason ?: mediaClient?.idleReason
+
+        if (playerState == MediaStatus.PLAYER_STATE_PLAYING ||
+            playerState == MediaStatus.PLAYER_STATE_PAUSED
+        ) {
+            markReceiverPlaybackStarted(playerState)
+            return
+        }
+
+        dispatchCastPlaybackFailure(
+            message = "Cast receiver did not start playback within ${CAST_PLAYBACK_START_TIMEOUT_MS}ms; " +
+                    "current playerState=${playerStateName(playerState)}(${playerState ?: "null"}), " +
+                    "idleReason=${idleReasonName(idleReason)}(${idleReason ?: "null"}). " +
+                    "Verify the custom receiver reads MediaInfo.contentId/contentUrl and the Chromecast device can fetch the media URL.",
+            mediaStatus = mediaStatus,
+            mediaClient = mediaClient
+        )
+    }
+
+    private fun dispatchCastPlaybackFailure(
+        message: String,
+        mediaStatus: MediaStatus?,
+        mediaClient: RemoteMediaClient?
+    ) {
+        if (castPlaybackFailureDispatched) return
+
+        castPlaybackFailureDispatched = true
+        waitingForReceiverPlayback = false
+        cancelPlaybackStartTimeout()
+
+        val mediaInfo = mediaStatus?.mediaInfo ?: mediaClient?.mediaInfo
+        val playerState =
+            mediaStatus?.playerState ?: mediaClient?.playerState ?: MediaStatus.PLAYER_STATE_UNKNOWN
+        val idleReason =
+            mediaStatus?.idleReason ?: mediaClient?.idleReason ?: MediaStatus.IDLE_REASON_NONE
+
+        Log.e(TAG, "$message; ${formatRemoteMediaStatusForLog(mediaStatus, mediaClient)}")
+        playerStateListener?.onCastPlaybackFailed(
+            message,
+            playerState,
+            idleReason,
+            mediaInfo?.contentType,
+            mediaInfo?.contentId,
+            mediaInfo?.contentUrl
+        )
+    }
+
+    private fun logPreparedMediaInfo(
+        mediaInfo: MediaInfo,
+        mediaSource: CastMediaSource,
+        reset: Boolean,
+        currentPosition: Long,
+        customData: JSONObject?
+    ) {
+        Log.d(
+            TAG,
+            "Loading cast media: streamType=${streamTypeName(mediaSource.streamType)}(${mediaSource.streamType}), " +
+                    "contentType=${mediaSource.contentType}, autoplay=true, reset=$reset, position=$currentPosition, " +
+                    "contentId=${redactUrlForLog(mediaInfo.contentId)}, contentUrl=${redactUrlForLog(mediaInfo.contentUrl)}, " +
+                    "customDataKeys=${customDataKeysForLog(customData)}"
+        )
+    }
+
+    private fun logRemoteMediaStatus(
+        source: String,
+        mediaStatus: MediaStatus?,
+        mediaClient: RemoteMediaClient?
+    ) {
+        val mediaInfo = mediaStatus?.mediaInfo ?: mediaClient?.mediaInfo
+        val playerState =
+            mediaStatus?.playerState ?: mediaClient?.playerState ?: MediaStatus.PLAYER_STATE_UNKNOWN
+        val idleReason =
+            mediaStatus?.idleReason ?: mediaClient?.idleReason ?: MediaStatus.IDLE_REASON_NONE
+        val hasSession = mediaClient?.hasMediaSession() == true
+        val statusKey =
+            "$playerState|$idleReason|$hasSession|${mediaInfo?.contentType}|${mediaInfo?.contentId}|${mediaInfo?.contentUrl}"
+
+        if (statusKey == lastLoggedStatusKey) return
+        lastLoggedStatusKey = statusKey
+
+        Log.d(TAG, "Cast MediaStatus[$source]: ${formatRemoteMediaStatusForLog(mediaStatus, mediaClient)}")
+    }
+
+    private fun formatRemoteMediaStatusForLog(
+        mediaStatus: MediaStatus?,
+        mediaClient: RemoteMediaClient?
+    ): String {
+        val mediaInfo = mediaStatus?.mediaInfo ?: mediaClient?.mediaInfo
+        val playerState =
+            mediaStatus?.playerState ?: mediaClient?.playerState ?: MediaStatus.PLAYER_STATE_UNKNOWN
+        val idleReason =
+            mediaStatus?.idleReason ?: mediaClient?.idleReason ?: MediaStatus.IDLE_REASON_NONE
+
+        return "playerState=${playerStateName(playerState)}($playerState), " +
+                "idleReason=${idleReasonName(idleReason)}($idleReason), " +
+                "hasSession=${mediaClient?.hasMediaSession() == true}, " +
+                "mediaInfo.contentType=${mediaInfo?.contentType}, " +
+                "mediaInfo.contentId=${redactUrlForLog(mediaInfo?.contentId)}, " +
+                "mediaInfo.contentUrl=${redactUrlForLog(mediaInfo?.contentUrl)}"
     }
 
     private fun resolveCastMediaSource(model: PlayerModel): CastMediaSource? {
@@ -211,6 +480,79 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
             path.endsWith(".mpd") -> DASH_MIME_TYPE
             else -> MP4_MIME_TYPE
         }
+    }
+
+    private fun playerStateName(playerState: Int?): String {
+        return when (playerState) {
+            MediaStatus.PLAYER_STATE_UNKNOWN -> "UNKNOWN"
+            MediaStatus.PLAYER_STATE_IDLE -> "IDLE"
+            MediaStatus.PLAYER_STATE_PLAYING -> "PLAYING"
+            MediaStatus.PLAYER_STATE_PAUSED -> "PAUSED"
+            MediaStatus.PLAYER_STATE_BUFFERING -> "BUFFERING"
+            MediaStatus.PLAYER_STATE_LOADING -> "LOADING"
+            else -> "UNRECOGNIZED"
+        }
+    }
+
+    private fun idleReasonName(idleReason: Int?): String {
+        return when (idleReason) {
+            MediaStatus.IDLE_REASON_NONE -> "NONE"
+            MediaStatus.IDLE_REASON_FINISHED -> "FINISHED"
+            MediaStatus.IDLE_REASON_CANCELED -> "CANCELED"
+            MediaStatus.IDLE_REASON_INTERRUPTED -> "INTERRUPTED"
+            MediaStatus.IDLE_REASON_ERROR -> "ERROR"
+            else -> "UNRECOGNIZED"
+        }
+    }
+
+    private fun streamTypeName(streamType: Int): String {
+        return when (streamType) {
+            MediaInfo.STREAM_TYPE_BUFFERED -> "BUFFERED"
+            MediaInfo.STREAM_TYPE_LIVE -> "LIVE"
+            MediaInfo.STREAM_TYPE_NONE -> "NONE"
+            MediaInfo.STREAM_TYPE_INVALID -> "INVALID"
+            else -> "UNRECOGNIZED"
+        }
+    }
+
+    private fun customDataKeysForLog(customData: JSONObject?): String {
+        if (customData == null || customData.length() == 0) return "[]"
+
+        val keys = mutableListOf<String>()
+        val iterator = customData.keys()
+        while (iterator.hasNext()) {
+            keys += iterator.next()
+        }
+        return keys.joinToString(prefix = "[", postfix = "]")
+    }
+
+    private fun redactUrlForLog(value: String?): String {
+        val raw = value?.trim().orEmpty()
+        if (raw.isBlank()) return "null"
+
+        return runCatching {
+            val uri = Uri.parse(raw)
+            val scheme = uri.scheme
+            val host = uri.host
+            val hasQuery = !uri.encodedQuery.isNullOrBlank()
+
+            if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+                val lastPathSegment = uri.lastPathSegment
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { if (it.length > MAX_LOG_URL_SEGMENT_LENGTH) it.take(MAX_LOG_URL_SEGMENT_LENGTH) + "..." else it }
+                    ?: "media"
+                "$scheme://$host/.../$lastPathSegment${if (hasQuery) "?<redacted>" else ""}"
+            } else {
+                val withoutQuery = raw.substringBefore("?")
+                val safeValue =
+                    if (withoutQuery.length > MAX_LOG_URL_LENGTH) {
+                        withoutQuery.take(MAX_LOG_URL_LENGTH) + "..."
+                    } else {
+                        withoutQuery
+                    }
+                "$safeValue${if (hasQuery || raw.contains("?")) "?<redacted>" else ""}"
+            }
+        }.getOrDefault("<redacted>")
     }
 
     fun pauseCasting() {
@@ -280,5 +622,10 @@ class CastUtils(context: Context, private val exoPlayer: ExoPlayer) {
         private const val HLS_MIME_TYPE = "application/x-mpegURL"
         private const val DASH_MIME_TYPE = "application/dash+xml"
         private const val MP4_MIME_TYPE = "video/mp4"
+        private const val WIDEVINE_SCHEME = "widevine"
+        private const val WIDEVINE_PROTECTION_SYSTEM = "com.widevine.alpha"
+        private const val CAST_PLAYBACK_START_TIMEOUT_MS = 30_000L
+        private const val MAX_LOG_URL_LENGTH = 96
+        private const val MAX_LOG_URL_SEGMENT_LENGTH = 64
     }
 }
