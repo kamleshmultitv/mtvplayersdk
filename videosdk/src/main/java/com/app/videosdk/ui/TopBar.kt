@@ -2,6 +2,7 @@ package com.app.videosdk.ui
 
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -11,7 +12,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -37,6 +38,7 @@ import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TopBar(
     playerModel: PlayerModel? = null,
@@ -80,7 +82,15 @@ fun TopBar(
                 }
             )
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-            .then(if (isFullScreen) Modifier.statusBarsPadding() else Modifier)
+            .then(
+                if (isFullScreen) {
+                    Modifier.windowInsetsPadding(
+                        WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top)
+                    )
+                } else {
+                    Modifier
+                }
+            )
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
