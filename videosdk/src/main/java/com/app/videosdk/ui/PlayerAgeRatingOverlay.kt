@@ -8,13 +8,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -56,7 +54,6 @@ private const val AGE_RATING_COLLAPSE_MILLIS = 350
  * After [initialDelayMillis], the badge reveals left-to-right and later collapses
  * from its right edge back toward the left.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PlayerAgeRatingOverlay(
     ageRating: String?,
@@ -118,17 +115,9 @@ fun PlayerAgeRatingOverlay(
     Box(
         modifier = modifier
             .windowInsetsPadding(WindowInsets.safeDrawing.only(
-                WindowInsetsSides.Horizontal
+                androidx.compose.foundation.layout.WindowInsetsSides.Horizontal
             ))
-            .then(
-                if (applyStatusBarPadding) {
-                    Modifier.windowInsetsPadding(
-                        WindowInsets.systemBarsIgnoringVisibility.only(WindowInsetsSides.Top)
-                    )
-                } else {
-                    Modifier
-                }
-            )
+            .then(if (applyStatusBarPadding) Modifier.statusBarsPadding() else Modifier)
             .padding(
                 start = 54.dp,
                 top = titleSlotTopPadding

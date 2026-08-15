@@ -137,36 +137,16 @@ Use `MtvVideoPlayerSdk` to play videos using a content list with full control ov
 ### Example Usage
 
 ```kotlin
-var isFullScreen by remember { mutableStateOf(false) }
-
-if (!isFullScreen) {
-    AppTopBar(
-        modifier = Modifier.statusBarsPadding()
-    )
-}
-
 MtvVideoPlayerSdk(
     contentList = contentList,
     index = selectedIndex.intValue,
     pipListener = pipListener,
-    playerMode = if (isFullScreen) PlayerMode.FULL_SCREEN else PlayerMode.MINI,
-    onPlayerBack = {
-        if (isFullScreen) {
-            isFullScreen = false
-        } else {
-            /* handle back */
-        }
-    },
+    onPlayerBack = { /* handle back */ },
     setFullScreen = { isFullscreen ->
-        isFullScreen = isFullscreen
+        // handle fullscreen change
     }
 )
 ```
-
-When fullscreen is active, hide your app `TopAppBar`/action bar and pass
-`PlayerMode.FULL_SCREEN` back into the SDK. If your host app draws edge-to-edge,
-apply `statusBarsPadding()` to your own top bar only when the player is not
-fullscreen.
 
 ---
 
