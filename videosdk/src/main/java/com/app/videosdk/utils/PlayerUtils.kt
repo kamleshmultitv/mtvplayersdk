@@ -17,6 +17,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -48,6 +50,16 @@ import kotlin.math.pow
 
 
 object PlayerUtils {
+
+    data class TextTrackOption(
+        val id: String,
+        val displayName: String,
+        val language: String?,
+        val mediaTrackGroup: TrackGroup?,
+        val trackIndex: Int,
+        val isOff: Boolean = false,
+        val isSelected: Boolean = false
+    )
 
     /* =========================================================
        PLAYER + IMA
@@ -429,6 +441,96 @@ object PlayerUtils {
         trackSelector.setParameters(parameters)
     }
 
+    fun getTextTrackOptions(exoPlayer: ExoPlayer?): List<TextTrackOption> {
+        val trackOptions = mutableListOf<TextTrackOption>()
+        val trackGroups = exoPlayer?.currentTracks?.groups.orEmpty()
+        var hasSelectedTextTrack = false
+
+        trackGroups
+            .filter { it.type == C.TRACK_TYPE_TEXT }
+            .forEachIndexed { groupIndex, group ->
+                val mediaTrackGroup = group.mediaTrackGroup
+                for (trackIndex in 0 until group.length) {
+                    val format = group.getTrackFormat(trackIndex)
+                    val language = format.language.cleanTrackText()
+                    val label = format.label.cleanTrackText()
+                    val displayName = label
+                        ?: language
+                        ?: format.id.cleanTrackText()
+                        ?: "Subtitle ${trackOptions.size + 1}"
+                    val isSelected = group.isTrackSelected(trackIndex)
+
+                    if (isSelected) {
+                        hasSelectedTextTrack = true
+                    }
+
+                    trackOptions.add(
+                        TextTrackOption(
+                            id = language
+                                ?: label
+                                ?: format.id.cleanTrackText()
+                                ?: "text_${groupIndex}_$trackIndex",
+                            displayName = displayName,
+                            language = language,
+                            mediaTrackGroup = mediaTrackGroup,
+                            trackIndex = trackIndex,
+                            isSelected = isSelected
+                        )
+                    )
+                }
+            }
+
+        return listOf(
+            TextTrackOption(
+                id = "off",
+                displayName = "Off",
+                language = null,
+                mediaTrackGroup = null,
+                trackIndex = C.INDEX_UNSET,
+                isOff = true,
+                isSelected = !hasSelectedTextTrack
+            )
+        ) + trackOptions
+    }
+
+    fun selectTextTrack(option: TextTrackOption, exoPlayer: ExoPlayer?) {
+        val player = exoPlayer ?: return
+        val builder = player.trackSelectionParameters
+            .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+
+        if (option.isOff) {
+            player.trackSelectionParameters = builder
+                .setPreferredTextLanguages()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+            return
+        }
+
+        builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+
+        option.mediaTrackGroup?.let { group ->
+            builder.setOverrideForType(TrackSelectionOverride(group, option.trackIndex))
+        }
+
+        val languageVariants = option.language.toPreferredTextLanguageVariants()
+        if (languageVariants.isNotEmpty()) {
+            builder.setPreferredTextLanguages(*languageVariants.toTypedArray())
+        }
+
+        player.trackSelectionParameters = builder.build()
+    }
+
+    private fun String?.cleanTrackText(): String? =
+        this?.trim()?.takeIf { it.isNotEmpty() && !it.equals("und", ignoreCase = true) }
+
+    private fun String?.toPreferredTextLanguageVariants(): List<String> {
+        val language = cleanTrackText() ?: return emptyList()
+        val normalized = language.replace('_', '-')
+        val lower = normalized.lowercase()
+        return listOf(language, normalized, lower).distinct()
+    }
+
     @OptIn(UnstableApi::class)
     fun getSubTitleFormats(exoPlayer: ExoPlayer?): List<Format> {
         val subTitleFormatList = mutableListOf<Format>()
@@ -442,12 +544,6 @@ object PlayerUtils {
         subtitleRendererIndices.forEach { subtitleRendererIndex ->
             val override = mappedTrackInfo.getTrackGroups(subtitleRendererIndex)
             subTitleFormatList.addAll(getVideoQualityList(override))
-        }
-
-        if (subTitleFormatList.isEmpty()) {
-            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                .build()
         }
 
         return subTitleFormatList
