@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -340,6 +341,24 @@ fun CustomPlayerController(
         modifier = modifier
             .fillMaxSize()
     ) {
+        if (isControlsVisible && !expandSheet) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.00f to Color.Black.copy(alpha = 0.86f),
+                                0.18f to Color.Black.copy(alpha = 0.52f),
+                                0.45f to Color.Black.copy(alpha = 0.34f),
+                                0.62f to Color.Black.copy(alpha = 0.34f),
+                                0.84f to Color.Black.copy(alpha = 0.62f),
+                                1.00f to Color.Black.copy(alpha = 0.90f)
+                            )
+                        )
+                    )
+            )
+        }
 
         /* ---- TOP BAR ---- */
         AnimatedVisibility(
