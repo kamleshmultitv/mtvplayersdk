@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -198,12 +199,6 @@ fun MtvVideoPlayerSdk(
     }
     val activeIndex = if (requestedVideo != null) 0 else selectedIndex.intValue
 
-    var currentMode by remember { mutableStateOf(playerMode) }
-
-    LaunchedEffect(playerMode) {
-        currentMode = playerMode
-    }
-
     val initialDisplayMode = remember {
         when (playerMode) {
             PlayerMode.FULL_SCREEN ->
@@ -215,6 +210,12 @@ fun MtvVideoPlayerSdk(
 
             else -> playerMode
         }
+    }
+
+    var currentMode by remember { mutableStateOf(initialDisplayMode) }
+
+    LaunchedEffect(playerMode) {
+        currentMode = playerMode
     }
 
     var displayMode by remember { mutableStateOf(initialDisplayMode) }
@@ -245,9 +246,13 @@ fun MtvVideoPlayerSdk(
 
     FullScreenHandler(isFullScreen)
     var isControllerVisible by remember { mutableStateOf(false) }
+    var shouldShowInitialFullscreenControls by remember {
+        mutableStateOf(playerMode == PlayerMode.FULL_SCREEN && showControls)
+    }
     LaunchedEffect(showControls) {
         if (!showControls) {
             isControllerVisible = false
+            shouldShowInitialFullscreenControls = false
         }
     }
 
@@ -369,6 +374,7 @@ fun MtvVideoPlayerSdk(
     }
 
     var containerSize by remember { mutableStateOf(Size.Zero) }
+    var measuredPlayerDisplayMode by remember { mutableStateOf<PlayerMode?>(null) }
     var fillScale by remember { mutableFloatStateOf(1f) }
     var isFilled by remember { mutableStateOf(false) }
     var zoomAccumulator by remember { mutableFloatStateOf(1f) }
@@ -753,6 +759,43 @@ fun MtvVideoPlayerSdk(
         zoomAccumulator = 1f
     }
 
+    val isFullscreenLayoutApplied =
+        !isFullScreen ||
+                (displayMode == PlayerMode.FULL_SCREEN &&
+                        measuredPlayerDisplayMode == PlayerMode.FULL_SCREEN &&
+                        containerSize != Size.Zero)
+
+    LaunchedEffect(displayMode, containerSize, lastVideoSize) {
+        if (containerSize == Size.Zero) return@LaunchedEffect
+
+        playerView.requestLayout()
+        playerView.post {
+            playerView.requestLayout()
+        }
+    }
+
+    LaunchedEffect(
+        isFullscreenLayoutApplied,
+        isFullScreen,
+        showControls,
+        pipEnabled,
+        isLockScreen,
+        isAdsShowing
+    ) {
+        if (
+            shouldShowInitialFullscreenControls &&
+            isFullscreenLayoutApplied &&
+            isFullScreen &&
+            showControls &&
+            !pipEnabled &&
+            !isLockScreen &&
+            !isAdsShowing
+        ) {
+            isControllerVisible = true
+            shouldShowInitialFullscreenControls = false
+        }
+    }
+
     LaunchedEffect(selectedIndex.intValue) {
         triggeredLBands.clear()
         imaCuePoints.clear()
@@ -970,6 +1013,10 @@ fun MtvVideoPlayerSdk(
                             },
                             modifier = Modifier
                                 .fillMaxSize()
+                                .onSizeChanged {
+                                    containerSize = Size(it.width.toFloat(), it.height.toFloat())
+                                    measuredPlayerDisplayMode = displayMode
+                                }
                                 .graphicsLayer {
 
                                     val finalScale =
