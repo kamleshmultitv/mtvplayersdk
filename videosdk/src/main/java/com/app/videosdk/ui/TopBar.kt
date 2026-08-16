@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -59,12 +60,6 @@ fun TopBar(
         ?: playerModel?.title?.takeIf { it.isNotBlank() }
         ?: seasonTitle
     val subheading = seasonTitle?.takeUnless { it == heading }
-    val safeDrawingSides =
-        if (isFullScreen) {
-            WindowInsetsSides.Horizontal + WindowInsetsSides.Top
-        } else {
-            WindowInsetsSides.Horizontal
-        }
 
     Row(
         modifier = Modifier
@@ -84,7 +79,8 @@ fun TopBar(
                     Modifier
                 }
             )
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(safeDrawingSides))
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .then(if (isFullScreen) Modifier.statusBarsPadding() else Modifier)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
