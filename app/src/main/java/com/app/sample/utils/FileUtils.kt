@@ -233,12 +233,12 @@ object FileUtils {
     private fun defaultSkipIntro() = SkipIntro(
         startTime = 5000L,
         endTime = 95000L,
-        enableSkipIntro = false
+        enableSkipIntro = true
     )
 
     private fun defaultNextEpisode() = NextEpisode(
         showBeforeEndMs = "160000",
-        enableNextEpisode = false
+        enableNextEpisode = true
     )
 
     private fun defaultChapters() = listOf(

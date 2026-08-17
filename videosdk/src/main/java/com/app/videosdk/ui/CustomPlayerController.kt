@@ -2,7 +2,6 @@ package com.app.videosdk.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -13,26 +12,17 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -49,10 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -60,7 +48,6 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
-import coil.compose.rememberAsyncImagePainter
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.EpisodeNowPlayingStyle
@@ -69,6 +56,7 @@ import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun CustomPlayerController(
@@ -271,7 +259,7 @@ fun CustomPlayerController(
                 else exoPlayer.currentPosition
 
             isPlaying = exoPlayer.isPlaying
-            delay(1000)
+            delay(1000.milliseconds)
         }
     }
 
@@ -290,13 +278,13 @@ fun CustomPlayerController(
         }
 
         // ⏱ Normal behavior
-        delay(3000)
+        delay(3000.milliseconds)
         showControlsState.value(!isPlaying)
     }
 
     LaunchedEffect(onSeek) {
         if (onSeek) {
-            delay(500)
+            delay(500.milliseconds)
             onSeek = false
         }
     }
@@ -599,11 +587,14 @@ fun CustomPlayerController(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp, start = 8.dp)
+                .padding(bottom = if (isCurrentlyFullScreen) 56.dp else 32.dp, start = 8.dp)
         ) {
+            val skipIntroButtonShape = RoundedCornerShape(8.dp)
+
             Box(
                 modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
+                    .background(Color.Black.copy(alpha = 0.60f), skipIntroButtonShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.95f), skipIntroButtonShape)
                     .clickable {
                         onSkipIntroClicked(true)
                         currentPlayerModel?.skipIntro?.endTime?.let { endTime ->
@@ -615,7 +606,7 @@ fun CustomPlayerController(
             ) {
                 Text(
                     text = "Skip Intro",
-                    color = Color.Black,
+                    color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -630,14 +621,16 @@ fun CustomPlayerController(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp)
+                .padding(bottom = if (isCurrentlyFullScreen) 56.dp else 32.dp)
         ) {
             if (playerModelList != null && playerModelList.size > 1) {
                 val isLastItem = index >= playerModelList.lastIndex
+                val nextEpisodeButtonShape = RoundedCornerShape(8.dp)
 
                 Box(
                     modifier = Modifier
-                        .background(Color.Gray, RoundedCornerShape(4.dp))
+                        .background(Color.Gray.copy(alpha = 0.60f), nextEpisodeButtonShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.95f), nextEpisodeButtonShape)
                         .clickable(enabled = !isLastItem) {
                             if (!isLastItem) {
                                 nextEpisodeClicked = true
@@ -651,7 +644,7 @@ fun CustomPlayerController(
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .clip(RoundedCornerShape(4.dp))
+                            .clip(nextEpisodeButtonShape)
                     ) {
                         Box(
                             modifier = Modifier
@@ -734,10 +727,10 @@ fun CustomPlayerController(
                     }
                 },
                 expandSheet = {
-                    if (isCurrentlyFullScreen) {
-                        expandSheet = it
+                    expandSheet = if (isCurrentlyFullScreen) {
+                        it
                     } else {
-                        expandSheet = false
+                        false
                     }
                 },
                 onPrevious = playContent,
