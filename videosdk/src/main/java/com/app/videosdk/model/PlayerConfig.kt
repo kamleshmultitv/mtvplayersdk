@@ -10,7 +10,13 @@ data class PlayerConfig(
     val subtitleEnabled: Boolean = false,
     val autoPlayFeature: Boolean = false,
     val autoPlayDetail: Boolean = false,
-    val autoPlayAssets: Boolean = false
+    val autoPlayAssets: Boolean = false,
+    val featureTier: PlayerFeatureTier = PlayerFeatureTier.LEGACY_COMPAT,
+    val monetizationPackage: PlayerMonetizationPackage = PlayerMonetizationPackage.NONE,
+    val featureGates: PlayerFeatureGates = PlayerFeatureGates(),
+    val analyticsEnabled: Boolean = false,
+    val diagnosticsEnabled: Boolean = false,
+    val logging: SdkLoggingConfig = SdkLoggingConfig()
 )
 
 data class PlayerControlsConfig(
@@ -24,10 +30,59 @@ data class PlayerControlsConfig(
     val unmute: Boolean = true,
     val seasonSelector: Boolean = true,
     val settings: Boolean = true,
+    val cast: Boolean = true,
     val pip: Boolean = true,
     val fullscreen: Boolean = true,
     val exitFullscreen: Boolean = true
 )
+
+enum class PlayerFeatureTier {
+    LEGACY_COMPAT,
+    BASIC_PLAYER,
+    PREMIUM_UX,
+    ENTERPRISE_PLAYBACK
+}
+
+enum class PlayerMonetizationPackage {
+    NONE,
+    AD_SUPPORTED
+}
+
+data class PlayerFeatureGates(
+    val subtitles: Boolean? = null,
+    val fullscreen: Boolean? = null,
+    val playbackSpeed: Boolean? = null,
+    val qualitySelection: Boolean? = null,
+    val cast: Boolean? = null,
+    val pip: Boolean? = null,
+    val skipIntro: Boolean? = null,
+    val nextEpisode: Boolean? = null,
+    val episodeSelector: Boolean? = null,
+    val chapters: Boolean? = null,
+    val spriteThumbnails: Boolean? = null,
+    val customControls: Boolean? = null,
+    val drm: Boolean? = null,
+    val offline: Boolean? = null,
+    val deepLinkClips: Boolean? = null,
+    val watermark: Boolean? = null,
+    val ageRating: Boolean? = null,
+    val freePreview: Boolean? = null,
+    val imaAds: Boolean? = null,
+    val gamBannerAds: Boolean? = null,
+    val lShapeAds: Boolean? = null
+)
+
+data class SdkLoggingConfig(
+    val level: SdkLogLevel = SdkLogLevel.OFF,
+    val tag: String = "MtvVideoPlayerSdk"
+)
+
+enum class SdkLogLevel {
+    OFF,
+    ERROR,
+    INFO,
+    DEBUG
+}
 
 data class ControlSeekConfig(
     val enabled: Boolean,

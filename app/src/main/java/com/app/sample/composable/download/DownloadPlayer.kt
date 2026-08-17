@@ -25,12 +25,12 @@ fun DownloadPlayer(
     Log.d("DownloadPlayer", "=== OFFLINE PLAYBACK DEBUG ===")
     Log.d("DownloadPlayer", "ContentId: ${downloadedContentEntity.contentId}")
     Log.d("DownloadPlayer", "DownloadStatus: ${downloadedContentEntity.downloadStatus}")
-    Log.d("DownloadPlayer", "ContentUrl: ${downloadedContentEntity.mpdUrl}")
-    Log.d("DownloadPlayer", "LicenseUri: ${downloadedContentEntity.drmToken}")
+    Log.d("DownloadPlayer", "ContentUrlPresent: ${!downloadedContentEntity.mpdUrl.isNullOrBlank()}")
+    Log.d("DownloadPlayer", "LicenseUriPresent: ${!downloadedContentEntity.drmToken.isNullOrBlank()}")
     Log.d("DownloadPlayer", "DRM: ${contentList.firstOrNull()?.drm}")
     Log.d("DownloadPlayer", "HasCacheFactory: ${contentList.firstOrNull()?.cacheFactory != null}")
-    Log.d("DownloadPlayer", "MPD URL: ${contentList.firstOrNull()?.mpdUrl}")
-    Log.d("DownloadPlayer", "HLS URL: ${contentList.firstOrNull()?.hlsUrl}")
+    Log.d("DownloadPlayer", "HasMpdUrl: ${!contentList.firstOrNull()?.mpdUrl.isNullOrBlank()}")
+    Log.d("DownloadPlayer", "HasHlsUrl: ${!contentList.firstOrNull()?.hlsUrl.isNullOrBlank()}")
 
     // ✅ Verify download is completed
     if (downloadedContentEntity.downloadStatus != "completed") {

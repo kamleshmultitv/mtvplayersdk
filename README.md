@@ -21,6 +21,24 @@ Mtv Video Player SDK is a Jetpack Compose video player built on AndroidX Media3.
 - Custom control icons and control visibility config
 - Age rating overlay
 - Watermark config
+- Feature tiers and monetization package gates
+- Optional analytics, diagnostics, and redacted SDK logging
+
+## Documentation Map
+
+| Document | Purpose |
+| --- | --- |
+| `SDK_PUBLIC_API.md` | Stable SDK API surface and compatibility rules. |
+| `SDK_HOST_APP_INTEGRATION.md` | Step-by-step guide for Codex or a developer integrating the SDK into a third-party host app. |
+| `SDK_ENTERPRISE_RELEASE_READINESS.md` | Enterprise customer release gates, no-go conditions, and target risk level. |
+| `SDK_ENTERPRISE_QA_RUNBOOK.md` | Phase 7 enterprise QA execution order, evidence format, and release decision rules. |
+| `SDK_CUSTOMER_DEMO_PROFILES.md` | Customer-style feature profiles for OTT, DRM/offline, live, spiritual/event, and ad-supported demos. |
+| `SDK_FEATURE_PACKAGES.md` | Basic, Premium UX, Enterprise, and monetization add-on package definitions. |
+| `SDK_OBSERVABILITY.md` | Analytics events, diagnostics callbacks, and SDK logging setup. |
+| `SDK_INTEGRATION_GUIDE.md` | DRM, Cast, PiP, offline, ads, and custom-control setup notes. |
+| `SDK_QA_MATRIX.md` | Scenario matrix for sample app and device validation. |
+| `SDK_RELEASE_CHECKLIST.md` | Repeatable release checklist. |
+| `CHANGELOG.md` | Release notes and pre-tag verification reminders. |
 
 ## Installation
 
@@ -260,6 +278,7 @@ MtvVideoPlayerSdk(
             unmute = true,
             seasonSelector = true,
             settings = true,
+            cast = true,
             pip = true,
             fullscreen = true,
             exitFullscreen = true
@@ -278,12 +297,59 @@ MtvVideoPlayerSdk(
             position = WatermarkPosition.TOP_RIGHT,
             textColor = "#FFFFFF",
             fontSize = "12"
-        )
+        ),
+        featureTier = PlayerFeatureTier.LEGACY_COMPAT,
+        monetizationPackage = PlayerMonetizationPackage.NONE,
+        analyticsEnabled = false,
+        diagnosticsEnabled = false,
+        logging = SdkLoggingConfig(level = SdkLogLevel.OFF)
     )
 )
 ```
 
+`PlayerFeatureTier.LEGACY_COMPAT` is the default and keeps existing integrations source-compatible. New integrations can choose `BASIC_PLAYER`, `PREMIUM_UX`, or `ENTERPRISE_PLAYBACK`.
+
+```kotlin
+PlayerConfig(
+    featureTier = PlayerFeatureTier.PREMIUM_UX,
+    monetizationPackage = PlayerMonetizationPackage.AD_SUPPORTED,
+    ads = PlayerAdsConfig(
+        googleAdsEnabled = true,
+        vmapAdsEnabled = true,
+        bannerAdsEnabled = true
+    )
+)
+```
+
+Use `PlayerFeatureGates` for customer-specific overrides:
+
+```kotlin
+PlayerConfig(
+    featureTier = PlayerFeatureTier.BASIC_PLAYER,
+    featureGates = PlayerFeatureGates(
+        cast = true,
+        pip = true,
+        chapters = true
+    )
+)
+```
+
+See `SDK_FEATURE_PACKAGES.md` for the full package matrix.
+
 ## Ads
+
+Ads require the monetization package gate plus the normal ad config.
+
+```kotlin
+PlayerConfig(
+    monetizationPackage = PlayerMonetizationPackage.AD_SUPPORTED,
+    ads = PlayerAdsConfig(
+        googleAdsEnabled = true,
+        vmapAdsEnabled = true,
+        bannerAdsEnabled = true
+    )
+)
+```
 
 Enable IMA/VMAP ads per content item:
 
@@ -326,9 +392,28 @@ MtvVideoPlayerSdk(
         override fun onAdStateChanged(isAdPlaying: Boolean) {}
         override fun onMuteStateChanged(isMuted: Boolean) {}
         override fun onVideoChanged(index: Int) {}
+        override fun onSeekStarted(positionMs: Long) {}
+        override fun onSeekCompleted(positionMs: Long) {}
+        override fun onQualityChanged(width: Int, height: Int, label: String?) {}
+        override fun onSubtitleChanged(language: String?, label: String?, enabled: Boolean) {}
+        override fun onPlaybackSpeedChanged(speed: Float) {}
+        override fun onAnalyticsEvent(event: PlayerAnalyticsEvent) {}
+        override fun onDiagnosticEvent(event: PlayerDiagnosticEvent) {}
     }
 )
 ```
+
+Enable analytics, diagnostics, or logs with `PlayerConfig`:
+
+```kotlin
+PlayerConfig(
+    analyticsEnabled = true,
+    diagnosticsEnabled = true,
+    logging = SdkLoggingConfig(level = SdkLogLevel.ERROR)
+)
+```
+
+Logs are `OFF` by default and are redacted before being written. See `SDK_OBSERVABILITY.md`.
 
 ## PiP
 
@@ -372,6 +457,8 @@ The SDK includes a Cast options provider. To use your own Cast receiver applicat
 ```xml
 <string name="app_id_prod">YOUR_CAST_RECEIVER_APP_ID</string>
 ```
+
+Cast is enabled by `LEGACY_COMPAT`, `PREMIUM_UX`, and `ENTERPRISE_PLAYBACK`. For `BASIC_PLAYER`, enable it with `PlayerFeatureGates(cast = true)`.
 
 ## Chapters
 
@@ -434,6 +521,14 @@ PlayerModel(
 - AndroidX Media3
 - Google Cast services for Cast support
 
+## Migration Notes
+
+- Existing integrations use `PlayerFeatureTier.LEGACY_COMPAT` by default and do not need to change code.
+- `SYSTEM_ALERT_WINDOW` and `WRITE_SETTINGS` are no longer declared by the SDK manifest.
+- Logs are now routed through `SdkLogger` and are off unless `PlayerConfig.logging` enables them.
+- New listener methods have default no-op implementations, so existing `PlayerStateListener` implementations remain source-compatible.
+- Paid-package behavior is now explicit through `PlayerFeatureTier`, `PlayerMonetizationPackage`, and `PlayerFeatureGates`.
+
 ## ProGuard / R8
 
 The SDK is designed to work with standard Android R8 settings. If your app enables shrinking and receives missing-rule warnings from dependencies, keep the generated rules from AGP and add app-specific rules as needed.
@@ -461,6 +556,14 @@ Build the sample app:
 ```bash
 sh gradlew :app:assembleDebug
 ```
+
+Check whitespace before release:
+
+```bash
+git diff --check
+```
+
+See `SDK_QA_MATRIX.md` and `SDK_RELEASE_CHECKLIST.md` before publishing a version.
 
 ## Support
 

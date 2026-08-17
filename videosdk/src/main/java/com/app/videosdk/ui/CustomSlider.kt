@@ -67,6 +67,8 @@ fun CustomSlider(
     exoPlayer: ExoPlayer? = null,
     onDragStateChange: (Boolean) -> Unit = {},
     onPreviewChange: (Long) -> Unit = {},
+    onSeekStarted: (Long) -> Unit = {},
+    onSeekCompleted: (Long) -> Unit = {},
     chapters: List<Chapter> = emptyList()
 ) {
     var sliderPosition by remember { mutableFloatStateOf(0f) }
@@ -182,6 +184,7 @@ fun CustomSlider(
                         if (!isSeeking) {
                             isSeeking = true
                             onDragStateChange(true)
+                            onSeekStarted(currentPosition)
                         }
 
                         showControls(true) // ✅ ALWAYS keep controls visible
@@ -204,8 +207,10 @@ fun CustomSlider(
                             kotlin.math.abs(nearestChapter.startMs - seekPosition) < 3000
                         ) {
                             onSeek(nearestChapter.startMs)
+                            onSeekCompleted(nearestChapter.startMs)
                         } else {
                             onSeek(seekPosition)
+                            onSeekCompleted(seekPosition)
                         }
 
                         isSeeking = false

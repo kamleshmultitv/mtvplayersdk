@@ -42,7 +42,7 @@ fun TopBar(
     playerModel: PlayerModel? = null,
     isFullScreen: Boolean = false,
     context: Context,
-    castUtils: CastUtils,
+    castUtils: CastUtils?,
     pipListener: PipListener?,
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
     showContentTitle: Boolean = true,
@@ -155,7 +155,7 @@ fun TopBar(
         }
 
 
-        if (isFullScreen) {
+        if (isFullScreen && controlsConfig.cast && castUtils != null) {
             CastButton()
         }
 

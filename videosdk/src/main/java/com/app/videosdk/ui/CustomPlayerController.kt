@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -49,12 +50,16 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.listener.PipListener
+import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.EpisodeNowPlayingStyle
+import com.app.videosdk.model.PlayerAnalyticsEventType
 import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.utils.CastPlaybackState
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
+import com.app.videosdk.utils.emitAnalytics
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -63,6 +68,11 @@ fun CustomPlayerController(
     playerModelList: List<PlayerModel>? = null,
     index: Int,
     totalDuration: Long,
+    playbackPositionMs: Long? = null,
+    playbackIsPlaying: Boolean? = null,
+    contentId: String? = null,
+    analyticsEnabled: Boolean = false,
+    playerStateListener: PlayerStateListener? = null,
     pipListener: PipListener? = null,
     isFullScreen: (Boolean) -> Unit,
     isLockScreen: (Boolean) -> Unit,
@@ -70,6 +80,7 @@ fun CustomPlayerController(
     isCurrentlyLockScreen: Boolean,
     exoPlayer: ExoPlayer,
     externalCastUtils: CastUtils? = null,
+    castEnabled: Boolean = true,
     episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle(),
     modifier: Modifier,
     isControlsVisible: Boolean,
@@ -96,18 +107,22 @@ fun CustomPlayerController(
     val fullScreenState = rememberUpdatedState(isFullScreen)
     val lockScreenState = rememberUpdatedState(isLockScreen)
 
-    val rememberedCastUtils = remember(context, exoPlayer) {
-        CastUtils(context, exoPlayer)
+    val rememberedCastUtils = remember(context, exoPlayer, castEnabled) {
+        if (castEnabled) CastUtils(context, exoPlayer) else null
     }
     val castUtils = externalCastUtils ?: rememberedCastUtils
-    val isCasting by remember { derivedStateOf { castUtils.isCasting() } }
+    val castState by castUtils
+        ?.castState
+        ?.collectAsState()
+        ?: remember { mutableStateOf(CastPlaybackState()) }
+    val isCasting = castState.isCasting
 
     var isZoomed by remember { mutableStateOf(false) }
     var showForwardIcon by remember { mutableStateOf(false) }
     var showRewindIcon by remember { mutableStateOf(false) }
-    var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
+    var isPlaying by remember { mutableStateOf(playbackIsPlaying ?: exoPlayer.isPlaying) }
 
-    var currentPosition by remember { mutableLongStateOf(0L) }
+    var currentPosition by remember { mutableLongStateOf(playbackPositionMs ?: 0L) }
     val duration by rememberUpdatedState(
         if (totalDuration > 0) totalDuration else 0L
     )
@@ -117,16 +132,38 @@ fun CustomPlayerController(
     val currentPlayerModel = playerModelList?.getOrNull(index)
     var expandSheet by remember { mutableStateOf(false) }
 
+    fun dispatchSeekStarted(positionMs: Long) {
+        playerStateListener?.onSeekStarted(positionMs)
+        playerStateListener.emitAnalytics(
+            enabled = analyticsEnabled,
+            type = PlayerAnalyticsEventType.SEEK_STARTED,
+            contentId = contentId,
+            positionMs = positionMs,
+            durationMs = duration
+        )
+    }
+
+    fun dispatchSeekCompleted(positionMs: Long) {
+        playerStateListener?.onSeekCompleted(positionMs)
+        playerStateListener.emitAnalytics(
+            enabled = analyticsEnabled,
+            type = PlayerAnalyticsEventType.SEEK_COMPLETED,
+            contentId = contentId,
+            positionMs = positionMs,
+            durationMs = duration
+        )
+    }
+
     LaunchedEffect(castUtils, currentPlayerModel, externalCastUtils) {
-        if (externalCastUtils == null) {
+        if (castEnabled && castUtils != null && externalCastUtils == null) {
             castUtils.setupCastSession(currentPlayerModel)
         }
     }
 
     DisposableEffect(castUtils, externalCastUtils) {
         onDispose {
-            if (externalCastUtils == null) {
-                castUtils.release()
+            if (castEnabled && externalCastUtils == null) {
+                castUtils?.release()
             }
         }
     }
@@ -135,6 +172,11 @@ fun CustomPlayerController(
         if (!isCurrentlyFullScreen && expandSheet) {
             expandSheet = false
         }
+    }
+
+    LaunchedEffect(playbackPositionMs, playbackIsPlaying) {
+        playbackPositionMs?.let { currentPosition = it }
+        playbackIsPlaying?.let { isPlaying = it }
     }
 
 
@@ -252,13 +294,21 @@ fun CustomPlayerController(
 
     /* ---------------- PLAYBACK OBSERVER ---------------- */
 
-    LaunchedEffect(exoPlayer, isCasting) {
-        while (true) {
-            currentPosition =
-                if (isCasting) castUtils.getCastPosition()
-                else exoPlayer.currentPosition
+    LaunchedEffect(exoPlayer, isCasting, playbackPositionMs, playbackIsPlaying) {
+        if (playbackPositionMs != null && playbackIsPlaying != null) {
+            return@LaunchedEffect
+        }
 
-            isPlaying = exoPlayer.isPlaying
+        while (true) {
+            if (playbackPositionMs == null) {
+                currentPosition =
+                    if (isCasting && castUtils != null) castUtils.getCastPosition()
+                    else exoPlayer.currentPosition
+            }
+
+            if (playbackIsPlaying == null) {
+                isPlaying = exoPlayer.isPlaying
+            }
             delay(1000.milliseconds)
         }
     }
@@ -500,6 +550,8 @@ fun CustomPlayerController(
                         onRewind = { showRewindIcon = true },
                         onForwardHide = { showForwardIcon = false },
                         onRewindHide = { showForwardIcon = false },
+                        onSeekStarted = ::dispatchSeekStarted,
+                        onSeekCompleted = ::dispatchSeekCompleted,
                         isZoomed = isZoomed,
                         onZoomChange = { isZoomed = it },
                         controlsConfig = controlsConfig
@@ -573,6 +625,8 @@ fun CustomPlayerController(
                 onRewind = { showRewindIcon = true },
                 onForwardHide = { showForwardIcon = false },
                 onRewindHide = { showForwardIcon = false },
+                onSeekStarted = ::dispatchSeekStarted,
+                onSeekCompleted = ::dispatchSeekCompleted,
                 isZoomed = isZoomed,
                 onZoomChange = { isZoomed = it },
                 controlsConfig = controlsConfig
@@ -598,8 +652,10 @@ fun CustomPlayerController(
                     .clickable {
                         onSkipIntroClicked(true)
                         currentPlayerModel?.skipIntro?.endTime?.let { endTime ->
-                            if (isCasting) castUtils.seekOnCast(endTime)
+                            dispatchSeekStarted(currentPosition)
+                            if (isCasting && castUtils != null) castUtils.seekOnCast(endTime)
                             else exoPlayer.seekTo(endTime)
+                            dispatchSeekCompleted(endTime)
                         }
                     }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -715,7 +771,7 @@ fun CustomPlayerController(
                 onSeek = {
                     onSeek = true
                     showControlsState.value(true)
-                    if (isCasting) castUtils.seekOnCast(it)
+                    if (isCasting && castUtils != null) castUtils.seekOnCast(it)
                     else exoPlayer.seekTo(it)
                 },
                 onNext = playContent,
@@ -734,8 +790,12 @@ fun CustomPlayerController(
                     }
                 },
                 onPrevious = playContent,
+                onSeekStarted = ::dispatchSeekStarted,
+                onSeekCompleted = ::dispatchSeekCompleted,
                 controlsConfig = controlsConfig,
                 showPreviousControl = showPreviousControl,
+                castUtils = castUtils,
+                isCasting = isCasting
             )
         }
 

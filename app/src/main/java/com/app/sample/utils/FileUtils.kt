@@ -2,7 +2,6 @@ package com.app.sample.utils
 
 import android.content.Context
 import android.text.TextUtils
-import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.paging.compose.LazyPagingItems
@@ -72,8 +71,6 @@ object FileUtils {
                     TOKEN + "&payload=" + ApiEncryptionHelper.convertStringToBase64(
                 jsonObject.toString()
             )
-
-        Log.d("MtvVideoPlayerSdk", "drmToken: $drmToken")
 
         return drmToken
     }

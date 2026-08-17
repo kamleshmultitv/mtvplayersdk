@@ -1,6 +1,4 @@
 package com.app.videosdk.ui
-
-import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
@@ -42,15 +40,16 @@ import kotlinx.coroutines.delay
 fun ForwardBackwardButtonsOverlay(
     playerModel: PlayerModel? = null,
     exoPlayer: ExoPlayer,
-    context: Context,
+    castUtils: CastUtils?,
+    isCasting: Boolean,
     onRewindIconHide: () -> Unit,
     onForwardIconHide: () -> Unit,
+    onSeekStarted: (Long) -> Unit = {},
+    onSeekCompleted: (Long) -> Unit = {},
     isControllerVisible: Boolean,
     isFullScreen: Boolean,
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
-    val castUtils = remember { CastUtils(context, exoPlayer) }
-    val isCasting = castUtils.isCasting()
     val customControls = playerModel?.customControls
 
     /* ▶️ Player state */
@@ -93,13 +92,17 @@ fun ForwardBackwardButtonsOverlay(
             if (controlsConfig.seekBack.enabled) {
                 rewindAnimTrigger++
 
+                val current =
+                    if (isCasting && castUtils != null) castUtils.getCastPosition()
+                    else exoPlayer.currentPosition
                 val newPosition = maxOf(
-                    (if (isCasting) castUtils.getCastPosition()
-                    else exoPlayer.currentPosition) - (controlsConfig.seekBack.safeSeconds * 1000L),
+                    current - (controlsConfig.seekBack.safeSeconds * 1000L),
                     0
                 )
-                if (isCasting) castUtils.seekOnCast(newPosition)
+                onSeekStarted(current)
+                if (isCasting && castUtils != null) castUtils.seekOnCast(newPosition)
                 else exoPlayer.seekTo(newPosition)
+                onSeekCompleted(newPosition)
             }
         },
         onForward = {
@@ -107,24 +110,28 @@ fun ForwardBackwardButtonsOverlay(
                 forwardAnimTrigger++
 
                 val duration =
-                    if (isCasting) castUtils.getCastDuration()
+                    if (isCasting && castUtils != null) castUtils.getCastDuration()
                     else exoPlayer.duration
 
+                val current =
+                    if (isCasting && castUtils != null) castUtils.getCastPosition()
+                    else exoPlayer.currentPosition
                 val newPosition = minOf(
-                    (if (isCasting) castUtils.getCastPosition()
-                    else exoPlayer.currentPosition) + (controlsConfig.seekForward.safeSeconds * 1000L),
+                    current + (controlsConfig.seekForward.safeSeconds * 1000L),
                     duration
                 )
-                if (isCasting) castUtils.seekOnCast(newPosition)
+                onSeekStarted(current)
+                if (isCasting && castUtils != null) castUtils.seekOnCast(newPosition)
                 else exoPlayer.seekTo(newPosition)
+                onSeekCompleted(newPosition)
             }
         },
         onPlayPause = {
             if (isPlaying) {
-                if (isCasting) castUtils.pauseCasting()
+                if (isCasting && castUtils != null) castUtils.pauseCasting()
                 else exoPlayer.pause()
             } else {
-                if (isCasting) castUtils.playCasting()
+                if (isCasting && castUtils != null) castUtils.playCasting()
                 else exoPlayer.play()
             }
         },

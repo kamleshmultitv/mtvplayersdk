@@ -78,14 +78,14 @@ dependencies {
     testImplementation(libs.junit)
 
     // Core
-    implementation(libs.androidx.core.ktx)
+    api(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.material3.android)
 
     // Compose
-    implementation(libs.ui)
-    implementation(libs.androidx.runtime)
+    api(libs.ui)
+    api(libs.androidx.runtime)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.material.icons.core)
     implementation(libs.androidx.material.icons.extended)
@@ -97,8 +97,10 @@ dependencies {
     debugImplementation(libs.ui.tooling)
 
     // Media3 / ExoPlayer
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
+    api(libs.androidx.media3.common)
+    api(libs.androidx.media3.datasource)
+    api(libs.androidx.media3.exoplayer)
+    api(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.cast)
@@ -117,6 +119,5 @@ dependencies {
     implementation(libs.interactivemedia)
     implementation(libs.play.services.ads)
     implementation(libs.androidx.media3.transformer)
-    implementation(libs.androidx.media3.common)
 
 }

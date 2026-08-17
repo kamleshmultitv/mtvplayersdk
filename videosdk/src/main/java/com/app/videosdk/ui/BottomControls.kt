@@ -28,7 +28,7 @@ import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.sprite.SpriteThumbnail
-import com.app.videosdk.ui.sprite.SpriteUtils
+import com.app.videosdk.utils.CastUtils
 
 @Composable
 fun BottomControls(
@@ -45,8 +45,12 @@ fun BottomControls(
     cuePoints: List<CuePoint> = emptyList(),
     onDragStateChange: (Boolean) -> Unit = {},
     expandSheet: (Boolean) -> Unit = {},
+    onSeekStarted: (Long) -> Unit = {},
+    onSeekCompleted: (Long) -> Unit = {},
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
-    showPreviousControl: Boolean = false
+    showPreviousControl: Boolean = false,
+    castUtils: CastUtils? = null,
+    isCasting: Boolean = false
 ) {
     val model = playerModelList?.getOrNull(index)
     val isLive = model?.isLive ?: false
@@ -71,17 +75,15 @@ fun BottomControls(
             val width = 120.dp
             val height = width * (16f / 9f)
 
-            val spriteUrl =
-                model?.spriteUrl?.takeIf { it.isNotBlank() }
-                    ?: SpriteUtils.spriteUrlForVideo(model?.spriteUrl.orEmpty())
-
-            SpriteThumbnail(
-                spriteUrl = spriteUrl,
-                positionMs = posToShow,
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .size(width, height)
-            )
+            model?.spriteUrl?.takeIf { it.isNotBlank() }?.let { spriteSource ->
+                SpriteThumbnail(
+                    spriteUrl = spriteSource,
+                    positionMs = posToShow,
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                        .size(width, height)
+                )
+            }
         }
 
         /* ---------- CHAPTER LABEL ---------- */
@@ -101,8 +103,8 @@ fun BottomControls(
                 isDragging = dragging
                 onDragStateChange(dragging)
 
-                if (!dragging && previewMs > 0) {
-                    onSeek(previewMs)
+                if (!dragging) {
+                    previewMs = 0L
                 }
             },
 
@@ -111,6 +113,8 @@ fun BottomControls(
             },
 
             onSeek = onSeek,
+            onSeekStarted = onSeekStarted,
+            onSeekCompleted = onSeekCompleted,
             chapters = model?.chapters ?: emptyList()
         )
 
@@ -168,6 +172,8 @@ fun BottomControls(
                             SeasonSelector(
                                 playerModel = model,
                                 exoPlayer = exoPlayer,
+                                castUtils = castUtils,
+                                isCasting = isCasting,
                                 onShowControls = {},
                                 pausePlayer = {},
                                 expandSheet = { expandSheet(it) }

@@ -30,6 +30,7 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
 import com.app.mtvdownloader.entity.DownloadEntity
+import com.app.sample.BuildConfig
 import com.app.sample.R
 import com.app.sample.composable.download.DownloadPlayer
 import com.app.sample.composable.download.DownloadedContentList
@@ -40,6 +41,9 @@ import com.app.sample.utils.FileUtils.buildPlayerContentList
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.EpisodeNowPlayingStyle
+import com.app.videosdk.model.PlayerConfig
+import com.app.videosdk.model.SdkLogLevel
+import com.app.videosdk.model.SdkLoggingConfig
 import com.app.videosdk.ui.MtvVideoPlayerSdk
 import com.app.videosdk.utils.PlayerMode
 
@@ -139,6 +143,15 @@ fun ContentBody(
                     setFullScreen = { isFull ->
                         onFullScreenChange(isFull)
                     },
+                    playerConfig = PlayerConfig(
+                        logging = SdkLoggingConfig(
+                            level = if (BuildConfig.DEBUG) {
+                                SdkLogLevel.DEBUG
+                            } else {
+                                SdkLogLevel.OFF
+                            }
+                        )
+                    ),
 
                     playerStateListener = object : PlayerStateListener {
 

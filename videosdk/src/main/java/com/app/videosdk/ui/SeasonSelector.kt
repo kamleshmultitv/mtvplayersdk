@@ -24,7 +24,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
@@ -37,6 +36,8 @@ import kotlinx.coroutines.launch
 fun SeasonSelector(
     playerModel: PlayerModel? = null,
     exoPlayer: ExoPlayer,
+    castUtils: CastUtils? = null,
+    isCasting: Boolean = false,
     onShowControls: (Boolean) -> Unit,
     pausePlayer: (Boolean) -> Unit,
     expandSheet: (Boolean) -> Unit = {}
@@ -44,9 +45,7 @@ fun SeasonSelector(
     val sheetState = rememberModalBottomSheetState()
     var showSheet by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val castUtils = remember { CastUtils(context, exoPlayer) }
-    val isCasting = castUtils.isCasting()
+    val castIsActive = isCasting || castUtils?.castState?.value?.isCasting == true
 
     Box(
         modifier = Modifier
@@ -71,7 +70,7 @@ fun SeasonSelector(
                             coroutineScope.launch {
                                 sheetState.hide()
                                 showSheet = false
-                                if (!isCasting) {
+                                if (!castIsActive) {
                                     exoPlayer.play()
                                 }
                                 onShowControls(false)

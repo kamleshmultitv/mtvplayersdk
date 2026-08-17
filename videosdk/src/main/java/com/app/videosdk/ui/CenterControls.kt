@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
@@ -27,7 +26,7 @@ fun CenterControls(
     playerModel: PlayerModel? = null,
     isLoading: Boolean,
     exoPlayer: ExoPlayer,
-    castUtils: CastUtils,
+    castUtils: CastUtils?,
     isCasting: Boolean,
     isFullScreen: Boolean,
     verticalOffset: Dp = 0.dp,
@@ -36,6 +35,8 @@ fun CenterControls(
     onRewind: () -> Unit,
     onForwardHide: () -> Unit,
     onRewindHide: () -> Unit,
+    onSeekStarted: (Long) -> Unit = {},
+    onSeekCompleted: (Long) -> Unit = {},
     isZoomed: Boolean,
     onZoomChange: (Boolean) -> Unit,
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
@@ -58,7 +59,7 @@ fun CenterControls(
 
                     if (isSeekAllowed) {
                         val current =
-                            if (isCasting) castUtils.getCastPosition()
+                            if (isCasting && castUtils != null) castUtils.getCastPosition()
                             else exoPlayer.currentPosition
 
                         val seekSeconds =
@@ -68,8 +69,10 @@ fun CenterControls(
                         val newPosition =
                             maxOf(current + if (isLeft) -(seekSeconds * 1000L) else seekSeconds * 1000L, 0)
 
-                        if (isCasting) castUtils.seekOnCast(newPosition)
+                        onSeekStarted(current)
+                        if (isCasting && castUtils != null) castUtils.seekOnCast(newPosition)
                         else exoPlayer.seekTo(newPosition)
+                        onSeekCompleted(newPosition)
 
                         if (isLeft) onRewind() else onForward()
                     }
@@ -93,9 +96,12 @@ fun CenterControls(
             ForwardBackwardButtonsOverlay(
                 playerModel = playerModel,
                 exoPlayer = exoPlayer,
-                context = LocalContext.current,
+                castUtils = castUtils,
+                isCasting = isCasting,
                 onRewindIconHide = onRewindHide,
                 onForwardIconHide = onForwardHide,
+                onSeekStarted = onSeekStarted,
+                onSeekCompleted = onSeekCompleted,
                 isControllerVisible = true,
                 isFullScreen = isFullScreen,
                 controlsConfig = controlsConfig
