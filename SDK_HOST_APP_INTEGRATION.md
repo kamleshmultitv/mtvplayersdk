@@ -169,6 +169,12 @@ fun HostVideoPlayerScreen(
 
 Replace `HostVideo` with the host app model. Keep SDK-specific mapping inside one mapper or player screen so the rest of the app does not depend on SDK internals.
 
+## Settings Selection State
+
+The SDK owns settings selection state internally. Host apps do not need to pass state for audio track, closed caption, playback speed, or video quality selection.
+
+Selections remain visually checked while the same player/content-detail session and media source are alive. They reset when the player page is disposed or the media source changes.
+
 ## XML / View-System Implementation
 
 Use `MtvVideoPlayerView` when the host app is not Compose-first.

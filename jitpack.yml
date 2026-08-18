@@ -2,4 +2,4 @@ jdk:
   - openjdk17
 
 install:
-  - ./gradlew :videosdk:publishToMavenLocal
+  - sh gradlew :videosdk:publishToMavenLocal

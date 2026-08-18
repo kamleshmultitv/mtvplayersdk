@@ -141,11 +141,11 @@ For this repo, always use this local command before tagging:
 sh gradlew :videosdk:publishToMavenLocal
 ```
 
-`jitpack.yml` may run `./gradlew` in the remote build environment. Local release checks should use `sh gradlew ...` so they work even when the wrapper file is not executable.
+`jitpack.yml` also uses `sh gradlew ...` so the JitPack remote build works even when the wrapper file is not executable.
 
 ## 9. JitPack Tag And Push Flow
 
-Use this exact flow after the criteria above pass:
+Use this exact flow after the criteria above pass and the release changes are not committed yet:
 
 ```bash
 git status --short
@@ -159,6 +159,21 @@ git push origin mobile-x.y.z
 ```
 
 Replace `mobile-x.y.z` with the real version, for example `mobile-2.0.32`.
+
+If the release commit is already created and pushed to `main`, the minimum JitPack publish commands are only:
+
+```bash
+git tag mobile-x.y.z
+git push origin mobile-x.y.z
+```
+
+If the release commit exists locally but is not pushed yet, use:
+
+```bash
+git push origin main
+git tag mobile-x.y.z
+git push origin mobile-x.y.z
+```
 
 If the release branch is not `main`, push the active release branch instead:
 

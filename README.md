@@ -29,6 +29,7 @@ Mtv Video Player SDK is a Jetpack Compose video player built on AndroidX Media3.
 | Document | Purpose |
 | --- | --- |
 | `SDK_PUBLIC_API.md` | Stable SDK API surface and compatibility rules. |
+| `SDK_THIRD_PARTY_APP_INTEGRATION.md` | Self-contained integration guide to share with third-party apps that cannot access repo docs. |
 | `SDK_HOST_APP_INTEGRATION.md` | Step-by-step guide for Codex or a developer integrating the SDK into a third-party host app. |
 | `SDK_ENTERPRISE_RELEASE_READINESS.md` | Enterprise customer release gates, no-go conditions, and target risk level. |
 | `SDK_ENTERPRISE_QA_RUNBOOK.md` | Phase 7 enterprise QA execution order, evidence format, and release decision rules. |

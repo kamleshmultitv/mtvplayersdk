@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
@@ -46,6 +47,9 @@ import com.app.videosdk.model.OptionItemModel
 import com.app.videosdk.model.PlayerAnalyticsEventType
 import com.app.videosdk.model.PlayerDiagnosticSeverity
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.model.SpeedControlModel
+import com.app.videosdk.model.SubTitleModel
+import com.app.videosdk.model.VideoQualityModel
 import com.app.videosdk.player.TrackSelectionUtils.calculatePitch
 import com.app.videosdk.player.TrackSelectionUtils.changeVideoResolution
 import com.app.videosdk.player.TrackSelectionUtils.getTextTrackOptions
@@ -176,7 +180,8 @@ fun SelectorHeader(
                         remember(context, exoPlayer) { showAudioTrack(context, exoPlayer) }
                     SelectionList(
                         items = audioTrackList.map { it.name.toString() },
-                        selectedIndex = selectedItems[activeOption] ?: -1
+                        selectedIndex = selectedItems[activeOption]
+                            ?: selectedAudioTrackIndex(audioTrackList, exoPlayer)
                     ) { index ->
                         selectedItems[activeOption] = index
                         selectAudioTrack(audioTrackList[index].id.toString(), exoPlayer)
@@ -223,7 +228,8 @@ fun SelectorHeader(
 
                     SelectionList(
                         items = speedData.map { it.speedTitle },
-                        selectedIndex = selectedItems[activeOption] ?: -1
+                        selectedIndex = selectedItems[activeOption]
+                            ?: selectedSpeedIndex(speedData, exoPlayer)
                     ) { index ->
                         selectedItems[activeOption] = index
                         val param = PlaybackParameters(
@@ -248,10 +254,11 @@ fun SelectorHeader(
 
                     SelectionList(
                         items = qualityList.map { if (it.id == "auto") it.title.toString() else "${it.title}p" },
-                        selectedIndex = selectedItems[activeOption] ?: -1
+                        selectedIndex = selectedItems[activeOption]
+                            ?: selectedQualityIndex(qualityList, exoPlayer)
                     ) { index ->
                         selectedItems[activeOption] = index
-                        if (index == 0) {
+                        if (qualityList[index].id == "auto") {
                             setAutoVideoResolution(exoPlayer)
                             playerStateListener?.onQualityChanged(0, 0, "Auto")
                             playerStateListener.emitAnalytics(
@@ -302,6 +309,71 @@ fun SelectorHeader(
         }
     }
 }
+
+private fun selectedAudioTrackIndex(
+    audioTrackList: List<SubTitleModel>,
+    exoPlayer: ExoPlayer?
+): Int {
+    val selectedAudioValues = exoPlayer?.currentTracks?.groups.orEmpty()
+        .filter { it.type == C.TRACK_TYPE_AUDIO }
+        .flatMap { group ->
+            (0 until group.length)
+                .filter { trackIndex -> group.isTrackSelected(trackIndex) }
+                .flatMap { trackIndex ->
+                    val format = group.getTrackFormat(trackIndex)
+                    listOfNotNull(
+                        format.language.cleanTrackText(),
+                        format.label.cleanTrackText(),
+                        format.id.cleanTrackText()
+                    )
+                }
+        }
+
+    if (selectedAudioValues.isEmpty()) return -1
+
+    return audioTrackList.indexOfFirst { option ->
+        selectedAudioValues.any { selected ->
+            selected.equals(option.id, ignoreCase = true) ||
+                selected.equals(option.name, ignoreCase = true)
+        }
+    }
+}
+
+private fun selectedSpeedIndex(
+    speedData: List<SpeedControlModel>,
+    exoPlayer: ExoPlayer?
+): Int {
+    val currentSpeed = exoPlayer?.playbackParameters?.speed ?: return -1
+    return speedData.indexOfFirst { speed ->
+        kotlin.math.abs(speed.speed - currentSpeed) < 0.01f
+    }
+}
+
+private fun selectedQualityIndex(
+    qualityList: List<VideoQualityModel>,
+    exoPlayer: ExoPlayer?
+): Int {
+    val parameters = exoPlayer?.trackSelectionParameters ?: return -1
+    val autoIndex = qualityList.indexOfFirst { it.id == "auto" }
+    val usesAutoQuality =
+        parameters.maxVideoWidth == Int.MAX_VALUE &&
+            parameters.maxVideoHeight == Int.MAX_VALUE
+
+    if (usesAutoQuality) return autoIndex
+
+    return qualityList.indexOfFirst { quality ->
+        quality.id != "auto" &&
+            quality.width == parameters.maxVideoWidth &&
+            quality.height == parameters.maxVideoHeight
+    }.takeIf { it >= 0 }
+        ?: qualityList.indexOfFirst { quality ->
+            quality.id != "auto" && quality.height == parameters.maxVideoHeight
+        }.takeIf { it >= 0 }
+        ?: autoIndex
+}
+
+private fun String?.cleanTrackText(): String? =
+    this?.trim()?.takeIf { it.isNotEmpty() && !it.equals("und", ignoreCase = true) }
 
 @Composable
 fun SelectionList(

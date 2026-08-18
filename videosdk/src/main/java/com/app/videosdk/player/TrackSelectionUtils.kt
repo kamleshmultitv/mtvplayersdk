@@ -186,7 +186,7 @@ object TrackSelectionUtils {
         val trackSelector = exoPlayer?.trackSelector as? DefaultTrackSelector
         val mappedTrackInfo = trackSelector?.currentMappedTrackInfo ?: return emptyList()
 
-        val videoQualityList = mutableListOf(VideoQualityModel("auto", 0, 0, 0, "Auto"))
+        val videoQualityList = mutableListOf<VideoQualityModel>()
 
         for (index in 0 until mappedTrackInfo.rendererCount) {
             if (videoRendererInfo(mappedTrackInfo, index, false)) {
@@ -205,7 +205,8 @@ object TrackSelectionUtils {
             }
         }
 
-        return videoQualityList.sortedByDescending { it.height }
+        return listOf(VideoQualityModel("auto", 0, 0, 0, "Auto")) +
+            videoQualityList.sortedByDescending { it.height }
     }
 
     @OptIn(UnstableApi::class)

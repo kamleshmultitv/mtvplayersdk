@@ -25,6 +25,7 @@ All notable Mtv Video Player SDK changes should be recorded here before release.
 - Sensitive SDK manifest permissions were removed.
 - Duplicate final seek path was reduced.
 - Seekbar pointer and scrub time behavior were refined.
+- Settings selections for audio, captions, playback speed, and video quality now stay visually selected while the same player session is alive.
 - Offline DASH DRM fallback and unsupported-audio recovery are guarded.
 - Remaining SDK force unwrap crash-risk patterns were removed from Cast, selector, and sprite thumbnail paths.
 - Sample app raw DRM token logging was removed, and SDK redaction now handles sensitive `:` and query-fragment values such as authorization and payload fields.
