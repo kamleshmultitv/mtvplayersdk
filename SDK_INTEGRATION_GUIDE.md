@@ -194,11 +194,15 @@ PlayerModel(
         forwardIconRes = R.drawable.ic_forward_10,
         rewindIconRes = R.drawable.ic_replay_10,
         settingsIconRes = R.drawable.ic_settings,
+        castIconRes = R.drawable.ic_cast,
+        castConnectedIconRes = R.drawable.ic_cast_connected,
         fullScreenIconRes = R.drawable.ic_fullscreen,
         exitFullScreenIconRes = R.drawable.ic_fullscreen_exit
     )
 )
 ```
+
+If `castConnectedIconRes` is omitted, the SDK switches to its built-in connected Cast icon when a Cast route is connected.
 
 Recommended package gate:
 

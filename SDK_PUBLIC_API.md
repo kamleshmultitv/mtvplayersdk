@@ -46,6 +46,8 @@ These APIs are treated as app-facing and should remain source-compatible across 
 - UI customization: `customControls`
 - offline playback internals: `cacheFactory`, `downloadManager`, `downloadCache`
 
+`PlayerCustomControls.castConnectedIconRes` can be supplied when the host app wants a custom connected Cast icon. If it is omitted, the SDK uses its built-in connected Cast icon.
+
 This shape stays supported during Phase 1. The SDK should not break existing callers while the model is redesigned.
 
 ## Phase 4 Feature Packages
@@ -70,6 +72,20 @@ Available tiers:
 `PlayerMonetizationPackage.AD_SUPPORTED` enables ad package gates when combined with `PlayerAdsConfig` and content ad fields.
 
 Detailed package requirements are documented in `SDK_FEATURE_PACKAGES.md`.
+
+## Autoplay Defaults
+
+`PlayerConfig` enables autoplay by default for feature, detail, and reels/assets player modes:
+
+```kotlin
+PlayerConfig(
+    autoPlayFeature = true,
+    autoPlayDetail = true,
+    autoPlayAssets = true
+)
+```
+
+Host apps can disable autoplay per mode by setting the matching field to `false`.
 
 ## Phase 5 Observability
 

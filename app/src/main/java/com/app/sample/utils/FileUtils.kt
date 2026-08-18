@@ -26,6 +26,7 @@ import okhttp3.internal.platform.PlatformRegistry.applicationContext
 import org.json.JSONObject
 
 object FileUtils {
+    private const val DEMO_AGE_RATING = "U/A 13+"
 
     /* ---------------------------------- */
     /* DRM TOKEN                           */
@@ -114,6 +115,7 @@ object FileUtils {
                     mpdUrl = override.url,
                     drmToken = override.drmToken.orEmpty(),
                     isLive = override.isLive,
+                    ageRating = DEMO_AGE_RATING,
                     adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
                     skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
                     nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false),
@@ -130,6 +132,7 @@ object FileUtils {
                     mpdUrl = deeplink.url,
                     id = deeplink.contentId,
                     seekTo = deeplink.seekTo,
+                    ageRating = DEMO_AGE_RATING,
                     deepLinkEndMs = deeplink.clipEndTime,
                     deepLinkClipDuration = deeplink.totalClipDuration,
                     customControls = defaultControls()
@@ -176,7 +179,7 @@ object FileUtils {
 
         return PlayerModel(
             id = content.id.orEmpty(),
-            ageRating = content.ageRating?.takeIf { it.isNotBlank() },
+            ageRating = content.ageRating?.takeIf { it.isNotBlank() } ?: DEMO_AGE_RATING,
             hlsUrl = hls,
             mpdUrl = mpd,
             liveUrl = null,
@@ -245,7 +248,7 @@ object FileUtils {
     )
 
     private fun defaultControls() = PlayerCustomControls(
-        iconTintRes = R.color.white,
+        iconTintRes = com.app.mtvdownloader.R.color.purple_700,
         playIconRes = R.drawable.ic_play,
         pauseIconRes = R.drawable.ic_pause,
         forwardIconRes = R.drawable.ic_forward,
@@ -263,6 +266,8 @@ object FileUtils {
         seasonSelectorIconRes = R.drawable.ic_episode,
         brightnessIconRes = R.drawable.ic_brightness,
         nextEpisodeIconRes = R.drawable.ic_next_episode,
+        castIconRes = R.drawable.ic_cast,
+        castConnectedIconRes = R.drawable.ic_cast_connected
     )
 
     @OptIn(UnstableApi::class)
@@ -294,6 +299,7 @@ object FileUtils {
 
                 // 📝 Metadata
                 episodeTitle = downloadedContentEntity.title.orEmpty(),
+                ageRating = DEMO_AGE_RATING,
 
                 // 🎞️ Quality preference (fallback to 1080)
                 selectedVideoQuality = downloadedContentEntity.videoHeight ?: 1080,
@@ -303,26 +309,7 @@ object FileUtils {
                 cacheFactory = cacheFactory,
                 downloadManager = downloadManager,
                 downloadCache = downloadCache,
-                customControls = PlayerCustomControls(
-                    iconTintRes = R.color.white,
-                    playIconRes = R.drawable.ic_play,
-                    pauseIconRes = R.drawable.ic_pause,
-                    forwardIconRes = R.drawable.ic_forward,
-                    rewindIconRes = R.drawable.ic_rewined,
-                    backIconRes = R.drawable.ic_back_arrow,
-                    settingsIconRes = R.drawable.ic_settings,
-                    pipIconRes = R.drawable.ic_pip,
-                    fullScreenIconRes = R.drawable.ic_collapse,
-                    exitFullScreenIconRes = R.drawable.ic_expand,
-                    lockIconRes = R.drawable.ic_lock,
-                    unlockIconRes = R.drawable.ic_unlock,
-                    muteIconRes = R.drawable.ic_mute,
-                    unMuteIconRes = R.drawable.ic_unmute,
-                    crossFadeIconRes = R.drawable.ic_cross,
-                    seasonSelectorIconRes = R.drawable.ic_episode,
-                    brightnessIconRes = R.drawable.ic_brightness,
-                    nextEpisodeIconRes = R.drawable.ic_next_episode,
-                )
+                customControls = defaultControls()
             )
         )
     }

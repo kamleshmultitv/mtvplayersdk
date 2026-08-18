@@ -34,6 +34,8 @@ import com.app.videosdk.model.SkipIntro
 import com.app.videosdk.ui.MtvVideoPlayerSdk
 import com.app.videosdk.utils.PlayerMode
 
+private const val DEMO_AGE_RATING = "U/A 13+"
+
 @Composable
 fun SdkEdgeCaseScreen(
     pipListener: PipListener,
@@ -161,6 +163,7 @@ private fun sdkEdgeCases(): List<SdkEdgeCase> {
         seasonTitle = "SDK QA Season",
         seasonNumber = "420",
         episodeNumber = episodeNumber,
+        ageRating = DEMO_AGE_RATING,
         duration = "00:44:07",
         skipIntro = SkipIntro(startTime = 5_000L, endTime = 15_000L, enableSkipIntro = true),
         nextEpisode = NextEpisode(showBeforeEndMs = "30000", enableNextEpisode = true),
@@ -227,7 +230,8 @@ private fun sdkEdgeCases(): List<SdkEdgeCase> {
                     episodeTitle = null,
                     episodeDescription = null,
                     seasonTitle = "Fallback Season Title",
-                    episodeNumber = "1"
+                    episodeNumber = "1",
+                    ageRating = DEMO_AGE_RATING
                 )
             )
         ),
