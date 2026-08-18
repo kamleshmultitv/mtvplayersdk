@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.only
@@ -44,6 +45,9 @@ private const val AGE_RATING_VISIBLE_MILLIS = 5_000L
 private const val AGE_RATING_DELAY_MILLIS = 2_500L
 private const val AGE_RATING_REVEAL_MILLIS = 450
 private const val AGE_RATING_COLLAPSE_MILLIS = 350
+private const val AGE_RATING_SURFACE_ALPHA = 0x80 / 255f
+private const val AGE_RATING_RED_BAR_WIDTH_DP = 2
+private val AgeRatingBadgeShape = RoundedCornerShape(6.dp)
 
 /**
  * OTT-style, non-interactive age-classification badge for player surfaces.
@@ -144,15 +148,20 @@ fun PlayerAgeRatingOverlay(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(AgeRatingBadgeShape)
                     .background(
-                        color = Color.Black.copy(alpha = 0.68f)
+                        color = Color.Black.copy(alpha = AGE_RATING_SURFACE_ALPHA)
+                    )
+                    .border(
+                        width = 0.5.dp,
+                        color = Color.White.copy(alpha = AGE_RATING_SURFACE_ALPHA),
+                        shape = AgeRatingBadgeShape
                     )
                     .drawBehind {
                         drawRect(
                             color = Color.Red,
                             topLeft = Offset.Zero,
-                            size = Size(4.dp.toPx(), size.height)
+                            size = Size(AGE_RATING_RED_BAR_WIDTH_DP.dp.toPx(), size.height)
                         )
                     }
                     .padding(horizontal = 10.dp, vertical = 6.dp)

@@ -58,6 +58,7 @@ internal fun BoxScope.PlayerChrome(
     isAgeRatingPresentationActive: Boolean,
     showUnlockConfirm: Boolean,
     isSettingsClick: Boolean,
+    settingsSelectedItems: MutableMap<Int, Int>,
     playbackUrl: String?,
     playerConfig: PlayerConfig,
     featureSet: ResolvedPlayerFeatureSet,
@@ -198,8 +199,10 @@ internal fun BoxScope.PlayerChrome(
             contentId = contentId,
             analyticsEnabled = analyticsEnabled,
             diagnosticsEnabled = diagnosticsEnabled,
-            playerStateListener = playerStateListener
-        ) { onSettingsClickChanged(it) }
+            playerStateListener = playerStateListener,
+            selectedItems = settingsSelectedItems,
+            closeOptionCard = { onSettingsClickChanged(it) }
+        )
     }
 
     if (showCutSheet && exoPlayer != null) {

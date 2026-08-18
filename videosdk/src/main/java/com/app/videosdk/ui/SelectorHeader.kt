@@ -26,7 +26,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -70,11 +69,11 @@ fun SelectorHeader(
     analyticsEnabled: Boolean = false,
     diagnosticsEnabled: Boolean = false,
     playerStateListener: PlayerStateListener? = null,
+    selectedItems: MutableMap<Int, Int>,
     closeOptionCard: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
-    val selectedItems = remember { mutableStateMapOf<Int, Int>() }
     val options by viewModel.options.collectAsState()
     val availableOptions = remember(
         options,

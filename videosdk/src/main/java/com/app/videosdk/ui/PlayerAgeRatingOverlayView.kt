@@ -18,6 +18,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.findViewTreeLifecycleOwner
 import com.app.videosdk.model.AgeRatingResolver
 import com.app.videosdk.model.PlayerModel
+import kotlin.math.roundToInt
 
 /**
  * XML/View equivalent of [PlayerAgeRatingOverlay]. Place this view after the video
@@ -35,6 +36,8 @@ class PlayerAgeRatingOverlayView @JvmOverloads constructor(
     private val density = resources.displayMetrics.density
     private val baseStartMargin = (54 * density).toInt()
     private val baseTopMargin = (27 * density).toInt()
+    private val badgeBorderWidth = dpToPx(0.5f)
+    private val redAccentWidth = dpToPx(2f)
     private var systemInsets = Insets.NONE
     private var lifecycleOwner: LifecycleOwner? = null
     private var inPictureInPicture = false
@@ -57,7 +60,7 @@ class PlayerAgeRatingOverlayView @JvmOverloads constructor(
         val badgeBackground = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 6 * density
-            setColor(0xAD000000.toInt())
+            setColor(0x80000000.toInt())
         }
         val redAccent = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -69,8 +72,14 @@ class PlayerAgeRatingOverlayView @JvmOverloads constructor(
             )
             setColor(Color.RED)
         }
-        background = LayerDrawable(arrayOf(badgeBackground, redAccent)).apply {
-            setLayerWidth(1, (4 * density).toInt())
+        val badgeBorder = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 6 * density
+            setColor(Color.TRANSPARENT)
+            setStroke(badgeBorderWidth, 0x80FFFFFF.toInt())
+        }
+        background = LayerDrawable(arrayOf(badgeBackground, redAccent, badgeBorder)).apply {
+            setLayerWidth(1, redAccentWidth)
             setLayerGravity(1, Gravity.START or Gravity.FILL_VERTICAL)
         }
         alpha = 0f
@@ -87,6 +96,8 @@ class PlayerAgeRatingOverlayView @JvmOverloads constructor(
             insets
         }
     }
+
+    private fun dpToPx(dp: Float): Int = (dp * density).roundToInt().coerceAtLeast(1)
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()

@@ -110,7 +110,64 @@ Before tagging, capture:
 - Known issues.
 - Migration notes.
 
-## 8. Tagging
+## 8. JitPack Release Criteria
+
+Use this section directly for future JitPack releases. Do not create or push a tag until every item here is complete.
+
+- The worktree contains only intended release changes. Do not include `.idea` files unless the release intentionally changes project metadata.
+- `videosdk/build.gradle.kts` has the new SDK version in the `release` Maven publication.
+- The Git tag matches the SDK version exactly, for example `mobile-2.0.32`.
+- The JitPack build task passes locally:
+
+```bash
+sh gradlew :videosdk:publishToMavenLocal
+```
+
+- The sample app still compiles:
+
+```bash
+sh gradlew :app:compileDebugKotlin
+```
+
+- Whitespace checks pass:
+
+```bash
+git diff --check
+```
+
+For this repo, always use this local command before tagging:
+
+```bash
+sh gradlew :videosdk:publishToMavenLocal
+```
+
+`jitpack.yml` may run `./gradlew` in the remote build environment. Local release checks should use `sh gradlew ...` so they work even when the wrapper file is not executable.
+
+## 9. JitPack Tag And Push Flow
+
+Use this exact flow after the criteria above pass:
+
+```bash
+git status --short
+git add videosdk/build.gradle.kts videosdk/src/main/java/com/app/videosdk
+git add README.md CHANGELOG.md SDK_RELEASE_CHECKLIST.md
+git commit -m "Release mobile-x.y.z"
+
+git tag mobile-x.y.z
+git push origin main
+git push origin mobile-x.y.z
+```
+
+Replace `mobile-x.y.z` with the real version, for example `mobile-2.0.32`.
+
+If the release branch is not `main`, push the active release branch instead:
+
+```bash
+git push origin HEAD
+git push origin mobile-x.y.z
+```
+
+## 10. Legacy Tagging Reference
 
 Recommended tag format:
 
@@ -121,8 +178,9 @@ git push origin mobile-x.y.z
 
 Only tag after build, docs, compatibility, and smoke-test gates are complete.
 
-## 9. Post-Release
+## 11. Post-Release
 
 - Verify the dependency can be resolved by a clean sample app.
 - Verify README installation snippet matches the release tag.
+- Open the JitPack project page for `kamleshmultitv/mtvplayersdk`, request the new tag, and confirm the build is green.
 - Open follow-up issues for deferred QA failures or known limitations.
