@@ -89,6 +89,10 @@ private fun CustomBrightnessControllerUi(
     currentBrightness: Float
 ) {
     val brightnessPercentage = (currentBrightness * 100).toInt()
+    val progressColor = customControlTintColor(
+        tintRes = playerModel?.customControls?.iconTintRes,
+        fallback = Color.Yellow
+    )
 
     // 🔥 Dynamic brightness icon based on level
     val brightnessIcon = when {
@@ -135,7 +139,7 @@ private fun CustomBrightnessControllerUi(
                     .fillMaxWidth()
                     .fillMaxHeight(currentBrightness)
                     .align(Alignment.BottomCenter)
-                    .background(Color.Yellow)
+                    .background(progressColor)
             )
         }
 

@@ -93,6 +93,12 @@ fun CustomSlider(
         animationSpec = androidx.compose.animation.core.spring(),
         label = "scrubContainerHeight"
     )
+    val durationLabelVerticalOffset =
+        (animatedScrubContainerHeight - animatedContainerHeight) / 2
+    val progressColor = customControlTintColor(
+        tintRes = playerModel?.customControls?.iconTintRes,
+        fallback = Color.Red
+    )
 
     /* ---------- LIVE EDGE ---------- */
 
@@ -135,7 +141,9 @@ fun CustomSlider(
                 text = formatTime(currentPosition),
                 color = Color.White,
                 fontSize = 12.sp,
-                modifier = Modifier.padding(end = 8.dp)
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .offset(y = durationLabelVerticalOffset)
             )
         }
 
@@ -246,9 +254,9 @@ fun CustomSlider(
 
                         drawRoundRect(
                             color = if (isLive && isAtLiveEdge)
-                                Color.Red
+                                progressColor
                             else
-                                Color.Red.copy(alpha = 0.7f),
+                                progressColor.copy(alpha = 0.7f),
                             topLeft = Offset(0f, trackY),
                             size = Size(size.width * sliderPosition, trackHeightPx),
                             cornerRadius = CornerRadius(trackHeightPx / 2)
@@ -303,7 +311,7 @@ fun CustomSlider(
                                     .coerceIn(0f, maxPointerLeft)
 
                             drawRoundRect(
-                                color = Color.Red,
+                                color = progressColor,
                                 topLeft = Offset(pointerLeft, trackY),
                                 size = Size(pointerWidthPx, trackHeightPx),
                                 cornerRadius = CornerRadius(trackHeightPx / 2)
@@ -322,7 +330,9 @@ fun CustomSlider(
                 text = formatTime(duration),
                 color = Color.White,
                 fontSize = 12.sp,
-                modifier = Modifier.padding(start = 8.dp)
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .offset(y = durationLabelVerticalOffset)
             )
         } else {
             Row(
@@ -345,12 +355,12 @@ fun CustomSlider(
                         .size(8.dp)
                         .alpha(if (isAtLiveEdge) blinkAlpha else 1f)
                         .clip(CircleShape)
-                        .background(if (isAtLiveEdge) Color.Red else Color.Gray)
+                        .background(if (isAtLiveEdge) progressColor else Color.Gray)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = if (isAtLiveEdge) "LIVE" else "Go Live",
-                    color = if (isAtLiveEdge) Color.Red else Color.White,
+                    color = if (isAtLiveEdge) progressColor else Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )

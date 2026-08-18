@@ -5,7 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 
 @Composable
@@ -16,9 +15,7 @@ fun CustomIcon(
     modifier: Modifier = Modifier,
     tint: Int? = null
 ) {
-    val tintColor = tint?.let {
-        colorResource(id = it)
-    } ?: Color.White
+    val tintColor = customControlTintColor(tint, Color.White)
     if (resId != null) {
 
         Icon(

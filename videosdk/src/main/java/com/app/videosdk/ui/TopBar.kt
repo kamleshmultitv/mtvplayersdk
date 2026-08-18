@@ -156,7 +156,11 @@ fun TopBar(
 
 
         if (isFullScreen && controlsConfig.cast && castUtils != null) {
-            CastButton()
+            CastButton(
+                resId = playerModel?.customControls?.castIconRes,
+                connectedResId = playerModel?.customControls?.castConnectedIconRes,
+                tint = playerModel?.customControls?.iconTintRes
+            )
         }
 
         // PIP and Settings remain visible only in FullScreen (VOD context)

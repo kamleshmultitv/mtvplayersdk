@@ -17,6 +17,7 @@ All notable Mtv Video Player SDK changes should be recorded here before release.
 
 - SDK logs are routed through a redacting logger.
 - Cast, playback progress, player chrome mode, and playback recovery paths are more centralized.
+- Autoplay is enabled by default for feature, detail, and reels/assets player modes.
 - README now reflects the current public API and integration workflow.
 - GAM banner AndroidView cleanup now destroys the ad view on release.
 
@@ -24,7 +25,10 @@ All notable Mtv Video Player SDK changes should be recorded here before release.
 
 - Sensitive SDK manifest permissions were removed.
 - Duplicate final seek path was reduced.
+- Duplicate visible Cast icon was removed from the custom player chrome while keeping the native Cast dialog launcher attached.
+- Cast button now switches to a connected icon when a Cast route is connected, with optional `castConnectedIconRes` customization.
 - Seekbar pointer and scrub time behavior were refined.
+- `PlayerCustomControls.iconTintRes` now also tints Cast, seekbar progress, brightness progress, and volume progress.
 - Settings selections for audio, captions, playback speed, and video quality now stay visually selected while the same player session is alive.
 - Offline DASH DRM fallback and unsupported-audio recovery are guarded.
 - Remaining SDK force unwrap crash-risk patterns were removed from Cast, selector, and sprite thumbnail paths.

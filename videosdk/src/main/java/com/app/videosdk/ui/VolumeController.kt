@@ -110,6 +110,10 @@ fun CustomVolumeController(
             .then(dragGesture)
     ) {
         val canToggleVolume = if (isMuted) controlsConfig.unmute else controlsConfig.mute
+        val progressColor = customControlTintColor(
+            tintRes = playerModel?.customControls?.iconTintRes,
+            fallback = Color.Green
+        )
 
         if (canToggleVolume) {
             IconButton(
@@ -139,7 +143,7 @@ fun CustomVolumeController(
                 .width(4.dp)
                 .height(120.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color.Green)
+                .background(progressColor)
         ) {
             Box(
                 modifier = Modifier

@@ -31,5 +31,6 @@ data class PlayerCustomControls(
     val seasonSelectorIconRes: Int? = null,
     val brightnessIconRes: Int? = null,
     val nextEpisodeIconRes: Int? = null,
+    val castConnectedIconRes: Int? = null,
 
 )

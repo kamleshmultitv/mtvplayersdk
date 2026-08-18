@@ -486,11 +486,15 @@ PlayerModel(
         forwardIconRes = R.drawable.ic_forward_10,
         rewindIconRes = R.drawable.ic_replay_10,
         settingsIconRes = R.drawable.ic_settings,
+        castIconRes = R.drawable.ic_cast,
+        castConnectedIconRes = R.drawable.ic_cast_connected,
         fullScreenIconRes = R.drawable.ic_fullscreen,
         exitFullScreenIconRes = R.drawable.ic_fullscreen_exit
     )
 )
 ```
+
+`iconTintRes` tints SDK icons plus Cast, seekbar progress, brightness progress, and volume progress. If `castConnectedIconRes` is not provided, the SDK uses its built-in connected Cast icon while connected.
 
 ## Deep Link Clips
 
