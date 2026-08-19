@@ -26,18 +26,28 @@ Mtv Video Player SDK is a Jetpack Compose video player built on AndroidX Media3.
 
 ## Documentation Map
 
+Most users only need one of these start-here guides:
+
+| Need | File |
+| --- | --- |
+| Third-party app wants VideoPlayer SDK | `SDK_THIRD_PARTY_APP_INTEGRATION.md` |
+| Developer or coding agent is implementing VideoPlayer in a host app | `SDK_HOST_APP_INTEGRATION.md` |
+| App wants Downloader SDK | `downloadsdk-implementation-guide.md` |
+| App wants Downloader SDK plus VideoPlayer offline playback | `app/main-application-full-change-guide.md` |
+
+Internal and maintenance docs:
+
 | Document | Purpose |
 | --- | --- |
+| `videosdk/README.md` | Compact internal VideoPlayer SDK module notes for SDK source changes. |
 | `SDK_PUBLIC_API.md` | Stable SDK API surface and compatibility rules. |
-| `SDK_THIRD_PARTY_APP_INTEGRATION.md` | Self-contained integration guide to share with third-party apps that cannot access repo docs. |
-| `SDK_HOST_APP_INTEGRATION.md` | Step-by-step guide for Codex or a developer integrating the SDK into a third-party host app. |
-| `SDK_ENTERPRISE_RELEASE_READINESS.md` | Enterprise customer release gates, no-go conditions, and target risk level. |
-| `SDK_ENTERPRISE_QA_RUNBOOK.md` | Phase 7 enterprise QA execution order, evidence format, and release decision rules. |
-| `SDK_CUSTOMER_DEMO_PROFILES.md` | Customer-style feature profiles for OTT, DRM/offline, live, spiritual/event, and ad-supported demos. |
+| `SDK_INTEGRATION_GUIDE.md` | Feature setup details for DRM, Cast, PiP, offline, ads, and custom controls. |
 | `SDK_FEATURE_PACKAGES.md` | Basic, Premium UX, Enterprise, and monetization add-on package definitions. |
 | `SDK_OBSERVABILITY.md` | Analytics events, diagnostics callbacks, and SDK logging setup. |
-| `SDK_INTEGRATION_GUIDE.md` | DRM, Cast, PiP, offline, ads, and custom-control setup notes. |
+| `SDK_CUSTOMER_DEMO_PROFILES.md` | Customer-style feature profiles for demos. |
 | `SDK_QA_MATRIX.md` | Scenario matrix for sample app and device validation. |
+| `SDK_ENTERPRISE_RELEASE_READINESS.md` | Enterprise customer release gates and no-go conditions. |
+| `SDK_ENTERPRISE_QA_RUNBOOK.md` | Enterprise QA execution order and release decision rules. |
 | `SDK_RELEASE_CHECKLIST.md` | Repeatable release checklist. |
 | `CHANGELOG.md` | Release notes and pre-tag verification reminders. |
 
@@ -234,12 +244,40 @@ data class PlayerModel(
     val isClipEnabled: Boolean = false,
     val isChapterEnabled: Boolean = false,
     val chapters: List<Chapter>? = null,
+    val cacheFactory: CacheDataSource.Factory? = null,
+    val downloadManager: DownloadManager? = null,
+    val downloadCache: SimpleCache? = null,
+    val drmOfflineKeySetId: ByteArray? = null,
+    val drmOfflineKeySetIdBase64: String? = null,
     val ageRating: String? = null,
     val contentRating: String? = null
 )
 ```
 
-For offline playback, `PlayerModel` also supports cache/download fields: `cacheFactory`, `downloadManager`, and `downloadCache`.
+For offline playback, `PlayerModel` supports app-provided Media3 download handles: `cacheFactory`, `downloadManager`, and `downloadCache`. For downloaded DRM MPD/DASH playback, pass the persisted Widevine key set through `drmOfflineKeySetId` or `drmOfflineKeySetIdBase64`.
+
+Use `drm = "1"` only when the item should play as Widevine DASH/MPD. For normal HLS/API-list playback, do not force `drm = "1"` just because the catalog item is DRM-capable; otherwise the SDK will prefer `mpdUrl`.
+
+## Offline Downloads
+
+Downloaded playback uses the same `MtvVideoPlayerSdk`. Do not open a separate file-path player for downloads.
+
+When using the MTV Downloader SDK, build `PlayerModel` from the completed `DownloadedContentEntity` and pass the downloader cache objects:
+
+```kotlin
+PlayerModel(
+    id = entity.contentId,
+    hlsUrl = hlsUrlIfDownloadedContentIsHls,
+    mpdUrl = mpdUrlIfDownloadedContentIsDash,
+    videoUrl = mp4UrlIfDownloadedContentIsMp4,
+    drm = if (isDrmDownloadedContent) "1" else null,
+    drmToken = entity.licenseUri?.takeIf { it.isNotBlank() },
+    downloadManager = DownloadUtil.getDownloadManager(context),
+    downloadCache = DownloadUtil.getDownloadCache(context),
+    drmOfflineKeySetId = entity.drmOfflineKeySetId,
+    drmOfflineKeySetIdBase64 = entity.drmOfflineKeySetIdBase64
+)
+```
 
 ## Skip Intro and Next Episode
 

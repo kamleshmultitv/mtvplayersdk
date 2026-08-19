@@ -3,6 +3,7 @@ package com.app.videosdk.player
 import android.Manifest
 import android.content.Context
 import android.net.Uri
+import android.util.Base64
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresPermission
 import androidx.core.net.toUri
@@ -105,18 +106,7 @@ internal object PlayerFactory {
                     null
                 }
 
-        val cache = content?.downloadCache
-
-        val dataSourceFactory: DataSource.Factory =
-            if (cache != null) {
-                CacheDataSource.Factory()
-                    .setCache(cache)
-                    .setUpstreamDataSourceFactory(DefaultHttpDataSource.Factory())
-                    .setCacheWriteDataSinkFactory(null)
-                    .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-            } else {
-                DefaultHttpDataSource.Factory()
-            }
+        val dataSourceFactory = buildDataSourceFactory(content, isOffline)
 
         val mediaSourceFactory =
             DefaultMediaSourceFactory(context)
@@ -261,16 +251,11 @@ internal object PlayerFactory {
             if (completedDownload != null) {
                 SdkLogger.debug("Using offline MediaItem")
 
-                val isDashOffline =
-                    completedDownload.request.uri.toString()
-                        .substringBefore("?")
-                        .endsWith(".mpd", ignoreCase = true)
-
-                if (isDashOffline) {
-                    buildOfflineDrmMediaItemOrNull(completedDownload)
+                if (completedDownload.isDashDownload()) {
+                    buildOfflineDrmMediaItemOrNull(content, completedDownload)
                         ?: run {
-                            SdkLogger.info(
-                                "Offline DASH without license; falling back to online"
+                            SdkLogger.error(
+                                "DRM_OFFLINE_PLAYBACK_FAILED contentId=$contentId reason=missing_keySetId"
                             )
                             onRecoveryStateChanged(
                                 PlaybackRecoveryState(
@@ -352,6 +337,7 @@ internal object PlayerFactory {
                     setDrmConfiguration(
                         MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
                             .setLicenseUri(drmToken)
+                            .setForceDefaultLicenseUri(true)
                             .setMultiSession(true)
                             .build()
                     )
@@ -380,14 +366,59 @@ internal object PlayerFactory {
     }
 
     @OptIn(UnstableApi::class)
-    private fun buildOfflineDrmMediaItemOrNull(download: Download): MediaItem? {
-        val keySetId = download.request.keySetId
+    private fun buildDataSourceFactory(
+        content: PlayerModel?,
+        isOffline: Boolean
+    ): DataSource.Factory {
+        val cache = content?.downloadCache
+        val upstreamFactory = DefaultHttpDataSource.Factory()
+
+        if (cache != null) {
+            return CacheDataSource.Factory()
+                .setCache(cache)
+                .setUpstreamDataSourceFactory(upstreamFactory)
+                .setCacheWriteDataSinkFactory(null)
+                .setFlags(
+                    if (isOffline) {
+                        CacheDataSource.FLAG_BLOCK_ON_CACHE
+                    } else {
+                        CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
+                    }
+                )
+        }
+
+        content?.cacheFactory?.let { cacheFactory ->
+            return if (isOffline) {
+                cacheFactory.setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE)
+            } else {
+                cacheFactory
+            }
+        }
+
+        return upstreamFactory
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun Download.isDashDownload(): Boolean {
+        val uriWithoutQuery = request.uri.toString().substringBefore("?")
+
+        return request.mimeType == MimeTypes.APPLICATION_MPD ||
+            uriWithoutQuery.endsWith(".mpd", ignoreCase = true)
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun buildOfflineDrmMediaItemOrNull(
+        content: PlayerModel?,
+        download: Download
+    ): MediaItem? {
+        val keySetId = resolveOfflineKeySetId(content, download)
         if (keySetId == null) {
-            SdkLogger.error(
-                "Offline DASH is missing keySetId; falling back to online"
-            )
             return null
         }
+
+        SdkLogger.info(
+            "DRM_OFFLINE_PLAYBACK_PREPARE contentId=${content?.id} keySetBytes=${keySetId.size}"
+        )
 
         return download.request
             .toMediaItem()
@@ -398,6 +429,22 @@ internal object PlayerFactory {
                     .build()
             )
             .build()
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun resolveOfflineKeySetId(
+        content: PlayerModel?,
+        download: Download
+    ): ByteArray? =
+        download.request.keySetId
+            ?: content?.drmOfflineKeySetId?.takeIf { it.isNotEmpty() }
+            ?: content?.drmOfflineKeySetIdBase64.decodeBase64OrNull()
+
+    private fun String?.decodeBase64OrNull(): ByteArray? {
+        val value = this?.trim().takeUnless { it.isNullOrBlank() } ?: return null
+        return runCatching {
+            Base64.decode(value, Base64.DEFAULT)
+        }.getOrNull()?.takeIf { it.isNotEmpty() }
     }
 
     private fun initializeSubTitleTracker(srt: String): MediaItem.SubtitleConfiguration =

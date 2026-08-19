@@ -193,6 +193,8 @@ internal fun PlayerModel.withResolvedFeatures(
         cacheFactory = cacheFactory.takeIf { features.offline },
         downloadManager = downloadManager.takeIf { features.offline },
         downloadCache = downloadCache.takeIf { features.offline },
+        drmOfflineKeySetId = drmOfflineKeySetId.takeIf { features.offline && features.drm },
+        drmOfflineKeySetIdBase64 = drmOfflineKeySetIdBase64.takeIf { features.offline && features.drm },
         deepLinkEndMs = deepLinkEndMs.takeIf { features.deepLinkClips },
         deepLinkClipDuration = deepLinkClipDuration.takeIf { features.deepLinkClips },
         ageRating = ageRating.takeIf { features.ageRating },

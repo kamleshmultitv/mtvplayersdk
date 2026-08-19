@@ -5,7 +5,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.offline.DownloadManager
-import okhttp3.Cache
 
 @OptIn(UnstableApi::class)
 data class PlayerModel(
@@ -44,6 +43,8 @@ data class PlayerModel(
     val cacheFactory: CacheDataSource.Factory? = null,
     val downloadManager: DownloadManager? = null,
     val downloadCache: SimpleCache? = null,
+    val drmOfflineKeySetId: ByteArray? = null,
+    val drmOfflineKeySetIdBase64: String? = null,
 
     /** Human-readable title supplied by the content API. */
     val title: String? = null,
