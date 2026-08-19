@@ -26,6 +26,7 @@ import com.app.mtvdownloader.utils.Constants.KEY_SEASON_NAME
 import com.app.mtvdownloader.utils.Constants.KEY_SEASON_THUMBNAIL_URL
 import com.app.mtvdownloader.utils.Constants.KEY_STREAM_KEYS
 import com.app.mtvdownloader.utils.Constants.KEY_THUMBNAIL_URL
+import com.app.mtvdownloader.utils.DownloadSourceResolver
 import com.app.mtvdownloader.utils.StreamKeyUtil
 import com.app.mtvdownloader.worker.DownloadWorker
 import kotlinx.coroutines.CoroutineScope
@@ -53,10 +54,8 @@ object DownloadHelper {
     ) {
         if (contentItem == null) return
 
-        if (
-            contentItem.drm == "1" &&
-            (contentItem.mpdUrl.isNullOrEmpty() || contentItem.drmToken.isNullOrEmpty())
-        ) {
+        val source = DownloadSourceResolver.resolve(contentItem)
+        if (source == null) {
             return
         }
 
@@ -87,7 +86,10 @@ object DownloadHelper {
                 val hasActiveDownload = repository.hasActiveDownload()
 
                 repository.insertOrUpdate(
-                    buildDownloadedEntity(contentItem)
+                    buildDownloadedEntity(
+                        contentItem = contentItem,
+                        source = source
+                    )
                 )
 
                 enqueueDownloadWork(
@@ -120,6 +122,7 @@ object DownloadHelper {
 
             val repository = DownloadRepository.instance(appContext)
             val contentId = contentItem.contentId
+            val source = DownloadSourceResolver.resolve(contentItem) ?: return@launch
 
             when (repository.getDownloadedContentOnce(contentId)?.downloadStatus) {
                 DOWNLOAD_STATUS_COMPLETED -> {
@@ -143,6 +146,7 @@ object DownloadHelper {
             repository.insertOrUpdate(
                 buildDownloadedEntity(
                     contentItem = contentItem,
+                    source = source,
                     streamKeys = StreamKeyUtil.toString(listOf(quality.streamKey)),
                     height = quality.height,
                     bitrate = quality.bitrate
@@ -236,6 +240,13 @@ object DownloadHelper {
 
     private fun buildDownloadedEntity(
         contentItem: DownloadEntity,
+        source: DownloadSourceResolver.ResolvedDownloadSource =
+            DownloadSourceResolver.resolve(contentItem)
+                ?: DownloadSourceResolver.ResolvedDownloadSource(
+                    uri = contentItem.hlsUrl.orEmpty(),
+                    type = DownloadSourceResolver.SourceType.HLS,
+                    drmLicenseUri = null
+                ),
         streamKeys: String? = null,
         height: Int? = null,
         bitrate: Int? = null
@@ -244,19 +255,15 @@ object DownloadHelper {
         seasonId = contentItem.seasonId.orEmpty(),
         title = contentItem.title.orEmpty(),
         seasonTitle = contentItem.seasonTitle.orEmpty(),
-        mpdUrl = if (contentItem.drm == "1")
-            contentItem.mpdUrl.orEmpty()
-        else
-            contentItem.hlsUrl.orEmpty(),
-        hlsUrl = if (contentItem.drm == "1")
-            contentItem.mpdUrl.orEmpty()
-        else
-            contentItem.hlsUrl.orEmpty(),
-        drmToken = contentItem.drmToken.orEmpty(),
+        mpdUrl = source.uri.takeIf { source.type == DownloadSourceResolver.SourceType.DASH },
+        hlsUrl = source.uri.takeIf { source.type == DownloadSourceResolver.SourceType.HLS },
+        drm = "1".takeIf { source.isDrmDash },
+        drmToken = source.drmLicenseUri,
         imageUrl = contentItem.imageUrl,
         seasonBanner = contentItem.imageUrl,
         downloadStatus = DOWNLOAD_STATUS_QUEUED,
         progress = 0,
+        keySetId = contentItem.keySetId,
         streamKeys = streamKeys,
         videoHeight = height,
         videoBitrate = bitrate
@@ -266,6 +273,7 @@ object DownloadHelper {
         contentItem: DownloadEntity,
         quality: DownloadQuality? = null
     ): Data {
+        val source = DownloadSourceResolver.resolve(contentItem)
         return Data.Builder()
             .putString(KEY_CONTENT_ID, contentItem.contentId)
             .putString(KEY_SEASON_ID, contentItem.seasonId.orEmpty())
@@ -281,29 +289,29 @@ object DownloadHelper {
                     )
                 }
 
-                if (contentItem.drm == "1") {
-                    putString(KEY_CONTENT_URI, contentItem.mpdUrl)
-                    putString(KEY_DRM_LICENSE_URI, contentItem.drmToken)
-                } else {
-                    putString(KEY_CONTENT_URI, contentItem.hlsUrl)
-                }
+                putString(KEY_CONTENT_URI, source?.uri)
+                source?.drmLicenseUri?.let { putString(KEY_DRM_LICENSE_URI, it) }
             }
             .build()
     }
 
     private fun buildWorkerData(
         entity: DownloadEntity
-    ): Data =
-        Data.Builder()
+    ): Data {
+        val source = DownloadSourceResolver.resolve(entity)
+        return Data.Builder()
             .putString(KEY_CONTENT_ID, entity.contentId)
             .putString(KEY_SEASON_ID, entity.seasonId)
             .putString(KEY_CONTENT_TITLE, entity.title)
             .putString(KEY_SEASON_NAME, entity.seasonTitle)
             .putString(KEY_THUMBNAIL_URL, entity.imageUrl)
             .putString(KEY_SEASON_THUMBNAIL_URL, entity.seasonBanner)
-            .putString(KEY_CONTENT_URI, entity.mpdUrl ?: entity.hlsUrl)
-            .putString(KEY_DRM_LICENSE_URI, entity.drmToken)
+            .putString(KEY_CONTENT_URI, source?.uri)
+            .apply {
+                source?.drmLicenseUri?.let { putString(KEY_DRM_LICENSE_URI, it) }
+            }
             .build()
+    }
 
     private fun enqueueDownloadWork(
         context: Context,
@@ -336,4 +344,3 @@ object DownloadHelper {
         }
     }
 }
-

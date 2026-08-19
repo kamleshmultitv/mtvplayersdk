@@ -55,9 +55,9 @@ Use `ANDROID_SERIAL=<device-id>` when more than one device is connected.
 
 ### 2. Device QA Gates
 
-Record results in `SDK_QA_MATRIX.md`.
+Record results in `videosdk/docs/QA_MATRIX.md`.
 
-Execution order and evidence format are defined in `SDK_ENTERPRISE_QA_RUNBOOK.md`.
+Execution order and evidence format are defined in `videosdk/docs/ENTERPRISE_QA_RUNBOOK.md`.
 
 - HLS VOD playback.
 - DASH playback.
@@ -92,8 +92,8 @@ Current manual QA note: testers reported five-day SDK QA as passed. SDK log reda
 - Confirm whether `PlayerMonetizationPackage.AD_SUPPORTED` is included.
 - Confirm required features are enabled through `PlayerConfig`.
 - Confirm unsupported features are disabled or hidden.
-- Confirm host app integration follows `SDK_HOST_APP_INTEGRATION.md`.
-- Confirm customer-style validation follows the matching profile in `SDK_CUSTOMER_DEMO_PROFILES.md`.
+- Confirm host app integration follows `videosdk/THIRD_PARTY_INTEGRATION.md`.
+- Confirm customer-style validation follows the matching profile in `videosdk/docs/CUSTOMER_DEMO_PROFILES.md`.
 
 ### 4. Privacy And Security Gates
 
@@ -108,7 +108,7 @@ Current manual QA note: testers reported five-day SDK QA as passed. SDK log reda
 - Existing `MtvVideoPlayerView` integrations compile.
 - New `PlayerConfig` fields have defaults.
 - New `PlayerStateListener` callbacks have default no-op implementations.
-- Breaking changes have migration notes in `README.md` and `CHANGELOG.md`.
+- Breaking changes have migration notes in `README.md` and `videosdk/docs/CHANGELOG.md`.
 
 ## No-Go Conditions
 

@@ -23,12 +23,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.app.mtvdownloader.R
-import com.app.mtvdownloader.entity.DownloadEntity
+import com.app.mtvdownloader.local.entity.DownloadedContentEntity
 
 @Composable
 fun DownloadedContentRow(
-    item: DownloadEntity,
-    onItemClick: (DownloadEntity) -> Unit
+    item: DownloadedContentEntity,
+    onItemClick: (DownloadedContentEntity) -> Unit
 ) {
     Column {
         Row(
@@ -40,7 +40,7 @@ fun DownloadedContentRow(
         ) {
 
             AsyncImage(
-                model = item.seasonBanner,
+                model = item.seasonImage ?: item.thumbnailUrl,
                 contentDescription = "Thumbnail",
                 modifier = Modifier
                     .size(60.dp)
@@ -51,7 +51,7 @@ fun DownloadedContentRow(
             Spacer(modifier = Modifier.width(12.dp))
 
             Text(
-                text = item.title.toString(),
+                text = item.title,
                 fontSize = 16.sp,
                 color = colorResource(R.color.white),
                 fontWeight = FontWeight.Medium,

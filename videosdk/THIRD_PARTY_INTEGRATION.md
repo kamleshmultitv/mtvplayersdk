@@ -4,6 +4,13 @@ Use this file when a third-party Android app does not have access to the SDK rep
 
 This is the app-facing integration contract. Do not use SDK internals or copy SDK source files into the host app.
 
+## Which Guide To Use
+
+- VideoPlayer SDK in a third-party app: follow this file.
+- Downloader SDK implementation: follow `../mtvdownloader/THIRD_PARTY_INTEGRATION.md`.
+- Combined Downloader SDK plus VideoPlayer SDK main-app migration: follow `../app/main-application-full-change-guide.md`.
+- VideoPlayer SDK source changes: `README.md` is internal SDK module material, not a third-party app integration guide.
+
 ## 1. Dependency Setup
 
 Add JitPack in the host app root `settings.gradle.kts`:
@@ -179,6 +186,7 @@ Use only public `PlayerModel` fields:
 
 - Playback: `hlsUrl`, `mpdUrl`, `videoUrl`, `liveUrl`, `isLive`
 - DRM: `drm`, `drmToken`
+- Offline/download: `cacheFactory`, `downloadManager`, `downloadCache`, `drmOfflineKeySetId`, `drmOfflineKeySetIdBase64`
 - Metadata: `id`, `title`, `episodeTitle`, `seasonTitle`, `description`, `imageUrl`, `thumbnail`
 - Subtitles: `srt`
 - Age rating: `ageRating` or `contentRating`
@@ -186,9 +194,78 @@ Use only public `PlayerModel` fields:
 - Ads: `adsConfig`, `gamAdsConfig`
 - UI: `customControls`
 
-For DRM, pass the DASH URL in `mpdUrl`, set `drm = "1"`, and pass the license/token value in `drmToken`.
+For online DRM, pass the DASH URL in `mpdUrl`, set `drm = "1"`, and pass the license/token value in `drmToken`.
 
-## 6. Subtitles, Settings, Speed, And Quality
+Do not set `drm = "1"` globally for normal HLS/API-list playback. Set it only when the player should choose MPD/DASH Widevine playback. If the app sets `drm = "1"`, the SDK prefers `mpdUrl` and the license server must accept the supplied license URL/token.
+
+## 6. Offline Downloads With MTV Downloader SDK
+
+If the app also uses the MTV Downloader SDK, follow `../mtvdownloader/THIRD_PARTY_INTEGRATION.md` for the download layer. Playback still uses this VideoPlayer SDK.
+
+When a user opens a completed download, map `DownloadedContentEntity` into `PlayerModel`. The app must pass the same Media3 `DownloadManager` and `SimpleCache` that the downloader uses. For DRM MPD/DASH downloads, also pass the persisted Widevine offline key set.
+
+```kotlin
+import android.content.Context
+import com.app.mtvdownloader.DownloadUtil
+import com.app.mtvdownloader.local.entity.DownloadedContentEntity
+import com.app.videosdk.model.PlayerModel
+
+fun buildDownloadedPlayerModel(
+    context: Context,
+    entity: DownloadedContentEntity
+): PlayerModel {
+    val contentUrl = entity.contentUrl?.takeIf { it.isNotBlank() }
+    val mimeType = entity.contentMimeType.orEmpty()
+    val licenseUri = entity.licenseUri?.takeIf { it.isNotBlank() }
+    val offlineKeySetBase64 = entity.drmOfflineKeySetIdBase64?.takeIf { it.isNotBlank() }
+    val isDrm = licenseUri != null ||
+        offlineKeySetBase64 != null ||
+        entity.drmOfflineKeySetId?.isNotEmpty() == true
+
+    return PlayerModel(
+        id = entity.contentId,
+        hlsUrl = contentUrl?.takeIf {
+            mimeType == "application/x-mpegURL" ||
+                it.endsWith(".m3u8", ignoreCase = true)
+        },
+        mpdUrl = contentUrl?.takeIf {
+            mimeType == "application/dash+xml" ||
+                it.endsWith(".mpd", ignoreCase = true)
+        },
+        videoUrl = contentUrl?.takeIf {
+            mimeType == "video/mp4" ||
+                it.endsWith(".mp4", ignoreCase = true) ||
+                it.endsWith(".m4v", ignoreCase = true)
+        },
+        drm = if (isDrm) "1" else null,
+        drmToken = licenseUri,
+        imageUrl = entity.thumbnailUrl ?: entity.seasonImage,
+        title = entity.title,
+        episodeTitle = entity.title,
+        seasonTitle = entity.seasonName,
+        selectedVideoQuality = entity.videoHeight ?: 1080,
+        isLive = false,
+        downloadManager = DownloadUtil.getDownloadManager(context),
+        downloadCache = DownloadUtil.getDownloadCache(context),
+        drmOfflineKeySetId = entity.drmOfflineKeySetId,
+        drmOfflineKeySetIdBase64 = offlineKeySetBase64
+    )
+}
+```
+
+Then open the downloaded item with the same SDK entry point:
+
+```kotlin
+MtvVideoPlayerSdk(
+    contentList = listOf(buildDownloadedPlayerModel(context, entity)),
+    index = 0,
+    playerMode = PlayerMode.FULL_SCREEN
+)
+```
+
+For DRM MPD/DASH offline playback, the player restores the offline license from `DownloadRequest.keySetId`, `drmOfflineKeySetId`, or `drmOfflineKeySetIdBase64`. The offline MPD media item should not need a fresh online license while the device is offline.
+
+## 7. Subtitles, Settings, Speed, And Quality
 
 Pass subtitle URL:
 
@@ -208,7 +285,7 @@ The SDK owns settings selection state internally. Host apps do not need to pass 
 
 Selections remain visually checked while the same player/content-detail session and media source are alive. They reset when the player page is disposed or the media source changes.
 
-## 7. Skip Intro, Next Episode, And Chapters
+## 8. Skip Intro, Next Episode, And Chapters
 
 ```kotlin
 PlayerModel(
@@ -230,7 +307,7 @@ PlayerModel(
 )
 ```
 
-## 8. Ads
+## 9. Ads
 
 IMA / VMAP:
 
@@ -260,7 +337,7 @@ PlayerModel(
 
 The host app must provide valid ad ids and reachable ad tags.
 
-## 9. Custom Controls
+## 10. Custom Controls
 
 ```kotlin
 PlayerModel(
@@ -284,7 +361,7 @@ If `castConnectedIconRes` is omitted, the SDK switches to its built-in connected
 
 Use vector drawables or density-safe raster assets.
 
-## 10. Callbacks And Observability
+## 11. Callbacks And Observability
 
 Use `PlayerStateListener` for host analytics and UI updates:
 
@@ -315,7 +392,7 @@ PlayerConfig(
 
 SDK logs are default-off and redact sensitive media/ad/DRM values.
 
-## 11. Programmatic Control
+## 12. Programmatic Control
 
 Create a stable `PlayerController` with `remember` and pass it to the SDK:
 
@@ -336,10 +413,11 @@ controller.toggleMute()
 controller.play(nextVideo)
 ```
 
-## 12. Integration Rules
+## 13. Integration Rules
 
 - Do not edit SDK internals in the host app.
 - Do not copy SDK source files into the host app.
+- Do not use `README.md` as the app integration guide.
 - Do not rely on undocumented composables or internal state.
 - Keep `PlayerController` stable with `remember`.
 - Keep `contentList` and `index` stable for the active detail page.
@@ -347,13 +425,15 @@ controller.play(nextVideo)
 - Use `PlayerStateListener` callbacks for host analytics.
 - Use the exact SDK version tag provided by the SDK owner.
 
-## 13. Smoke Test Checklist
+## 14. Smoke Test Checklist
 
 Before release, test:
 
 - HLS playback.
 - DASH playback if used.
 - DRM playback if used.
+- Downloaded HLS/MP4 playback if the app uses downloads.
+- Downloaded DRM MPD/DASH playback in airplane mode after keySetId is saved.
 - Fullscreen enter/exit.
 - PiP enter/exit if enabled.
 - Settings reopen: audio, caption, speed, and quality selected rows stay checked.

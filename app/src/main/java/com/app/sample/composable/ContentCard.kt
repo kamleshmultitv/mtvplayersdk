@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.app.mtvdownloader.entity.DownloadEntity
+import com.app.mtvdownloader.local.entity.DownloadedContentEntity
 import com.app.mtvdownloader.ui.DownloadButton
 import com.app.mtvdownloader.provider.DownloadIconProvider
 import com.app.mtvdownloader.utils.Constants.DOWNLOAD_STATUS_COMPLETED
@@ -22,6 +22,7 @@ import com.app.mtvdownloader.utils.Constants.DOWNLOAD_STATUS_DOWNLOADING
 import com.app.mtvdownloader.utils.Constants.DOWNLOAD_STATUS_PAUSED
 import com.app.mtvdownloader.utils.Constants.DOWNLOAD_STATUS_QUEUED
 import com.app.sample.R
+import com.app.sample.download.SampleDownloadMonetization
 import com.app.sample.model.ContentItem
 import com.app.sample.utils.FileUtils.buildDownloadContentList
 
@@ -29,7 +30,7 @@ import com.app.sample.utils.FileUtils.buildDownloadContentList
 fun ContentCard(
     content: ContentItem?,
     playContent: () -> Unit,
-    downloadContentList: (List<DownloadEntity>) -> Unit
+    downloadContentList: (List<DownloadedContentEntity>) -> Unit
 ) {
     val context = LocalContext.current
 
@@ -83,6 +84,7 @@ fun ContentCard(
                         R.drawable.ic_download
                 }
             },
+            monetizationGate = SampleDownloadMonetization,
             onDownloadedListUpdate = { list ->
                 downloadContentList(list)
             }

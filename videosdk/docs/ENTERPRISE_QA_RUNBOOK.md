@@ -9,10 +9,10 @@ Use it before any large customer release, pilot, or tagged SDK version.
 The SDK is not enterprise-release-ready until:
 
 - `scripts/enterprise_qa_gates.sh` passes.
-- `SDK_QA_MATRIX.md` has recorded device results.
+- `videosdk/docs/QA_MATRIX.md` has recorded device results.
 - `scripts/device_log_redaction_check.sh` passes after SDK DEBUG logs are enabled and playback is exercised.
 - Customer demo profile checks pass for the target package.
-- `SDK_ENTERPRISE_RELEASE_READINESS.md` is updated from `NOT_READY_FOR_ENTERPRISE_RELEASE` only after QA evidence is recorded.
+- `videosdk/docs/ENTERPRISE_RELEASE_READINESS.md` is updated from `NOT_READY_FOR_ENTERPRISE_RELEASE` only after QA evidence is recorded.
 
 ## 1. Automated Gates
 
@@ -112,7 +112,7 @@ Run in this order so failures are easier to isolate:
 10. Ads.
 11. Analytics, diagnostics, and logging redaction.
 
-Record every result in `SDK_QA_MATRIX.md`.
+Record every result in `videosdk/docs/QA_MATRIX.md`.
 
 ## 5. Evidence Format
 
@@ -134,7 +134,7 @@ Retest result:
 
 ## 6. Customer Profile Validation
 
-Use `SDK_CUSTOMER_DEMO_PROFILES.md` to choose a profile:
+Use `videosdk/docs/CUSTOMER_DEMO_PROFILES.md` to choose a profile:
 
 - OTT premium VOD.
 - Enterprise DRM and offline.

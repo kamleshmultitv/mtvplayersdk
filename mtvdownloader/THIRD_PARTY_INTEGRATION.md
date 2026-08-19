@@ -1,8 +1,10 @@
-# Download SDK Implementation Guide
+# MTV Downloader SDK Third-Party Integration Guide
 
 This guide is for a third-party Android app that wants to add MTV Downloader SDK support for HLS, MPD/DASH, MP4, and DRM download flows.
 
 The SDK handles queueing, Media3 downloads, foreground notifications, progress, pause, resume, cancel, quality selection, Room state, and downloaded-list callbacks. The host app is responsible for passing correct content metadata and playing downloaded content with its player.
+
+For VideoPlayer SDK implementation in a third-party app, follow `../videosdk/THIRD_PARTY_INTEGRATION.md`. For a combined main-app migration using both Downloader SDK and VideoPlayer SDK, follow `../app/main-application-full-change-guide.md`.
 
 ## Requirements
 
@@ -484,9 +486,10 @@ private fun DownloadedContentEntity.urlIf(
     mimeType: String,
     vararg extensions: String
 ): String? {
-    if (contentMimeType == mimeType) return contentUrl
-    val path = contentUrl.substringBefore("?").substringBefore("#")
-    return contentUrl.takeIf {
+    val sourceUrl = contentUrl?.takeIf { it.isNotBlank() } ?: return null
+    if (contentMimeType == mimeType) return sourceUrl
+    val path = sourceUrl.substringBefore("?").substringBefore("#")
+    return sourceUrl.takeIf {
         extensions.any { extension ->
             path.endsWith(extension, ignoreCase = true)
         }
@@ -497,13 +500,19 @@ fun buildOfflinePlayerModel(
     context: Context,
     entity: DownloadedContentEntity
 ): PlayerModel {
+    val licenseUri = entity.licenseUri?.takeIf { it.isNotBlank() }
+    val offlineKeySetBase64 = entity.drmOfflineKeySetIdBase64?.takeIf { it.isNotBlank() }
+    val isDrm = licenseUri != null ||
+        offlineKeySetBase64 != null ||
+        entity.drmOfflineKeySetId?.isNotEmpty() == true
+
     return PlayerModel(
         id = entity.contentId,
         hlsUrl = entity.urlIf("application/x-mpegURL", ".m3u8"),
         mpdUrl = entity.urlIf("application/dash+xml", ".mpd"),
         videoUrl = entity.urlIf("video/mp4", ".mp4", ".m4v"),
-        drm = if (entity.licenseUri.isNotBlank()) "1" else null,
-        drmToken = entity.licenseUri.takeIf { it.isNotBlank() },
+        drm = if (isDrm) "1" else null,
+        drmToken = licenseUri,
         imageUrl = entity.thumbnailUrl ?: entity.seasonImage,
         title = entity.title,
         episodeTitle = entity.title,
@@ -513,7 +522,7 @@ fun buildOfflinePlayerModel(
         downloadManager = DownloadUtil.getDownloadManager(context),
         downloadCache = DownloadUtil.getDownloadCache(context),
         drmOfflineKeySetId = entity.drmOfflineKeySetId,
-        drmOfflineKeySetIdBase64 = entity.drmOfflineKeySetIdBase64
+        drmOfflineKeySetIdBase64 = offlineKeySetBase64
     )
 }
 ```

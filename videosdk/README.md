@@ -1,266 +1,112 @@
-# 🎬 Mtv Video Player SDK (Android)
+# VideoPlayer SDK Module
 
-A modern **Android Video Player SDK** built with **Media3** and **Jetpack Compose**, designed for high‑performance video playback, reels, and feed‑based experiences.
+This is the source-level README for the `videosdk` module.
 
----
+App teams should use `THIRD_PARTY_INTEGRATION.md`. SDK maintainers should use this file plus `PUBLIC_API.md` and the maintenance docs under `docs/`.
 
-## ✨ Features
+## Which Guide To Use
 
-* ▶️ HLS & DASH playback
-* 🔐 Widevine DRM support
-* 🎨 Jetpack Compose–based UI
-* 🪟 Picture‑in‑Picture (PiP)
-* 🔳 Fullscreen playback
-* 📝 Subtitles (SRT)
-* ⏩ Playback speed & quality selection
-* IMA ads
-* Dynamic OTT age-rating overlay sourced from the video API model
+| Need | File |
+| --- | --- |
+| Third-party app wants to add VideoPlayer SDK | `THIRD_PARTY_INTEGRATION.md` |
+| Developer or coding agent is implementing the player in a host app | `THIRD_PARTY_INTEGRATION.md` |
+| App needs Downloader SDK only | `../mtvdownloader/THIRD_PARTY_INTEGRATION.md` |
+| App needs Downloader SDK plus VideoPlayer offline playback | `../app/main-application-full-change-guide.md` |
+| Public API compatibility rules | `PUBLIC_API.md` |
+| VideoPlayer SDK source rules | This file |
 
----
+Do not copy SDK internals into a host app. Host apps should depend on the published SDK or a local `:videosdk` module while testing SDK source changes.
 
-## 📦 Installation
+## Public Offline Contract
 
-### 1. Add JitPack Repository
-
-In your **project‑level `settings.gradle` or `build.gradle`**:
-
-```gradle
-repositories {
-    maven { url "https://jitpack.io" }
-}
-```
-
-### 2. Add SDK Dependency
-
-```gradle
-dependencies {
-    implementation "com.github.kamleshmultitv:mtvplayersdk:mobile-1.0.42"
-}
-```
-
----
-
-## ⚙️ Android Setup (Required)
-
-### Permissions
-
-Add in **AndroidManifest.xml**:
-
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-```
-
-### Enable Picture‑in‑Picture
-
-```xml
-<activity
-    android:name=".MainActivity"
-    android:supportsPictureInPicture="true"
-    android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
-```
-
----
-
-## 🎨 Jetpack Compose Setup
-
-```gradle
-android {
-    buildFeatures {
-        compose true
-    }
- 
-}
-```
-
-## ⚠️ Required for IMA Ads support
-
-If you use Ads (IMA), enable core library desugaring in your app level gradle:
-```gradle
-compileOptions {
-coreLibraryDesugaringEnabled true
-}
-
-dependencies {
-coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
-}
-
-```
-
----
-
-## 🧩 SDK Composable API
+`PlayerModel` must keep these downloader/offline fields:
 
 ```kotlin
-@OptIn(UnstableApi::class)
-@Composable
-fun MtvVideoPlayerSdk(
-    contentList: List<PlayerModel>? = null,
-    index: Int? = 0,
-    pipListener: PipListener? = null,
-    onPlayerBack: (Boolean) -> Unit,
-    setFullScreen: (Boolean) -> Unit
-)
+val cacheFactory: CacheDataSource.Factory?
+val downloadManager: DownloadManager?
+val downloadCache: SimpleCache?
+val drmOfflineKeySetId: ByteArray?
+val drmOfflineKeySetIdBase64: String?
 ```
 
----
+The host app passes these fields only for downloaded playback. For downloaded DRM MPD/DASH, the key set is the saved Widevine offline license handle.
 
-## 📦 PlayerModel
+## Source Resolution
+
+Online playback should keep this order:
+
+1. If `drm == "1"` and `mpdUrl` exists, play `mpdUrl` as Widevine DASH.
+2. If `drm != "1"` and `hlsUrl` exists, play `hlsUrl`.
+3. If `liveUrl` exists, play `liveUrl`.
+4. If `videoUrl` exists, play `videoUrl`.
+
+Do not force `drm = "1"` for normal HLS/API-list playback. Set it only when the player should choose MPD/DASH DRM.
+
+For online DRM, build Media3 DRM config with:
 
 ```kotlin
-data class PlayerModel(
-    val id: String? = null,
-    val title: String? = null,
-    val videoUrl: String? = null,
-    val thumbnail: String? = null,
-    val ageRating: String? = null,
-    val contentRating: String? = null, // supported backend alias
-    val hlsUrl: String? = null,
-    val mpdUrl: String? = null,
-    val liveUrl: String? = null,
-    val drmToken: String? = null,
-    val imageUrl: String? = null,
-    val title: String? = null,
-    val description: String? = null,
-    val seasonTitle: String? = null,
-    val seasonDescription: String? = null,
-    val srt: String? = null,
-    val spriteUrl: String? = null,
-    val playbackSpeed: Float = 1.0f,
-    val selectedSubtitle: String? = null,
-    val selectedVideoQuality: Int = 1080,
-    val isLive: Boolean = false,
-    val adsConfig: AdsConfig? = null,
-    val cuePoints: List<CuePoint> = emptyList()
-)
+MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+    .setLicenseUri(drmToken)
+    .setForceDefaultLicenseUri(true)
+    .setMultiSession(true)
+    .build()
 ```
 
-The SDK displays `ageRating` exactly as received. If it is blank or absent,
-`contentRating` is checked as the alternate API field. If neither contains text,
-no badge is rendered. There is no default rating and no rating mapping.
+## Downloaded Playback
 
----
-
-## ▶️ SDK Usage (Compose)
-
-Use `MtvVideoPlayerSdk` to play videos using a content list with full control over PiP, fullscreen, and navigation.
-
-### Example Usage
+Before creating the media item, check for a completed Media3 download using `PlayerModel.id`:
 
 ```kotlin
-MtvVideoPlayerSdk(
-    contentList = contentList,
-    index = selectedIndex.intValue,
-    pipListener = pipListener,
-    onPlayerBack = { /* handle back */ },
-    setFullScreen = { isFullscreen ->
-        // handle fullscreen change
-    }
-)
+val download = content.downloadManager
+    ?.downloadIndex
+    ?.getDownload(content.id.toString())
+
+val completedDownload = download?.takeIf { it.state == Download.STATE_COMPLETED }
 ```
 
-To replace the active video imperatively, pass a `PlayerController` to the composable:
+If a completed download exists:
+
+- Use app-provided `downloadCache` or `cacheFactory`.
+- Use `CacheDataSource.FLAG_BLOCK_ON_CACHE`.
+- For HLS and MP4 downloads, use `completedDownload.request.toMediaItem()`.
+- For DRM MPD/DASH downloads, rebuild the media item with the offline Widevine key set.
+
+Offline DRM key set restore order:
+
+1. `completedDownload.request.keySetId`
+2. `content.drmOfflineKeySetId`
+3. Base64-decoded `content.drmOfflineKeySetIdBase64`
+
+For offline DRM MPD/DASH:
 
 ```kotlin
-val player = remember { PlayerController() }
-
-MtvVideoPlayerSdk(
-    controller = player,
-    onPlayerBack = {},
-    setFullScreen = {}
-)
-
-player.play(
-    PlayerModel(
-        id = apiVideo.id,
-        title = apiVideo.title,
-        videoUrl = apiVideo.videoUrl,
-        thumbnail = apiVideo.thumbnail,
-        ageRating = apiVideo.ageRating
-    )
-)
+MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+    .setKeySetId(keySetId)
+    .build()
 ```
 
-### XML / View usage
+Do not set the online license URL as the offline fallback inside this offline media item. True offline playback must use the persisted key set.
 
-```xml
-<com.app.videosdk.ui.MtvVideoPlayerView
-    android:id="@+id/player"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent" />
+## Important Source Files
+
+- `src/main/java/com/app/videosdk/model/PlayerModel.kt`
+- `src/main/java/com/app/videosdk/model/PlayerFeatureResolver.kt`
+- `src/main/java/com/app/videosdk/player/PlayerFactory.kt`
+- `src/main/java/com/app/videosdk/player/PlaybackSourceResolver.kt`
+
+## Acceptance Checks
+
+- Online HLS plays when `drm` is not forced to `"1"`.
+- Online MPD DRM plays with a valid license URL.
+- Downloaded HLS and MP4 play from the Media3 download cache.
+- Downloaded DRM MPD plays offline with a persisted key set.
+- Downloaded DRM MPD still plays after app restart.
+- Airplane-mode playback works for completed non-DRM downloads.
+- Airplane-mode playback works for completed DRM MPD downloads when the key set exists and the license has not expired.
+
+Run:
+
+```bash
+sh gradlew :videosdk:compileDebugKotlin
+sh gradlew :videosdk:testDebugUnitTest
 ```
-
-```kotlin
-binding.player.play(video)
-
-override fun onPictureInPictureModeChanged(inPip: Boolean) {
-    super.onPictureInPictureModeChanged(inPip)
-    binding.player.setInPictureInPictureMode(inPip)
-}
-```
-
-Both player surfaces wait 2.5 seconds after playback starts, reveal the classification
-from left to right, keep it visible for five seconds, collapse it from right to left,
-then restore the content title in the same top-bar slot. The rating and title are never
-shown together. The rating shows again after a replay and is suppressed in PiP. The
-standalone `PlayerAgeRatingOverlay` composable and `PlayerAgeRatingOverlayView` are
-also public for custom player layouts.
-
----
-
-## 🪟 Picture‑in‑Picture
-
-```kotlin
-onEnterPip = {
-    activity.enterPictureInPictureMode()
-}
-```
-
----
-
-## 🧪 Supported Formats
-
-* HLS (`.m3u8`)
-* DASH (`.mpd`)
-* MP4
-* Widevine DRM streams
-
----
-
-## ✅ Requirements
-
-* Android API 24+
-* Kotlin
-* Jetpack Compose
-* Media3
-
----
-
-## 🛡️ Proguard (app-specific)
-
-```proguard
-# App-specific ProGuard rules only
-
-# Keep line numbers for crash reports (optional)
--keepattributes SourceFile,LineNumberTable
-
-# Add app-only rules here if needed
-
-# ================= R8 AUTO-GENERATED MISSING RULES =================
-# Generated by Android Gradle Plugin – safe to keep
-
--dontwarn com.app.videosdk.listener.PipListener
--dontwarn com.app.videosdk.model.PlayerModel
--dontwarn com.app.videosdk.ui.MtvVideoPlayerSdkKt
-```
-
----
-
-## 🤝 Support
-
-* GitHub Issues
-* SDK Support Team
-
----
-
-🚀 **Mtv Video Player SDK** – Built for scalable, high‑performance Android video experiences.

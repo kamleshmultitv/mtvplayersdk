@@ -10,7 +10,7 @@ The sample app was updated in these areas:
 
 | Area | Sample File | What Changed |
 | --- | --- | --- |
-| Downloader SDK dependency | `app/build.gradle.kts` | App uses the local `:mtvdownloader` module for development. Main app should use the JitPack dependency. |
+| Downloader SDK dependency | `app/build.gradle.kts` | App uses the published JitPack downloader dependency. Use the local `:mtvdownloader` module only while developing downloader source changes. |
 | App package for DRM testing | `app/build.gradle.kts` | `applicationId = "com.sspt.aol"` was used for AOL license-server compatibility testing. |
 | App startup | `AppClass.kt` | Calls `DownloadSdk.init()` once with cache size, parallel download count, retry count, and analytics listener. |
 | Runtime permission | `MainActivity.kt` | Calls `NotificationPermission.requestIfRequired(this)` for Android 13+. |
@@ -44,14 +44,14 @@ Add the downloader SDK dependency in the app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.kamleshmultitv:mtvdownloader:download-1.1.0")
+    implementation("com.github.kamleshmultitv:mtvdownloader:download-1.1.1")
 }
 ```
 
 Keep your existing VideoPlayer SDK dependency. If your main app has VideoPlayer SDK source code copied directly, apply the player-side changes from:
 
 ```text
-videoplayer-sdk-handoff.md
+videosdk/README.md
 ```
 
 ## Files Not To Push
@@ -417,13 +417,19 @@ Important fields available in `DownloadedContentEntity`:
 When the user opens a downloaded item, build VideoPlayer SDK `PlayerModel` from `DownloadedContentEntity`.
 
 ```kotlin
+val licenseUri = entity.licenseUri?.takeIf { it.isNotBlank() }
+val offlineKeySetBase64 = entity.drmOfflineKeySetIdBase64?.takeIf { it.isNotBlank() }
+val isDrm = licenseUri != null ||
+    offlineKeySetBase64 != null ||
+    entity.drmOfflineKeySetId?.isNotEmpty() == true
+
 PlayerModel(
     id = entity.contentId,
     hlsUrl = hlsUrlIfDownloadedContentIsHls,
     mpdUrl = mpdUrlIfDownloadedContentIsDash,
     videoUrl = mp4UrlIfDownloadedContentIsMp4,
-    drm = if (entity.licenseUri.isNotBlank()) "1" else null,
-    drmToken = entity.licenseUri.takeIf { it.isNotBlank() },
+    drm = if (isDrm) "1" else null,
+    drmToken = licenseUri,
     imageUrl = entity.thumbnailUrl ?: entity.seasonImage,
     title = entity.title,
     episodeTitle = entity.title,
@@ -433,7 +439,7 @@ PlayerModel(
     downloadManager = DownloadUtil.getDownloadManager(context),
     downloadCache = DownloadUtil.getDownloadCache(context),
     drmOfflineKeySetId = entity.drmOfflineKeySetId,
-    drmOfflineKeySetIdBase64 = entity.drmOfflineKeySetIdBase64
+    drmOfflineKeySetIdBase64 = offlineKeySetBase64
 )
 ```
 
@@ -469,7 +475,7 @@ If your main app has old VideoPlayer SDK source copied into the app, port these 
 See:
 
 ```text
-videoplayer-sdk-handoff.md
+videosdk/README.md
 ```
 
 ## Pause/Resume Rules

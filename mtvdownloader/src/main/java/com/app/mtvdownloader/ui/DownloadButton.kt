@@ -14,6 +14,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import com.app.mtvdownloader.helper.HlsQualityHelper
+import com.app.mtvdownloader.helper.DownloadHelper.handleDownloadClick
 import com.app.mtvdownloader.helper.DownloadHelper.cancelDownload
 import com.app.mtvdownloader.helper.DownloadHelper.pauseDownload
 import com.app.mtvdownloader.helper.DownloadHelper.resumeDownload
@@ -27,6 +28,7 @@ import com.app.mtvdownloader.utils.Constants.DOWNLOAD_STATUS_DOWNLOADING
 import com.app.mtvdownloader.utils.Constants.DOWNLOAD_STATUS_PAUSED
 import com.app.mtvdownloader.utils.Constants.DOWNLOAD_STATUS_QUEUED
 import com.app.mtvdownloader.utils.CustomQualitySelector
+import com.app.mtvdownloader.utils.DownloadSourceResolver
 import com.app.mtvdownloader.viewmodel.DownloadViewModel
 import kotlin.toString
 
@@ -58,8 +60,12 @@ fun DownloadButton(
     val context = LocalContext.current
 
     /* ---------- State ---------- */
-    var qualities by remember(if (contentItem.drm == "1") contentItem.mpdUrl.toString() else contentItem.hlsUrl.toString()) {
+    val qualityUrl = DownloadSourceResolver.qualityUrl(contentItem)
+    var qualities by remember(qualityUrl) {
         mutableStateOf<List<DownloadQuality>>(emptyList())
+    }
+    var qualitiesLoaded by remember(qualityUrl) {
+        mutableStateOf(false)
     }
     var showSelector by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -91,15 +97,22 @@ fun DownloadButton(
             startDownloadWithQuality(context, contentItem, quality)
         }
     }
+    val startDownloadWithoutQuality: () -> Unit = remember(contentItem.contentId) {
+        {
+            handleDownloadClick(context, contentItem)
+        }
+    }
 
     /* ---------- Load qualities ---------- */
     suspend fun loadQualities() {
-        if (qualities.isEmpty() && contentItem.hlsUrl != null && contentItem.mpdUrl != null) {
+        val url = qualityUrl
+        if (url != null && qualities.isEmpty()) {
             qualities = HlsQualityHelper.getHlsQualities(
                 context,
-                if (contentItem.drm == "1") contentItem.mpdUrl else contentItem.hlsUrl
+                url
             )
         }
+        qualitiesLoaded = true
     }
 
     /* ---------- ICON (only change here) ---------- */
@@ -137,6 +150,7 @@ fun DownloadButton(
                     }
 
                     else -> {
+                        qualitiesLoaded = false
                         showSelector = true
                     }
                 }
@@ -191,30 +205,35 @@ fun DownloadButton(
             loadQualities()
         }
 
-        if (qualities.size == 1) {
-            showSelector = false
-            startDownload(qualities.first())
-        } else {
-            customQualitySelector?.invoke(
-                qualities,
-                { quality ->
-                    showSelector = false
-                    startDownload(quality)
-                },
-                {
-                    showSelector = false
-                }
-            ) ?: ShowQualitySelectorDialog(
-                context = context,
-                contentItem = contentItem,
-                onDismiss = {
-                    showSelector = false
-                },
-                onQualitySelected = { quality ->
-                    showSelector = false
-                    startDownload(quality)
-                }
-            )
+        if (qualitiesLoaded) {
+            if (qualities.isEmpty()) {
+                showSelector = false
+                startDownloadWithoutQuality()
+            } else if (qualities.size == 1) {
+                showSelector = false
+                startDownload(qualities.first())
+            } else {
+                customQualitySelector?.invoke(
+                    qualities,
+                    { quality ->
+                        showSelector = false
+                        startDownload(quality)
+                    },
+                    {
+                        showSelector = false
+                    }
+                ) ?: ShowQualitySelectorDialog(
+                    context = context,
+                    contentItem = contentItem,
+                    onDismiss = {
+                        showSelector = false
+                    },
+                    onQualitySelected = { quality ->
+                        showSelector = false
+                        startDownload(quality)
+                    }
+                )
+            }
         }
 
 

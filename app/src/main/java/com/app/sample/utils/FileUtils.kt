@@ -1,15 +1,23 @@
 package com.app.sample.utils
 
 import android.content.Context
+import android.net.Uri
 import android.text.TextUtils
+import android.util.Base64
+import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.paging.compose.LazyPagingItems
-import com.app.mtvdownloader.entity.DownloadEntity
-import com.app.sample.AppClass
+import com.app.mtvdownloader.DownloadUtil
+import com.app.mtvdownloader.local.entity.DownloadedContentEntity
+import com.app.mtvdownloader.model.DownloadModel
+import com.app.mtvdownloader.utils.Constants.DRM_SCHEME_WIDEVINE
 import com.app.sample.BuildConfig.DRM_LICENSE_URL
 import com.app.sample.R
+import com.app.sample.extra.ApiConstant.DRM_AUTHORIZATION_SOURCE
+import com.app.sample.extra.ApiConstant.DRM_PACKAGE_ID
 import com.app.sample.extra.ApiConstant.DRM_TYPE
+import com.app.sample.extra.ApiConstant.DRM_USER_ID
 import com.app.sample.extra.ApiConstant.PAID
 import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.ContentItem
@@ -22,10 +30,10 @@ import com.app.videosdk.model.NextEpisode
 import com.app.videosdk.model.PlayerCustomControls
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.model.SkipIntro
-import okhttp3.internal.platform.PlatformRegistry.applicationContext
 import org.json.JSONObject
 
 object FileUtils {
+    private const val DRM_TAG = "SampleDrmLicense"
     private const val DEMO_AGE_RATING = "U/A 13+"
 
     /* ---------------------------------- */
@@ -44,21 +52,24 @@ object FileUtils {
         }
     }
 
-    private fun getDrmToken(context: Context, contentItems: ContentItem?): String {
-        var accessType = contentItems?.accessType
+    private fun getDrmTokenOrNull(context: Context, contentItems: ContentItem?): String? {
+        if (contentItems?.drm != "1") return null
+        if (contentItems.id.isNullOrBlank() || contentItems.kId.isNullOrBlank()) return null
+
+        var accessType = contentItems.accessType
         accessType = if (accessType.equals(PAID)) "1"
         else "0"
-        val downloadExpiry = if (getSecondFromDays(contentItems?.downloadExpiry) == 0) {
+        val downloadExpiry = if (getSecondFromDays(contentItems.downloadExpiry) == 0) {
             getSecondFromDays("30")
         } else {
-            getSecondFromDays(contentItems?.downloadExpiry)
+            getSecondFromDays(contentItems.downloadExpiry)
         }
 
         val jsonObject = JSONObject()
-        jsonObject.put("content_id", "" + contentItems?.id)
-        jsonObject.put("k_id", "" + contentItems?.kId)
-        jsonObject.put("user_id", "943592")
-        jsonObject.put("package_id", "2")
+        jsonObject.put("content_id", "" + contentItems.id)
+        jsonObject.put("k_id", "" + contentItems.kId)
+        jsonObject.put("user_id", DRM_USER_ID)
+        jsonObject.put("package_id", DRM_PACKAGE_ID)
         jsonObject.put("licence_duration", "" + downloadExpiry)
         jsonObject.put("security_level", "0")
         jsonObject.put("rental_duration", "0")
@@ -67,13 +78,81 @@ object FileUtils {
         jsonObject.put("can_renew", true)
         jsonObject.put("allow_persistent_license", true)
         val androidDeviceUniqueId = GUIDGenerator.generateGUID(context)
+        val payload = ApiEncryptionHelper.convertStringToBase64(jsonObject.toString())
         val drmToken =
-            DRM_LICENSE_URL + "" + "user_id=" + androidDeviceUniqueId + "&type=" + DRM_TYPE + "&" + "authorization=" +
-                    TOKEN + "&payload=" + ApiEncryptionHelper.convertStringToBase64(
-                jsonObject.toString()
-            )
+            DRM_LICENSE_URL.withQuerySeparator() +
+                "user_id=" + androidDeviceUniqueId +
+                "&type=" + DRM_TYPE +
+                "&authorization=" + resolveAuthorizationToken() +
+                "&payload=" + payload
+
+        logDrmLicenseUrlBuilt(
+            drmToken = drmToken,
+            contentId = contentItems.id,
+            kidPresent = true
+        )
 
         return drmToken
+    }
+
+    private fun String.withQuerySeparator(): String =
+        when {
+            endsWith("?") || endsWith("&") -> this
+            contains("?") -> "$this&"
+            else -> "$this?"
+        }
+
+    private fun resolveAuthorizationToken(): String =
+        when (DRM_AUTHORIZATION_SOURCE.lowercase()) {
+            "jwt" -> TOKEN.jwtCandidate()
+            "claim_token" -> TOKEN.jwtCandidate().claimTokenFromJwt() ?: TOKEN.jwtCandidate()
+            "stored" -> TOKEN
+            else -> TOKEN
+        }
+
+    private fun String.jwtCandidate(): String {
+        val token = trim()
+        if (token.isJwt()) return token
+        return token.decodeBase64OrNull()?.takeIf { it.isJwt() } ?: token
+    }
+
+    private fun String.claimTokenFromJwt(): String? {
+        val payload = split(".").getOrNull(1)?.decodeBase64OrNull() ?: return null
+        return runCatching {
+            JSONObject(payload).optString("token").takeIf { it.isNotBlank() }
+        }.getOrNull()
+    }
+
+    private fun String.isJwt(): Boolean =
+        split(".").size == 3
+
+    private fun String.decodeBase64OrNull(): String? {
+        val token = trim()
+        val flags = listOf(
+            Base64.DEFAULT,
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        )
+
+        return flags.firstNotNullOfOrNull { flag ->
+            runCatching {
+                String(Base64.decode(token, flag), Charsets.UTF_8)
+            }.getOrNull()
+        }
+    }
+
+    private fun logDrmLicenseUrlBuilt(
+        drmToken: String,
+        contentId: String?,
+        kidPresent: Boolean
+    ) {
+        val uri = Uri.parse(drmToken)
+        Log.d(
+            DRM_TAG,
+            "DRM_LICENSE_URL_BUILT tokenSource=$DRM_AUTHORIZATION_SOURCE " +
+                "payloadSource=content packageSource=constant contentId=$contentId " +
+                "kidPresent=$kidPresent host=${uri.host} path=${uri.path} " +
+                "queryKeys=${uri.queryParameterNames.joinToString()}"
+        )
     }
 
     /* ---------------------------------- */
@@ -175,18 +254,20 @@ object FileUtils {
 
         val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
         val mpd = content.url?.takeIf { it.isNotBlank() }
-        if (hls == null && mpd == null) return null
+        val direct = content.source.asDirectVideoUrl()
+        if (hls == null && mpd == null && direct == null) return null
 
         return PlayerModel(
             id = content.id.orEmpty(),
             ageRating = content.ageRating?.takeIf { it.isNotBlank() } ?: DEMO_AGE_RATING,
             hlsUrl = hls,
             mpdUrl = mpd,
+            videoUrl = direct,
             liveUrl = null,
             isLive = false,
 
-            drm = content.drm,
-            drmToken = getDrmToken(context, content),
+            drm = null,
+            drmToken = getDrmTokenOrNull(context, content),
 
             imageUrl = content.layoutThumbs
                 ?.firstOrNull()
@@ -272,33 +353,53 @@ object FileUtils {
 
     @OptIn(UnstableApi::class)
     fun buildContentListFromDownloaded(
-        downloadedContentEntity: DownloadEntity
+        downloadedContentEntity: DownloadedContentEntity,
+        context: Context
     ): List<PlayerModel> {
+        val contentUrl = downloadedContentEntity.contentUrl.takeIf { it.isNotBlank() }
+        val contentMimeType = downloadedContentEntity.contentMimeType.orEmpty()
+        val hlsUrl = contentUrl?.takeIf {
+            contentMimeType == "application/x-mpegURL" ||
+                it.endsWith(".m3u8", ignoreCase = true)
+        }
+        val mpdUrl = contentUrl?.takeIf {
+            contentMimeType == "application/dash+xml" ||
+                it.endsWith(".mpd", ignoreCase = true)
+        }
+        val videoUrl = contentUrl?.takeIf {
+            contentMimeType == "video/mp4" ||
+                it.endsWith(".mp4", ignoreCase = true) ||
+                it.endsWith(".m4v", ignoreCase = true)
+        }
 
-        val downloadCache = (applicationContext as AppClass).downloadCache
-        val cacheFactory = (applicationContext as AppClass).cacheDataSourceFactory
-        val downloadManager = (applicationContext as AppClass).downloadManager
-
-        // ✅ Determine if content is DRM: if licenseUri exists, it's DRM content
-        val isDrm = downloadedContentEntity.drm?.isNotBlank()
+        val offlineKeySetIdBase64 =
+            downloadedContentEntity.drmOfflineKeySetIdBase64?.takeIf { it.isNotBlank() }
+        val isDrm = !downloadedContentEntity.licenseUri.isNullOrBlank() ||
+            !offlineKeySetIdBase64.isNullOrBlank() ||
+            downloadedContentEntity.drmOfflineKeySetId?.isNotEmpty() == true
 
         return listOf(
             PlayerModel(
                 id = downloadedContentEntity.contentId,
                 // ▶️ Playback URL
-                hlsUrl = downloadedContentEntity.hlsUrl,
-                mpdUrl = downloadedContentEntity.mpdUrl,
+                hlsUrl = hlsUrl,
+                mpdUrl = mpdUrl,
+                videoUrl = videoUrl,
 
                 // 🔐 DRM
-                drm = if (isDrm == true) "1" else "0",
-                drmToken = downloadedContentEntity.drmToken,
+                drm = if (isDrm) "1" else null,
+                drmToken = downloadedContentEntity.licenseUri.takeIf { isDrm },
+                drmOfflineKeySetId = downloadedContentEntity.drmOfflineKeySetId,
+                drmOfflineKeySetIdBase64 = offlineKeySetIdBase64,
 
                 // 🖼️ Artwork
-                imageUrl = downloadedContentEntity.imageUrl
-                    ?: downloadedContentEntity.seasonBanner,
+                imageUrl = downloadedContentEntity.thumbnailUrl
+                    ?: downloadedContentEntity.seasonImage,
 
                 // 📝 Metadata
                 episodeTitle = downloadedContentEntity.title.orEmpty(),
+                title = downloadedContentEntity.title,
+                seasonTitle = downloadedContentEntity.seasonName,
                 ageRating = DEMO_AGE_RATING,
 
                 // 🎞️ Quality preference (fallback to 1080)
@@ -306,9 +407,8 @@ object FileUtils {
 
                 // 📡 Downloaded content is NOT live
                 isLive = false,
-                cacheFactory = cacheFactory,
-                downloadManager = downloadManager,
-                downloadCache = downloadCache,
+                downloadManager = DownloadUtil.getDownloadManager(context),
+                downloadCache = DownloadUtil.getDownloadCache(context),
                 customControls = defaultControls()
             )
         )
@@ -317,23 +417,28 @@ object FileUtils {
     fun buildDownloadContentList(
         context: Context,
         contentItem: ContentItem?
-    ): DownloadEntity? {
+    ): DownloadModel? {
 
         if (contentItem == null) return null
 
         val hlsUrl = contentItem.hlsUrl?.takeIf { it.isNotBlank() }
         val mpdUrl = contentItem.url?.takeIf { it.isNotBlank() }
+        val directVideoUrl = contentItem.source.asDirectVideoUrl()
 
         // Skip if no playable URL is available
-        if (hlsUrl == null && mpdUrl == null) return null
+        if (hlsUrl == null && mpdUrl == null && directVideoUrl == null) return null
 
-        return DownloadEntity(
-            contentId = contentItem.id.orEmpty(),
+        return DownloadModel(
+            id = contentItem.id.orEmpty(),
             seasonId = contentItem.seasonId.orEmpty(),
             hlsUrl = hlsUrl,
             mpdUrl = mpdUrl,
-            drm = contentItem.drm,
-            drmToken = getDrmToken(context, contentItem),
+            drm = contentItem.drm.takeIf { it == "1" },
+            drmToken = getDrmTokenOrNull(context, contentItem),
+            mp4Url = directVideoUrl,
+            drmLicenseExpiresAt = contentItem.drmLicenseExpiresAtOrNull(),
+            drmKeyId = contentItem.kId,
+            drmScheme = DRM_SCHEME_WIDEVINE,
             imageUrl = contentItem.layoutThumbs
                 ?.firstOrNull()
                 ?.imageSize
@@ -348,5 +453,23 @@ object FileUtils {
                 ?.srt
                 .orEmpty()
         )
+    }
+
+    private fun ContentItem.drmLicenseExpiresAtOrNull(): Long? {
+        if (drm != "1") return null
+
+        val durationSec = getSecondFromDays(downloadExpiry)
+            .takeIf { it > 0 }
+            ?: getSecondFromDays("30")
+
+        return System.currentTimeMillis() + durationSec * 1000L
+    }
+
+    private fun String?.asDirectVideoUrl(): String? {
+        val value = this?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        if (!value.startsWith("http", ignoreCase = true)) return null
+        if (value.contains(".m3u8", ignoreCase = true)) return null
+        if (value.contains(".mpd", ignoreCase = true)) return null
+        return value
     }
 }

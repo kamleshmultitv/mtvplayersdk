@@ -80,7 +80,7 @@ For each release, record:
 
 ## Phase 7 Enterprise Evidence
 
-Complete this before changing `SDK_ENTERPRISE_RELEASE_READINESS.md` to ready.
+Complete this before changing `videosdk/docs/ENTERPRISE_RELEASE_READINESS.md` to ready.
 
 | Evidence | Status | Notes |
 | --- | --- | --- |

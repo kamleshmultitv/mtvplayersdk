@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
-import com.app.mtvdownloader.entity.DownloadEntity
+import com.app.mtvdownloader.local.entity.DownloadedContentEntity
 import com.app.sample.BuildConfig
 import com.app.sample.R
 import com.app.sample.composable.download.DownloadPlayer
@@ -79,11 +79,11 @@ fun ContentBody(
     }
 
     val downloadedContentList = remember {
-        mutableStateListOf<DownloadEntity>()
+        mutableStateListOf<DownloadedContentEntity>()
     }
 
     var showDownloadedList by remember { mutableStateOf(false) }
-    var selectedItem by remember { mutableStateOf<DownloadEntity?>(null) }
+    var selectedItem by remember { mutableStateOf<DownloadedContentEntity?>(null) }
     var showSdkEdgeCases by remember { mutableStateOf(false) }
     var isSdkEdgeCaseFullScreen by remember { mutableStateOf(false) }
     var isSdkEdgeCaseStatusBarSafe by remember { mutableStateOf(true) }

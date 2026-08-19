@@ -1,6 +1,8 @@
 package com.app.mtvdownloader.worker
 
 import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.C
@@ -40,6 +42,7 @@ class DownloadWorker(
 ) : CoroutineWorker(context, params) {
 
     private val TAG = "DownloadWorker"
+    private val persistedKeySetIds = mutableSetOf<String>()
 
     private val dao = DownloadDatabase
         .getInstance(context)
@@ -55,7 +58,8 @@ class DownloadWorker(
 
         Log.d(
             TAG,
-            "InputData contentId=$contentId uri=$contentUri drmLicense=$drmLicenseUri"
+            "InputData contentId=$contentId uri=${contentUri.redactUrlForLog()} " +
+                "drmLicensePresent=${!drmLicenseUri.isNullOrBlank()}"
         )
 
         if (contentUri == null || contentId == null) {
@@ -191,10 +195,21 @@ class DownloadWorker(
             )
 
             if (download.request.keySetId != null) {
+                val encodedKeySetId =
+                    Base64.encodeToString(download.request.keySetId, Base64.NO_WRAP)
                 Log.d(
                     TAG,
                     "Worker sees keySetId size=${download.request.keySetId!!.size}"
                 )
+                if (persistedKeySetIds.add(contentId)) {
+                    withContext(Dispatchers.IO) {
+                        dao.updateDrmKeySetId(contentId, encodedKeySetId)
+                    }
+                    Log.d(
+                        TAG,
+                        "DRM_OFFLINE_LICENSE_SUCCESS contentId=$contentId keySetBytes=${download.request.keySetId!!.size}"
+                    )
+                }
             }
 
             when (download.state) {
@@ -267,5 +282,24 @@ class DownloadWorker(
 
         Log.e(TAG, "Worker cancelled")
         return Result.failure()
+    }
+
+    private fun String?.redactUrlForLog(): String {
+        val raw = this?.trim().orEmpty()
+        if (raw.isBlank()) return "null"
+
+        return runCatching {
+            val uri = Uri.parse(raw)
+            val scheme = uri.scheme
+            val host = uri.host
+            val lastPathSegment = uri.lastPathSegment ?: "media"
+            val hasQuery = !uri.encodedQuery.isNullOrBlank()
+
+            if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+                "$scheme://$host/.../$lastPathSegment${if (hasQuery) "?<redacted>" else ""}"
+            } else {
+                raw.substringBefore("?") + if (raw.contains("?")) "?<redacted>" else ""
+            }
+        }.getOrDefault("<redacted>")
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import com.app.mtvdownloader.helper.HlsQualityHelper
 import com.app.mtvdownloader.entity.DownloadEntity
 import com.app.mtvdownloader.model.DownloadQuality
+import com.app.mtvdownloader.utils.DownloadSourceResolver
 
 @Composable
 fun ShowQualitySelectorDialog(
@@ -28,10 +29,10 @@ fun ShowQualitySelectorDialog(
     var qualities by remember { mutableStateOf<List<DownloadQuality>>(emptyList()) }
 
     LaunchedEffect(Unit) {
-        qualities = HlsQualityHelper.getHlsQualities(
-            context,
-            if (contentItem.drm == "1") contentItem.mpdUrl.toString() else contentItem.hlsUrl.toString()
-        )
+        val qualityUrl = DownloadSourceResolver.qualityUrl(contentItem)
+        if (qualityUrl != null) {
+            qualities = HlsQualityHelper.getHlsQualities(context, qualityUrl)
+        }
     }
 
     AlertDialog(

@@ -1,42 +1,54 @@
 package com.app.sample
 
 import android.app.Application
+import android.util.Log
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.cache.CacheDataSource
-import androidx.media3.datasource.cache.SimpleCache
-import com.app.mtvdownloader.DownloadUtil
-import com.app.mtvdownloader.DownloadUtil.getDownloadManager
-import androidx.media3.exoplayer.offline.DownloadManager
-import com.app.mtvdownloader.DownloadUtil.getDownloadCache
+import com.app.mtvdownloader.init.DownloadSdk
+import com.app.mtvdownloader.model.DownloadAnalyticsListener
+import com.app.mtvdownloader.model.DownloadModel
+import com.app.mtvdownloader.model.DownloadSdkConfig
 import com.google.android.gms.ads.MobileAds
 
 @UnstableApi
 class AppClass : Application() {
-
-    lateinit var cacheDataSourceFactory: CacheDataSource.Factory
-        private set
-
-    lateinit var downloadManager: DownloadManager
-        private set
-
-    lateinit var downloadCache: SimpleCache
-        private set
-
     override fun onCreate() {
         super.onCreate()
-
         MobileAds.initialize(this)
-        // ✅ INIT DOWNLOAD MANAGER SAFELY
-        downloadManager = getDownloadManager(this)
-        downloadCache = getDownloadCache(this)
+        DownloadSdk.init(
+            application = this,
+            config = DownloadSdkConfig(
+                maxCacheBytes = 1024L * 1024L * 1024L,
+                maxParallelDownloads = 1,
+                minRetryCount = 3
+            ),
+            analyticsListener = object : DownloadAnalyticsListener {
+                override fun onDownloadRequested(contentItem: DownloadModel) {
+                    Log.d("DownloadAnalytics", "Requested: ${contentItem.id}")
+                }
 
-        // ✅ INIT CACHE FACTORY
-        cacheDataSourceFactory =
-            CacheDataSource.Factory()
-                .setCache(getDownloadCache(this))
-                .setUpstreamDataSourceFactory(
-                    DownloadUtil.getDataSourceFactory(this)
-                )
-                .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+                override fun onMonetizationAllowed(contentItem: DownloadModel) {
+                    Log.d("DownloadAnalytics", "Allowed: ${contentItem.id}")
+                }
+
+                override fun onMonetizationBlocked(contentItem: DownloadModel) {
+                    Log.d("DownloadAnalytics", "Blocked: ${contentItem.id}")
+                }
+
+                override fun onDownloadCompleted(contentId: String) {
+                    Log.d("DownloadAnalytics", "Completed: $contentId")
+                }
+
+                override fun onDownloadFailed(
+                    contentId: String,
+                    errorCode: String?,
+                    errorMessage: String?
+                ) {
+                    Log.d(
+                        "DownloadAnalytics",
+                        "Failed: $contentId code=$errorCode message=$errorMessage"
+                    )
+                }
+            }
+        )
     }
 }

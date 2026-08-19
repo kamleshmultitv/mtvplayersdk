@@ -44,7 +44,9 @@ These APIs are treated as app-facing and should remain source-compatible across 
 - timed actions: `skipIntro`, `nextEpisode`, `chapters`
 - monetization: `adsConfig`, `gamAdsConfig`
 - UI customization: `customControls`
-- offline playback internals: `cacheFactory`, `downloadManager`, `downloadCache`
+- offline playback internals: `cacheFactory`, `downloadManager`, `downloadCache`, `drmOfflineKeySetId`, `drmOfflineKeySetIdBase64`
+
+For downloaded DRM MPD/DASH playback, host apps pass the same Media3 download cache objects used by their downloader layer and pass the persisted Widevine offline key set through `drmOfflineKeySetId` or `drmOfflineKeySetIdBase64`.
 
 `PlayerCustomControls.castConnectedIconRes` can be supplied when the host app wants a custom connected Cast icon. If it is omitted, the SDK uses its built-in connected Cast icon.
 
@@ -71,7 +73,7 @@ Available tiers:
 
 `PlayerMonetizationPackage.AD_SUPPORTED` enables ad package gates when combined with `PlayerAdsConfig` and content ad fields.
 
-Detailed package requirements are documented in `SDK_FEATURE_PACKAGES.md`.
+Detailed package requirements are documented in `videosdk/docs/FEATURE_PACKAGES.md`.
 
 ## Autoplay Defaults
 
@@ -108,7 +110,7 @@ PlayerConfig(
 - subtitle changed
 - playback speed changed
 
-Detailed observability behavior is documented in `SDK_OBSERVABILITY.md`.
+Detailed observability behavior is documented in `videosdk/docs/OBSERVABILITY.md`.
 
 ## Target Model Split
 
@@ -122,6 +124,14 @@ data class PlaybackSource(
     val liveUrl: String? = null,
     val drm: String? = null,
     val drmToken: String? = null
+)
+
+data class OfflinePlaybackOptions(
+    val cacheFactory: CacheDataSource.Factory? = null,
+    val downloadManager: DownloadManager? = null,
+    val downloadCache: SimpleCache? = null,
+    val drmOfflineKeySetId: ByteArray? = null,
+    val drmOfflineKeySetIdBase64: String? = null
 )
 
 data class PlaybackMetadata(

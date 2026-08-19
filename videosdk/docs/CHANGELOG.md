@@ -41,4 +41,4 @@ All notable Mtv Video Player SDK changes should be recorded here before release.
 - Run `git diff --check`.
 - Run `sh scripts/enterprise_qa_gates.sh` before enterprise release candidates.
 - Run `sh scripts/device_log_redaction_check.sh` after exercising SDK DEBUG logs on a device.
-- Record manual QA results in `SDK_QA_MATRIX.md`.
+- Record manual QA results in `videosdk/docs/QA_MATRIX.md`.

@@ -79,7 +79,7 @@ interface DownloadedContentDao {
     )
     suspend fun getNextQueuedContent(status: String): DownloadEntity?
 
-    // Get DRM keySetId (as ByteArray? if stored as BLOB)
+    // Get DRM keySetId as Base64 text.
     @Query(
         """
         SELECT keySetId FROM downloaded_content
@@ -87,9 +87,9 @@ interface DownloadedContentDao {
         LIMIT 1
         """
     )
-    suspend fun getDrmKeySetId(contentId: String): ByteArray?
+    suspend fun getDrmKeySetId(contentId: String): String?
 
-    // Update DRM keySetId
+    // Update DRM keySetId as Base64 text.
     @Query(
         """
         UPDATE downloaded_content
@@ -99,6 +99,6 @@ interface DownloadedContentDao {
     )
     suspend fun updateDrmKeySetId(
         contentId: String,
-        keySetId: ByteArray?
+        keySetId: String?
     )
 }

@@ -127,7 +127,7 @@ Make the SDK easier and safer for another app to integrate.
   - Compose runtime/ui
   - Media3 common, datasource, exoplayer, and ui
 - Removed the deprecated `package` attribute from the SDK manifest; namespace remains owned by `videosdk/build.gradle.kts`.
-- Added `SDK_PUBLIC_API.md` to define stable entry points, compatibility rules, dependency exposure decisions, and the target `PlayerModel` split.
+- Added `videosdk/PUBLIC_API.md` to define stable entry points, compatibility rules, dependency exposure decisions, and the target `PlayerModel` split.
 - Verified SDK and sample app builds:
   - `sh gradlew :videosdk:compileDebugKotlin`
   - `sh gradlew :app:assembleDebug`
@@ -140,7 +140,7 @@ Make the SDK easier and safer for another app to integrate.
 ### Acceptance Checks
 
 - `COMPLETED`: Host apps no longer inherit `SYSTEM_ALERT_WINDOW` or `WRITE_SETTINGS` from the SDK.
-- `COMPLETED`: Public API surface and target model split are documented in `SDK_PUBLIC_API.md`.
+- `COMPLETED`: Public API surface and target model split are documented in `videosdk/PUBLIC_API.md`.
 - `COMPLETED`: Existing sample app still compiles after Phase 1 work.
 - `COMPLETED`: Breaking changes are avoided in this phase; model split is design-only for now.
 
@@ -290,8 +290,8 @@ Turn SDK capabilities into clear value tiers that can be sold or enabled per cus
 - Gated Cast creation and Cast UI so lower tiers do not silently create Cast sessions.
 - Gated PiP, fullscreen, settings, skip intro, next episode, episode selector, chapters, sprite thumbnails, custom controls, DRM, offline handles, deep-link clips, watermark, age rating, free preview, IMA/VMAP ads, GAM banners, and L-shape ad behavior.
 - Kept `PlayerFeatureTier.LEGACY_COMPAT` as the default so existing apps retain current behavior.
-- Added `SDK_FEATURE_PACKAGES.md` with tier descriptions, required fields, and Kotlin config examples.
-- Updated `SDK_PUBLIC_API.md` with the new public package configuration surface.
+- Added `videosdk/docs/FEATURE_PACKAGES.md` with tier descriptions, required fields, and Kotlin config examples.
+- Updated `videosdk/PUBLIC_API.md` with the new public package configuration surface.
 - Verified SDK and sample app builds:
   - `sh gradlew :videosdk:compileDebugKotlin`
   - `sh gradlew :app:assembleDebug`
@@ -302,7 +302,7 @@ Turn SDK capabilities into clear value tiers that can be sold or enabled per cus
 
 ### Acceptance Checks
 
-- `COMPLETED`: A customer can understand what they get in each tier through `SDK_FEATURE_PACKAGES.md`.
+- `COMPLETED`: A customer can understand what they get in each tier through `videosdk/docs/FEATURE_PACKAGES.md`.
 - `COMPLETED`: Optional features are gated before playback setup and UI rendering.
 - `COMPLETED`: Premium and enterprise features have documented required fields.
 - `COMPLETED`: Existing integrations keep legacy behavior by default.
@@ -359,8 +359,8 @@ Give host apps enough events to measure SDK value and diagnose issues.
 - Wired diagnostics for player errors, Cast failures, track availability, settings-gate issues, and playback recovery actions.
 - Replaced direct SDK logs with `SdkLogger` in player factory, Cast, track selection, sprite loading, clip export, GAM banners, player event observer, and main player setup paths.
 - Added redaction for URLs, query strings, DRM/license tokens, ad tag URLs, and sensitive diagnostic attributes.
-- Added `SDK_OBSERVABILITY.md` with configuration examples and event coverage.
-- Updated `SDK_PUBLIC_API.md` with the new observability API surface.
+- Added `videosdk/docs/OBSERVABILITY.md` with configuration examples and event coverage.
+- Updated `videosdk/PUBLIC_API.md` with the new observability API surface.
 - Verified SDK and sample app builds:
   - `sh gradlew :videosdk:compileDebugKotlin`
   - `sh gradlew :app:assembleDebug`
@@ -409,11 +409,11 @@ Make the SDK customer-ready.
 ### Completed in Phase 6
 
 - Updated `README.md` with current API, feature package, observability, migration, development, and release-document links.
-- Added `SDK_HOST_APP_INTEGRATION.md` as the direct guide for Codex or a developer integrating the SDK into a third-party host app.
-- Added `SDK_INTEGRATION_GUIDE.md` with DRM, Cast, PiP, offline playback, ads, and custom-control setup.
-- Added `SDK_QA_MATRIX.md` with build gates, sample app coverage, device smoke tests, feature-tier checks, regression watchlist, and release evidence fields.
-- Added `SDK_RELEASE_CHECKLIST.md` with versioning, build, documentation, compatibility, smoke-test, logging/privacy, tagging, and post-release checks.
-- Added `CHANGELOG.md` with unreleased release notes and pre-tag verification reminders.
+- Consolidated host-app integration into `videosdk/THIRD_PARTY_INTEGRATION.md`.
+- Consolidated SDK-source DRM/offline playback notes into `videosdk/README.md`.
+- Added `videosdk/docs/QA_MATRIX.md` with build gates, sample app coverage, device smoke tests, feature-tier checks, regression watchlist, and release evidence fields.
+- Added `videosdk/docs/RELEASE_CHECKLIST.md` with versioning, build, documentation, compatibility, smoke-test, logging/privacy, tagging, and post-release checks.
+- Added `videosdk/docs/CHANGELOG.md` with unreleased release notes and pre-tag verification reminders.
 - Documented sample app coverage for normal playback, edge cases, multi-episode flows, skip intro, next episode, chapters, PiP wiring, offline playback, and deep-link clips.
 - Verified SDK and sample app builds:
   - `sh gradlew :videosdk:compileDebugKotlin`
@@ -421,9 +421,9 @@ Make the SDK customer-ready.
 
 ### Acceptance Checks
 
-- `COMPLETED`: A new developer can integrate the SDK from `README.md`, `SDK_PUBLIC_API.md`, and `SDK_INTEGRATION_GUIDE.md`.
-- `COMPLETED`: Sample app coverage is documented in `SDK_QA_MATRIX.md`.
-- `COMPLETED`: Every release has a repeatable checklist in `SDK_RELEASE_CHECKLIST.md`.
+- `COMPLETED`: A new developer can integrate the SDK from `README.md`, `videosdk/THIRD_PARTY_INTEGRATION.md`, and `videosdk/PUBLIC_API.md`.
+- `COMPLETED`: Sample app coverage is documented in `videosdk/docs/QA_MATRIX.md`.
+- `COMPLETED`: Every release has a repeatable checklist in `videosdk/docs/RELEASE_CHECKLIST.md`.
 
 ## Phase 7: Enterprise QA Readiness
 
@@ -444,11 +444,11 @@ Make the SDK ready for serious customer validation by defining an enterprise QA 
 ### Completed in Phase 7
 
 - Added `scripts/enterprise_qa_gates.sh` to run SDK compile, sample app build, whitespace checks, sensitive-permission checks, force-unwrap checks, direct-log checks, and readiness-status checks.
-- Added `SDK_ENTERPRISE_QA_RUNBOOK.md` with test-device requirements, stream requirements, manual QA order, evidence format, and release decision rules.
-- Added `SDK_CUSTOMER_DEMO_PROFILES.md` with Basic VOD, Premium OTT UX, Enterprise DRM/offline, Live/linear TV, Spiritual/event, and Ad-supported monetization profiles.
-- Updated `SDK_QA_MATRIX.md` with Phase 7 enterprise evidence fields.
-- Updated `SDK_ENTERPRISE_RELEASE_READINESS.md` so the automated gate script and customer profile validation are required before enterprise release.
-- Updated `README.md`, `SDK_RELEASE_CHECKLIST.md`, and `CHANGELOG.md` to include the Phase 7 assets.
+- Added `videosdk/docs/ENTERPRISE_QA_RUNBOOK.md` with test-device requirements, stream requirements, manual QA order, evidence format, and release decision rules.
+- Added `videosdk/docs/CUSTOMER_DEMO_PROFILES.md` with Basic VOD, Premium OTT UX, Enterprise DRM/offline, Live/linear TV, Spiritual/event, and Ad-supported monetization profiles.
+- Updated `videosdk/docs/QA_MATRIX.md` with Phase 7 enterprise evidence fields.
+- Updated `videosdk/docs/ENTERPRISE_RELEASE_READINESS.md` so the automated gate script and customer profile validation are required before enterprise release.
+- Updated `README.md`, `videosdk/docs/RELEASE_CHECKLIST.md`, and `videosdk/docs/CHANGELOG.md` to include the Phase 7 assets.
 
 ### Acceptance Checks
 
@@ -470,9 +470,9 @@ Make the SDK ready for serious customer validation by defining an enterprise QA 
 | Playback mode drift | `COMPLETED` | PiP, lock, fullscreen, display mode, unlock confirmation, and lock overlay visibility now transition through `PlayerChromeModeState`. |
 | Unbounded playback recovery | `COMPLETED` | `PlayerFactory` uses explicit recovery state, guarded audio fallback, and real online URI fallback for offline DASH DRM gaps. |
 | Unclear paid package boundaries | `COMPLETED` | `PlayerFeatureTier`, `PlayerMonetizationPackage`, and `PlayerFeatureGates` define sellable packages and enforce feature gates internally. |
-| Weak customer observability | `COMPLETED` | Added analytics events, diagnostics events, expanded listener callbacks, and `SDK_OBSERVABILITY.md`. |
+| Weak customer observability | `COMPLETED` | Added analytics events, diagnostics events, expanded listener callbacks, and `videosdk/docs/OBSERVABILITY.md`. |
 | Ad view lifecycle leaks | `COMPLETED` | GAM banner AndroidView release detaches the ad listener and destroys the ad view. |
-| Weak QA coverage | `COMPLETED` | Added `SDK_QA_MATRIX.md` and `SDK_RELEASE_CHECKLIST.md` with build gates, smoke tests, and release evidence. |
+| Weak QA coverage | `COMPLETED` | Added `videosdk/docs/QA_MATRIX.md` and `videosdk/docs/RELEASE_CHECKLIST.md` with build gates, smoke tests, and release evidence. |
 | Enterprise QA process | `COMPLETED` | Added enterprise runbook, customer demo profiles, automated gate script, and release evidence tracking. |
 | Enterprise release readiness | `COMPLETED` | Tester QA passed over five days and device log-redaction verification passed on `RZCY604F6GE`; run profile-specific smoke tests for each named customer rollout. |
 
@@ -497,4 +497,4 @@ Make the SDK ready for serious customer validation by defining an enterprise QA 
 
 ## Immediate Next Action
 
-Prepare the release candidate using `SDK_RELEASE_CHECKLIST.md`, then run a short customer-profile smoke test for each named rollout before sharing the SDK.
+Prepare the release candidate using `videosdk/docs/RELEASE_CHECKLIST.md`, then run a short customer-profile smoke test for each named rollout before sharing the SDK.

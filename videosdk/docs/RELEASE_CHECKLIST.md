@@ -34,17 +34,17 @@ sh scripts/device_log_redaction_check.sh
 Verify these files are current:
 
 - `README.md`
-- `SDK_PUBLIC_API.md`
-- `SDK_HOST_APP_INTEGRATION.md`
-- `SDK_ENTERPRISE_RELEASE_READINESS.md`
-- `SDK_ENTERPRISE_QA_RUNBOOK.md`
-- `SDK_CUSTOMER_DEMO_PROFILES.md`
-- `SDK_FEATURE_PACKAGES.md`
-- `SDK_OBSERVABILITY.md`
-- `SDK_INTEGRATION_GUIDE.md`
-- `SDK_QA_MATRIX.md`
-- `SDK_MONETIZATION_PLAN.md`
-- `CHANGELOG.md`
+- `videosdk/PUBLIC_API.md`
+- `videosdk/THIRD_PARTY_INTEGRATION.md`
+- `videosdk/README.md`
+- `videosdk/docs/ENTERPRISE_RELEASE_READINESS.md`
+- `videosdk/docs/ENTERPRISE_QA_RUNBOOK.md`
+- `videosdk/docs/CUSTOMER_DEMO_PROFILES.md`
+- `videosdk/docs/FEATURE_PACKAGES.md`
+- `videosdk/docs/OBSERVABILITY.md`
+- `videosdk/docs/QA_MATRIX.md`
+- `videosdk/docs/MONETIZATION_PLAN.md`
+- `videosdk/docs/CHANGELOG.md`
 
 Check that the docs mention any new:
 
@@ -65,7 +65,7 @@ Check that the docs mention any new:
 
 ## 5. Manual Smoke Tests
 
-Use `SDK_QA_MATRIX.md`.
+Use `videosdk/docs/QA_MATRIX.md`.
 
 Minimum smoke set:
 
@@ -150,7 +150,7 @@ Use this exact flow after the criteria above pass and the release changes are no
 ```bash
 git status --short
 git add videosdk/build.gradle.kts videosdk/src/main/java/com/app/videosdk
-git add README.md CHANGELOG.md SDK_RELEASE_CHECKLIST.md
+git add README.md videosdk/docs/CHANGELOG.md videosdk/docs/RELEASE_CHECKLIST.md
 git commit -m "Release mobile-x.y.z"
 
 git tag mobile-x.y.z

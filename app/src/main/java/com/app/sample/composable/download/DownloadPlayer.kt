@@ -6,8 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
-import com.app.mtvdownloader.entity.DownloadEntity
+import com.app.mtvdownloader.local.entity.DownloadedContentEntity
 import com.app.sample.R
 import com.app.sample.utils.FileUtils.buildContentListFromDownloaded
 import com.app.videosdk.listener.PlayerStateListener
@@ -16,17 +17,18 @@ import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun DownloadPlayer(
-    downloadedContentEntity: DownloadEntity,
+    downloadedContentEntity: DownloadedContentEntity,
     onBack: () -> Unit
 ) {
-    val contentList = buildContentListFromDownloaded(downloadedContentEntity)
+    val context = LocalContext.current
+    val contentList = buildContentListFromDownloaded(downloadedContentEntity, context)
 
     // ✅ DEBUG: Log offline playback setup
     Log.d("DownloadPlayer", "=== OFFLINE PLAYBACK DEBUG ===")
     Log.d("DownloadPlayer", "ContentId: ${downloadedContentEntity.contentId}")
     Log.d("DownloadPlayer", "DownloadStatus: ${downloadedContentEntity.downloadStatus}")
-    Log.d("DownloadPlayer", "ContentUrlPresent: ${!downloadedContentEntity.mpdUrl.isNullOrBlank()}")
-    Log.d("DownloadPlayer", "LicenseUriPresent: ${!downloadedContentEntity.drmToken.isNullOrBlank()}")
+    Log.d("DownloadPlayer", "ContentUrlPresent: ${!downloadedContentEntity.contentUrl.isNullOrBlank()}")
+    Log.d("DownloadPlayer", "LicenseUriPresent: ${!downloadedContentEntity.licenseUri.isNullOrBlank()}")
     Log.d("DownloadPlayer", "DRM: ${contentList.firstOrNull()?.drm}")
     Log.d("DownloadPlayer", "HasCacheFactory: ${contentList.firstOrNull()?.cacheFactory != null}")
     Log.d("DownloadPlayer", "HasMpdUrl: ${!contentList.firstOrNull()?.mpdUrl.isNullOrBlank()}")
@@ -34,7 +36,7 @@ fun DownloadPlayer(
 
     // ✅ Verify download is completed
     if (downloadedContentEntity.downloadStatus != "completed") {
-        Log.w("DownloadPlayer", "⚠️ WARNING: Download status is '${downloadedContentEntity.downloadStatus}', not 'completed'. Playback may fail.")
+        Log.w("DownloadPlayer", "WARNING: Download status is '${downloadedContentEntity.downloadStatus}', not 'completed'. Playback may fail.")
     }
 
     Log.d("DownloadPlayer", "=============================")
@@ -53,26 +55,26 @@ fun DownloadPlayer(
             playerStateListener = object : PlayerStateListener {
 
                 override fun onPlayerReady(durationMs: Long) {
-                    Log.d("DownloadPlayer", "✅ Player ready: $durationMs ms")
+                    Log.d("DownloadPlayer", "Player ready: $durationMs ms")
                 }
 
                 override fun onPlayStateChanged(isPlaying: Boolean) {
-                    Log.d("DownloadPlayer", "▶️ Playing: $isPlaying")
+                    Log.d("DownloadPlayer", "Playing: $isPlaying")
                 }
 
                 override fun onPlaybackCompleted() {
-                    Log.d("DownloadPlayer", "✅ Playback completed")
+                    Log.d("DownloadPlayer", "Playback completed")
                 }
 
                 override fun onFullScreenChanged(isFullScreen: Boolean) {
                     if (!isFullScreen) {
                         onBack()
                     }
-                    Log.d("DownloadPlayer", "📱 Full screen: $isFullScreen")
+                    Log.d("DownloadPlayer", "Full screen: $isFullScreen")
                 }
 
                 override fun onAdStateChanged(isAdPlaying: Boolean) {
-                    Log.d("DownloadPlayer", "📺 Ad playing = $isAdPlaying")
+                    Log.d("DownloadPlayer", "Ad playing = $isAdPlaying")
                 }
             }
         )
