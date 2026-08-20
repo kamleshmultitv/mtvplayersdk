@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -69,7 +70,7 @@ fun CustomPlayerController(
     var showReelsShareSheet by remember(index) { mutableStateOf(false) }
     var isDraggingSeekbar by remember { mutableStateOf(false) }
     var onSeek by remember { mutableStateOf(false) }
-    var playResumeHideRequest by remember { mutableStateOf(0) }
+    var playResumeHideRequest by remember { mutableIntStateOf(0) }
     val playerModel = playerModelList?.getOrNull(index)
 
     DisposableEffect(exoPlayer) {

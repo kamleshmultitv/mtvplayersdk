@@ -56,8 +56,8 @@ import com.app.videosdk.utils.PlayerUtils.formatTime
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomSlider(
-    playerModel: PlayerModel? = null,
     modifier: Modifier = Modifier,
+    playerModel: PlayerModel? = null,
     currentPosition: Long,
     duration: Long,
     cuePoints: List<CuePoint> = emptyList(),

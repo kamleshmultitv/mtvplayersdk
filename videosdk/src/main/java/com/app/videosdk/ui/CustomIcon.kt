@@ -12,8 +12,8 @@ import androidx.compose.ui.res.painterResource
 fun CustomIcon(
     resId: Int?,
     defaultIcon: ImageVector,
-    contentDescription: String? = null,
     modifier: Modifier = Modifier,
+    contentDescription: String? = null,
     tint: Int? = null
 ) {
     val tintColor = tint?.let {

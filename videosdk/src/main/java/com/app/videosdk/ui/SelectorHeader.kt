@@ -68,9 +68,9 @@ enum class SettingsLayoutMode {
 
 @Composable
 fun SelectorHeader(
+    modifier: Modifier = Modifier,
     playerModel: PlayerModel? = null,
     exoPlayer: ExoPlayer?,
-    modifier: Modifier = Modifier.fillMaxSize(),
     contentPadding: PaddingValues = PaddingValues(horizontal = 24.dp),
     layoutMode: SettingsLayoutMode = SettingsLayoutMode.HorizontalTabs,
     selectedItemsState: MutableMap<Int, Int>? = null,

@@ -3,13 +3,10 @@ package com.app.videosdk.utils
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresPermission
-import androidx.compose.runtime.Composition
-import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.Format
@@ -42,11 +39,6 @@ import com.app.videosdk.model.VideoQualityModel
 import com.google.ads.interactivemedia.v3.api.AdEvent
 import com.google.common.collect.ImmutableList
 import com.google.gson.Gson
-import java.io.File
-import androidx.media3.transformer.EditedMediaItem
-import androidx.media3.transformer.ExportResult
-import androidx.media3.transformer.ExportException
-import androidx.media3.transformer.Transformer
 import kotlin.math.pow
 
 
@@ -703,82 +695,6 @@ object PlayerUtils {
         }
     }
 
-    // share clip
-    @OptIn(UnstableApi::class)
-    fun exportClip(
-        context: Context,
-        videoUri: Uri,
-        clipStart: Long
-    ) {
-
-        val clipDuration = 120_000L
-
-        val mediaItem = MediaItem.Builder()
-            .setUri(videoUri)
-            .setClippingConfiguration(
-                MediaItem.ClippingConfiguration.Builder()
-                    .setStartPositionMs(clipStart)
-                    .setEndPositionMs(clipStart + clipDuration)
-                    .build()
-            )
-            .build()
-
-        val editedMediaItem = EditedMediaItem.Builder(mediaItem).build()
-
-        val transformer = Transformer.Builder(context).build()
-
-        val outputFile = File(
-            context.cacheDir,
-            "clip_${System.currentTimeMillis()}.mp4"
-        )
-
-        transformer.addListener(object : Transformer.Listener {
-
-            override fun onCompleted(
-                composition: androidx.media3.transformer.Composition,
-                exportResult: ExportResult
-            ) {
-                Log.d("Clip", "Export completed")
-
-                // ✅ CALL SHARE HERE
-                shareVideo(context, outputFile)
-            }
-
-            override fun onError(
-                composition: androidx.media3.transformer.Composition,
-                exportResult: ExportResult,
-                exception: ExportException
-            ) {
-                exception.printStackTrace()
-            }
-        })
-
-        transformer.start(
-            editedMediaItem,
-            outputFile.absolutePath
-        )
-    }
-
-
-    fun shareVideo(context: Context, file: File) {
-
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.provider",
-            file
-        )
-
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "video/mp4"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-
-        context.startActivity(
-            Intent.createChooser(intent, "Share Clip")
-        )
-    }
-
     fun createShareUrl(
         contentId: String? = null,
         url: String? = null,
@@ -789,18 +705,4 @@ object PlayerUtils {
         return "https://www.artofliving.app/watch?url=$url&contentId=$contentId&start=$clipStart&end=$clipEnd&totalClipDuration=$totalClipDuration"
     }
 
-    fun shareLink(
-        context: Context,
-        shareUrl: String
-    ) {
-
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, shareUrl)
-        }
-
-        context.startActivity(
-            Intent.createChooser(intent, "Share Clip")
-        )
-    }
 }

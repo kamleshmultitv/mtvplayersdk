@@ -66,9 +66,9 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"])
 
-                groupId = "com.github.kamleshmultitv"
+                groupId = "com.github.kamleshmultitv.mtvplayersdk"
                 artifactId = "videosdk"
-                version = "mobile-2.0.30"
+                version = "reels-1.0.0"
             }
         }
     }
@@ -80,7 +80,6 @@ dependencies {
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
-    implementation(libs.material)
     implementation(libs.androidx.material3.android)
 
     // Compose
@@ -101,24 +100,16 @@ dependencies {
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.exoplayer.dash)
-    implementation(libs.androidx.media3.cast)
-    implementation(libs.androidx.media3.session)
-
-    // Cast
-    implementation(libs.androidx.mediarouter)
-    implementation(libs.play.services.cast.framework)
 
     // Others
     implementation(libs.google.gson)
-    implementation(libs.google.accompanist.systemuicontroller)
     implementation(libs.coil.compose)
 
     implementation(libs.androidx.media3.exoplayer.ima)
     implementation(libs.interactivemedia)
     implementation(libs.play.services.ads)
-    implementation(libs.androidx.media3.transformer)
     implementation(libs.androidx.media3.common)
 
-    implementation("androidx.compose.foundation:foundation:1.10.3")
+    implementation(libs.androidx.compose.foundation)
 
 }

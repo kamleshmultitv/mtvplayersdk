@@ -21,12 +21,12 @@ import com.google.android.gms.ads.AdSize
 
 @Composable
 fun LShapeAdContainer(
+    modifier: Modifier = Modifier,
     playerModel: PlayerModel? = null,
     isFullScreen: Boolean = false,
     isVisible: Boolean,
     bannerAdsEnabled: Boolean? = null,
     closeButtonEnabled: Boolean = true,
-    modifier: Modifier = Modifier,
     onCloseClick: () -> Unit = {},
     videoContent: @Composable () -> Unit
 ) {

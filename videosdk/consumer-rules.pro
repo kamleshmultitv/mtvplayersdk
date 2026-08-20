@@ -32,12 +32,6 @@
 -dontwarn androidx.media3.**
 
 ####################################
-# GOOGLE CAST
-####################################
--keep class com.google.android.gms.cast.** { *; }
--dontwarn com.google.android.gms.cast.**
-
-####################################
 # GSON (minimal & safe)
 ####################################
 -keep class com.google.gson.reflect.TypeToken { *; }

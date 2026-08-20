@@ -31,11 +31,17 @@ Add the SDK dependency in the app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.30")
+    implementation("com.github.kamleshmultitv.mtvplayersdk:videosdk:reels-1.0.0")
 }
 ```
 
-If your SDK release pipeline publishes a different Maven coordinate, replace this line with the exact artifact and version from that release.
+This branch publishes the `videosdk` Android library artifact. The current publication values are:
+
+- `groupId`: `com.github.kamleshmultitv.mtvplayersdk`
+- `artifactId`: `videosdk`
+- `version`: `reels-1.0.0`
+
+This is a multi-module repository, so third-party apps should depend on the `videosdk` module artifact, not the sample `app` module or the downloader module. If you publish a different Git tag/version, replace `reels-1.0.0` with that release version.
 
 ## 3. Android Setup
 
@@ -276,6 +282,7 @@ PlayerModel(
 ```
 
 Per-item `controlsConfig` takes priority over global `PlayerConfig.controls`.
+In the reels UI, the rendered controls are `play`, `pause`, `share`, `bookmark`, `seekbar`, `settings`, `fullscreen`, and `exitFullscreen`.
 
 ## 9. Custom Icons And Color
 
@@ -395,9 +402,78 @@ If your app uses a Compose `NavHost`, place `ReelsPlayerScreen` as a full-screen
 
 ## 15. Legacy Parameters
 
-This reels branch always renders the reels player. Existing SDK parameters such as `mode`, `playerMode`, `pipListener`, and `isInPipMode` are kept only for source compatibility with older app code and are ignored by the reels implementation.
+This reels branch always renders the reels player. Existing SDK parameters such as `mode`, `playerMode`, `pipListener`, and `isInPipMode` are kept only for source compatibility with older app code and are ignored by the reels implementation. New integrations should not pass those parameters.
 
-## 16. DRM Content
+## 16. Publishing On JitPack
+
+Before creating a release tag, verify the SDK from a clean `androidReels` checkout:
+
+```bash
+git switch androidReels
+git pull --ff-only origin androidReels
+git status --short
+./gradlew :videosdk:assembleRelease
+./gradlew :videosdk:publishToMavenLocal
+./gradlew :videosdk:lintRelease
+```
+
+The repository contains `jitpack.yml` with:
+
+```yaml
+jdk:
+  - openjdk17
+
+install:
+  - ./gradlew :videosdk:publishToMavenLocal
+```
+
+The `videosdk` module uses `maven-publish`, publishes the `release` variant, and includes a sources jar. For a new public release, update `videosdk/build.gradle.kts`:
+
+```kotlin
+groupId = "com.github.kamleshmultitv.mtvplayersdk"
+artifactId = "videosdk"
+version = "reels-1.0.0"
+```
+
+After `publishToMavenLocal`, verify the generated Maven artifact exists:
+
+```bash
+ls ~/.m2/repository/com/github/kamleshmultitv/mtvplayersdk/videosdk/reels-1.0.0
+```
+
+Expected files include:
+
+- `videosdk-reels-1.0.0.aar`
+- `videosdk-reels-1.0.0.pom`
+- `videosdk-reels-1.0.0-sources.jar`
+
+Then commit, push, and tag the exact commit:
+
+```bash
+git add .
+git commit -m "Release reels SDK reels-1.0.0"
+git tag reels-1.0.0
+git push origin androidReels
+git push origin reels-1.0.0
+```
+
+After JitPack finishes building the tag, third-party apps can use:
+
+```kotlin
+implementation("com.github.kamleshmultitv.mtvplayersdk:videosdk:reels-1.0.0")
+```
+
+Keep release work branch-safe:
+
+```bash
+git status --short
+git switch androidReels
+git switch androidMobile
+```
+
+Switch branches only with a clean working tree or after committing/stashing. Reels work should be committed and pushed only on `androidReels`; OTT/mobile work should be committed and pushed only on `androidMobile`.
+
+## 17. DRM Content
 
 For Widevine/DASH:
 
@@ -421,7 +497,7 @@ PlayerModel(
 )
 ```
 
-## 17. Subtitles
+## 18. Subtitles
 
 Pass an SRT URL:
 
@@ -435,7 +511,7 @@ PlayerModel(
 
 The settings bottom sheet shows available text tracks and lets the user select a caption.
 
-## 18. Testing Checklist
+## 19. Testing Checklist
 
 Before release, verify:
 
@@ -457,7 +533,7 @@ Before release, verify:
 - Back navigation closes the reels screen.
 - Paging loads more data before the user reaches the end.
 
-## 19. Troubleshooting
+## 20. Troubleshooting
 
 ### Black screen before playback
 
@@ -493,7 +569,7 @@ Use stable `PlayerModel.id` values and do not reorder `contentList` unexpectedly
 
 Append new items to the existing feed state instead of replacing the entire screen state on every callback.
 
-## 20. Minimal Production Template
+## 21. Minimal Production Template
 
 ```kotlin
 @Composable

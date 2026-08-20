@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
@@ -85,8 +85,6 @@ fun MainContainer(
     }
 
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-
     var contentDuration by remember { mutableLongStateOf(0L) }
 
 
@@ -291,6 +289,10 @@ fun MainContainer(
 
             override fun onPlaybackStateChanged(state: Int) {
                 when (state) {
+                    Player.STATE_IDLE -> {
+                        isLoading = false
+                    }
+
                     Player.STATE_BUFFERING -> {
                         isLoading = true
                         playerStateListener?.onBuffering(true)
@@ -481,9 +483,9 @@ fun MainContainer(
         }
     }
 
-    val reelsCollapsedHeight = configuration.screenWidthDp.dp * 16 / 9
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val reelsCollapsedHeight = maxWidth * 16 / 9
 
-    Box(modifier = Modifier.fillMaxSize()) {
         LShapeAdContainer(
             playerModel = playerModel,
             isFullScreen = isFullScreen,
