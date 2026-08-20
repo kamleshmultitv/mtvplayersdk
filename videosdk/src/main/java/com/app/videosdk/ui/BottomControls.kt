@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.CuePoint
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.sprite.SpriteThumbnail
 import com.app.videosdk.ui.sprite.SpriteUtils
@@ -39,9 +42,12 @@ fun BottomControls(
     exoPlayer: ExoPlayer,
     onSeek: (Long) -> Unit,
     onNext: (Int) -> Unit,
+    onPrevious: (Int) -> Unit = {},
     cuePoints: List<CuePoint> = emptyList(),
     onDragStateChange: (Boolean) -> Unit = {},
     expandSheet: (Boolean) -> Unit = {},
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
+    showPreviousControl: Boolean = false,
     mode: PlayerMode? = null
 ) {
     val model = playerModelList?.getOrNull(index)
@@ -110,21 +116,24 @@ fun BottomControls(
             chapters = model?.chapters ?: emptyList()
         )
 
-        /* ---------- BOTTOM ACTION BAR ---------- */
+        /* ---------- BOTTOM ACTION BAR (FULLSCREEN ONLY) ---------- */
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        if (isFullScreen) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
 
-            if (!isLive) {
-
-                /* ---------- LEFT : NEXT ---------- */
-                if (mode != PlayerMode.REELS) {
+                if (!isLive && mode != PlayerMode.REELS) {
+                    /* ---------- LEFT : NEXT ---------- */
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                        if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
+                        if (controlsConfig.next &&
+                            playerModelList != null &&
+                            playerModelList.size > 1
+                        ) {
                             val isLastItem = index >= playerModelList.lastIndex
 
                             Row(
@@ -155,27 +164,55 @@ fun BottomControls(
                     /* ---------- CENTER : EPISODES ---------- */
 
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        if (isFullScreen && playerModelList != null && playerModelList.size > 1) {
+                        if (controlsConfig.seasonSelector && playerModelList != null && playerModelList.size > 1) {
                             SeasonSelector(
                                 playerModel = model,
                                 exoPlayer = exoPlayer,
                                 onShowControls = {},
                                 pausePlayer = {},
-                                expandSheet = {
-                                    expandSheet(it)
+                                expandSheet = { expandSheet(it) }
+                            )
+                        }
+                    }
+
+                } else {
+                    Spacer(modifier = Modifier.weight(2f))
+                }
+
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                    if (!isLive &&
+                        showPreviousControl &&
+                        controlsConfig.previous &&
+                        playerModelList != null &&
+                        playerModelList.size > 1
+                    ) {
+                        val isFirstItem = index <= 0
+
+                        Row(
+                            modifier = Modifier
+                                .clickable(enabled = !isFirstItem) {
+                                    if (!isFirstItem) onPrevious(index - 1)
                                 }
+                                .padding(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CustomIcon(
+                                resId = null,
+                                defaultIcon = Icons.Default.SkipPrevious,
+                                contentDescription = "Previous Episode",
+                                modifier = Modifier.size(16.dp),
+                                tint = model?.customControls?.iconTintRes
+                            )
+
+                            Text(
+                                modifier = Modifier.padding(start = 4.dp),
+                                text = "Prev Ep.",
+                                color = if (isFirstItem) Color.Gray else Color.White
                             )
                         }
                     }
                 }
-
-            } else {
-                Spacer(modifier = Modifier.weight(2f))
             }
-
-            Box(modifier = Modifier.weight(1f))
         }
     }
 }
-
-

@@ -1,10 +1,12 @@
 package com.app.videosdk.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,8 +27,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.media3.exoplayer.ExoPlayer
 import coil.compose.rememberAsyncImagePainter
+import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.model.PlayerModel
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -34,12 +38,24 @@ import com.app.videosdk.model.PlayerModel
 fun EpisodeSelectionSheet(
     expandSheet: Boolean,
     playerModelList: List<PlayerModel>?,
+    currentIndex: Int,
+    nowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle(),
     isCasting: Boolean,
     exoPlayer: ExoPlayer,
     onDismiss: () -> Unit,
     onShowControls: (Boolean) -> Unit,
     playContent: (Int) -> Unit
 ) {
+
+    fun closeSheet() {
+        if (!isCasting) exoPlayer.play()
+        onShowControls(false)
+        onDismiss()
+    }
+
+    BackHandler(enabled = expandSheet) {
+        closeSheet()
+    }
 
     val transitionState = remember {
         MutableTransitionState(false)
@@ -76,7 +92,7 @@ fun EpisodeSelectionSheet(
     ) {
 
         val backgroundAlpha by animateFloatAsState(
-            targetValue = if (expandSheet) 0.90f else 0f,
+            targetValue = if (expandSheet) 1f else 0f,
             animationSpec = tween(400),
             label = "backgroundAlpha"
         )
@@ -85,6 +101,7 @@ fun EpisodeSelectionSheet(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = backgroundAlpha))
+                .zIndex(20f)
                 // 🔒 Block background clicks
                 .clickable(
                     indication = null,
@@ -101,7 +118,7 @@ fun EpisodeSelectionSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp, end = 16.dp)
+                        .padding(top = 24.dp, start = 24.dp, end = 24.dp)
                 ) {
 
                     Text(
@@ -119,9 +136,7 @@ fun EpisodeSelectionSheet(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .clickable {
-                                if (!isCasting) exoPlayer.play()
-                                onShowControls(false)
-                                onDismiss()
+                                closeSheet()
                             }
                     )
                 }
@@ -160,6 +175,8 @@ fun EpisodeSelectionSheet(
 
                                 itemsIndexed(list) { index, item ->
 
+                                    val isNowPlaying = index == currentIndex
+
                                     Column(
                                         modifier = Modifier.width(cardWidth)
                                     ) {
@@ -168,6 +185,17 @@ fun EpisodeSelectionSheet(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .height(cardHeight)
+                                                .then(
+                                                    if (isNowPlaying && nowPlayingStyle.cardBorderWidth > 0.dp) {
+                                                        Modifier.border(
+                                                            width = nowPlayingStyle.cardBorderWidth,
+                                                            color = nowPlayingStyle.cardBorderColor,
+                                                            shape = RoundedCornerShape(8.dp)
+                                                        )
+                                                    } else {
+                                                        Modifier
+                                                    }
+                                                )
                                                 .clickable {
                                                     if (!isCasting) exoPlayer.play()
                                                     onShowControls(false)
@@ -175,15 +203,51 @@ fun EpisodeSelectionSheet(
                                                     playContent(index)
                                                 },
                                             shape = RoundedCornerShape(8.dp),
-                                            elevation = CardDefaults.cardElevation(2.dp)
+                                            elevation = CardDefaults.cardElevation(2.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = Color.Black
+                                            )
                                         ) {
 
-                                            Image(
-                                                painter = rememberAsyncImagePainter(item.imageUrl),
-                                                contentDescription = null,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize()
-                                            )
+                                            Box(modifier = Modifier.fillMaxSize()) {
+                                                Image(
+                                                    painter = rememberAsyncImagePainter(item.imageUrl),
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+
+                                                if (isNowPlaying) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .align(Alignment.TopEnd)
+                                                            .padding(8.dp)
+                                                            .background(
+                                                                nowPlayingStyle.pillBackgroundColor,
+                                                                RoundedCornerShape(50)
+                                                            )
+                                                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(6.dp)
+                                                                .background(
+                                                                    nowPlayingStyle.pillDotColor,
+                                                                    RoundedCornerShape(50)
+                                                                )
+                                                        )
+
+                                                        Text(
+                                                            text = nowPlayingStyle.pillText,
+                                                            color = nowPlayingStyle.pillTextColor,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
 
                                         Spacer(modifier = Modifier.height(8.dp))
@@ -251,5 +315,3 @@ fun EpisodeSelectionSheet(
         }
     }
 }
-
-

@@ -6,8 +6,7 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.paging.compose.LazyPagingItems
-import com.app.mtvdownloader.local.entity.DownloadedContentEntity
-import com.app.mtvdownloader.model.DownloadModel
+import com.app.mtvdownloader.entity.DownloadEntity
 import com.app.sample.AppClass
 import com.app.sample.BuildConfig.DRM_LICENSE_URL
 import com.app.sample.R
@@ -15,6 +14,7 @@ import com.app.sample.extra.ApiConstant.DRM_TYPE
 import com.app.sample.extra.ApiConstant.PAID
 import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.ContentItem
+import com.app.sample.model.DeepLinkResponse
 import com.app.sample.model.OverrideContent
 import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.Chapter
@@ -86,81 +86,30 @@ object FileUtils {
     fun buildPlayerContentList(
         context: Context,
         pagingItems: LazyPagingItems<ContentItem>,
-        overrideContent: OverrideContent?
+        overrideContent: OverrideContent?,
+        deepLinkContent: DeepLinkResponse?,
+        contentItem: ContentItem? = null
     ): List<PlayerModel> {
 
         /* =========================================================
-           CASE 1 & 2 : SUBMIT WAS PRESSED
+           CASE 1 & 2 : SUBMIT (overrideContent has highest priority)
            ========================================================= */
 
         overrideContent?.let { override ->
 
-            /* ---------- CASE 1: Submit WITHOUT URL (apply config to API data) ---------- */
-
+            // ---------- CASE 1: Submit WITHOUT URL ----------
             if (override.url.isNullOrBlank()) {
+
                 return pagingItems.itemSnapshotList.items.mapNotNull { content ->
-
-                    //  val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
-                    val hls = content.url?.takeIf { it.isNotBlank() }
-                    val mpd = content.url?.takeIf { it.isNotBlank() }
-                    if (hls == null && mpd == null) return@mapNotNull null
-
-                    PlayerModel(
-                        hlsUrl = hls,
-                        mpdUrl = mpd,
-                        liveUrl = null,
-                        isLive = false,
-
-                        drm = content.drm,
-                        drmToken = getDrmToken(context, content),
-
-                        imageUrl = content.layoutThumbs
-                            ?.firstOrNull()
-                            ?.imageSize
-                            ?.firstOrNull()
-                            ?.url.orEmpty(),
-
-                        episodeTitle = content.title.orEmpty(),
-                        episodeDescription = content.seriesDes.orEmpty(),
-                        seasonTitle = content.seasonTitle.orEmpty(),
-                        seasonDescription = content.seasonDes.orEmpty(),
-                        description = content.des.orEmpty(),
-                        seasonNumber = content.seasonNumber.orEmpty(),
-                        episodeNumber = content.episodeNumber.orEmpty(),
-                        duration = content.duration.orEmpty(),
-                        srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
-
-                        // 🔥 APPLY SUBMITTED TOGGLES
-                        adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
-                        skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
-                        nextEpisode = override.nextEpisode
-                            ?: NextEpisode(enableNextEpisode = false),
-                        customControls = PlayerCustomControls(
-                            iconTintRes = R.color.white,
-                            playIconRes = R.drawable.ic_play,
-                            pauseIconRes = R.drawable.ic_pause,
-                            forwardIconRes = R.drawable.ic_forward,
-                            rewindIconRes = R.drawable.ic_rewined,
-                            backIconRes = R.drawable.ic_back_arrow,
-                            settingsIconRes = R.drawable.ic_settings,
-                            pipIconRes = R.drawable.ic_pip,
-                            fullScreenIconRes = R.drawable.ic_collapse,
-                            exitFullScreenIconRes = R.drawable.ic_expand,
-                            lockIconRes = R.drawable.ic_lock,
-                            unlockIconRes = R.drawable.ic_unlock,
-                            muteIconRes = R.drawable.ic_mute,
-                            unMuteIconRes = R.drawable.ic_unmute,
-                            crossFadeIconRes = R.drawable.ic_cross,
-                            seasonSelectorIconRes = R.drawable.ic_episode,
-                            brightnessIconRes = R.drawable.ic_brightness,
-                            nextEpisodeIconRes = R.drawable.ic_next_episode,
-                        )
+                    createPlayerModelFromContent(
+                        context = context,
+                        content = content,
+                        override = override
                     )
                 }
             }
 
-            /* ---------- CASE 2: Submit WITH URL (single override playback) ---------- */
-
+            // ---------- CASE 2: Submit WITH URL ----------
             return listOf(
                 PlayerModel(
                     hlsUrl = if (!override.isLive) override.url else null,
@@ -171,120 +120,157 @@ object FileUtils {
                     adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
                     skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
                     nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false),
-                    customControls = PlayerCustomControls(
-                        iconTintRes = R.color.white,
-                        playIconRes = R.drawable.ic_play,
-                        pauseIconRes = R.drawable.ic_pause,
-                        forwardIconRes = R.drawable.ic_forward,
-                        rewindIconRes = R.drawable.ic_rewined,
-                        backIconRes = R.drawable.ic_back_arrow,
-                        settingsIconRes = R.drawable.ic_settings,
-                        pipIconRes = R.drawable.ic_pip,
-                        fullScreenIconRes = R.drawable.ic_collapse,
-                        exitFullScreenIconRes = R.drawable.ic_expand,
-                        lockIconRes = R.drawable.ic_lock,
-                        unlockIconRes = R.drawable.ic_unlock,
-                        muteIconRes = R.drawable.ic_mute,
-                        unMuteIconRes = R.drawable.ic_unmute,
-                        crossFadeIconRes = R.drawable.ic_cross,
-                        seasonSelectorIconRes = R.drawable.ic_episode,
-                        brightnessIconRes = R.drawable.ic_brightness,
-                        nextEpisodeIconRes = R.drawable.ic_next_episode,
-                    )
+                    customControls = defaultControls()
+                )
+            )
+        }
+
+        deepLinkContent?.let { deeplink ->
+            // ---------- CASE 2: Submit WITH URL ----------
+            return listOf(
+                PlayerModel(
+                    hlsUrl =  deeplink.url ,
+                    mpdUrl = deeplink.url,
+                    id = deeplink.contentId,
+                    seekTo = deeplink.seekTo,
+                    deepLinkEndMs = deeplink.clipEndTime,
+                    deepLinkClipDuration = deeplink.totalClipDuration,
+                    customControls = defaultControls()
                 )
             )
         }
 
         /* =========================================================
-           CASE 3 : NO SUBMIT (pure API data, defaults only)
+           CASE 3 : Single contentItem (NEW CASE)
+           ========================================================= */
+
+        contentItem?.let { content ->
+            createPlayerModelFromContent(
+                context = context,
+                content = content,
+                override = null
+            )?.let {
+                return listOf(it)
+            }
+        }
+
+        /* =========================================================
+           CASE 4 : Pure Paging API Data (default behavior)
            ========================================================= */
 
         return pagingItems.itemSnapshotList.items.mapNotNull { content ->
-
-            // val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
-            val hls = content.url?.takeIf { it.isNotBlank() }
-            val mpd = content.url?.takeIf { it.isNotBlank() }
-            if (hls == null && mpd == null) return@mapNotNull null
-
-            PlayerModel(
-                hlsUrl = hls,
-                mpdUrl = mpd,
-                liveUrl = null,
-                isLive = false,
-
-                drm = content.drm,
-                drmToken = getDrmToken(context, content),
-
-                imageUrl = content.layoutThumbs
-                    ?.firstOrNull()
-                    ?.imageSize
-                    ?.firstOrNull()
-                    ?.url.orEmpty(),
-
-                episodeTitle = content.title.orEmpty(),
-                episodeDescription = content.seriesDes.orEmpty(),
-                seasonTitle = content.seasonTitle.orEmpty(),
-                seasonDescription = content.seasonDes.orEmpty(),
-                description = content.des.orEmpty(),
-                seasonNumber = content.seasonNumber.orEmpty(),
-                episodeNumber = content.episodeNumber.orEmpty(),
-                duration = content.duration.orEmpty(),
-                srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
-
-                // ✅ DEFAULTS (no submit yet)
-                adsConfig = AdsConfig(
-                    adTagUrl = "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/vmap_ad_samples&sz=640x480&cust_params=sample_ar%3Dpremidpost&ciu_szs=300x250&gdfp_req=1&ad_rule=1&output=vmap&unviewed_position_start=1&env=vp&cmsid=496&vid=short_onecue&correlator=",
-                    enableAds = false
-                ),
-                gamAdsConfig = GAMAdsConfig(
-                    verticalBan = "ca-app-pub-3940256099942544/6300978111",
-                    horizontalBan = "/21775744923/example/fixed-size-banner",
-                    timeIntervalInMilliseconds = 300000,
-                    isAdsEnabled = false
-                ),
-                skipIntro = SkipIntro(
-                    startTime = 5000L,
-                    endTime = 95000L,
-                    enableSkipIntro = false
-                ),
-                nextEpisode = NextEpisode(
-                    showBeforeEndMs = "160000",
-                    enableNextEpisode = false
-                ),
-                cacheFactory = null,
-                isChapterEnabled = true,
-                chapters = listOf(
-                    Chapter("intro", "Intro", 0L),
-                    Chapter("main", "Main Content", 186000L),
-                    Chapter("end", "Special Thanks", 2004000L)
-                ),
-                customControls = PlayerCustomControls(
-                    iconTintRes = R.color.white,
-                    playIconRes = R.drawable.ic_play,
-                    pauseIconRes = R.drawable.ic_pause,
-                    forwardIconRes = R.drawable.ic_forward,
-                    rewindIconRes = R.drawable.ic_rewined,
-                    backIconRes = R.drawable.ic_back_arrow,
-                    settingsIconRes = R.drawable.ic_settings,
-                    pipIconRes = R.drawable.ic_pip,
-                    fullScreenIconRes = R.drawable.ic_collapse,
-                    exitFullScreenIconRes = R.drawable.ic_expand,
-                    lockIconRes = R.drawable.ic_lock,
-                    unlockIconRes = R.drawable.ic_unlock,
-                    muteIconRes = R.drawable.ic_mute,
-                    unMuteIconRes = R.drawable.ic_unmute,
-                    crossFadeIconRes = R.drawable.ic_cross,
-                    seasonSelectorIconRes = R.drawable.ic_episode,
-                    brightnessIconRes = R.drawable.ic_brightness,
-                    nextEpisodeIconRes = R.drawable.ic_next_episode,
-                )
+            createPlayerModelFromContent(
+                context = context,
+                content = content,
+                override = null
             )
         }
     }
 
+    private fun createPlayerModelFromContent(
+        context: Context,
+        content: ContentItem,
+        override: OverrideContent?
+    ): PlayerModel? {
+
+        val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
+        val mpd = content.url?.takeIf { it.isNotBlank() }
+        if (hls == null && mpd == null) return null
+
+        return PlayerModel(
+            id = content.id.orEmpty(),
+            ageRating = content.ageRating?.takeIf { it.isNotBlank() },
+            hlsUrl = hls,
+            mpdUrl = mpd,
+            liveUrl = null,
+            isLive = false,
+
+            drm = content.drm,
+            drmToken = getDrmToken(context, content),
+
+            imageUrl = content.layoutThumbs
+                ?.firstOrNull()
+                ?.imageSize
+                ?.firstOrNull()
+                ?.url.orEmpty(),
+
+            episodeTitle = content.title.orEmpty(),
+            episodeDescription = content.seriesDes.orEmpty(),
+            seasonTitle = content.seasonTitle.orEmpty(),
+            seasonDescription = content.seasonDes.orEmpty(),
+            description = content.des.orEmpty(),
+            seasonNumber = content.seasonNumber.orEmpty(),
+            episodeNumber = content.episodeNumber.orEmpty(),
+            duration = content.duration.orEmpty(),
+            srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
+
+            adsConfig = override?.adsConfig ?: defaultAdsConfig(),
+            gamAdsConfig = defaultGamConfig(),
+            skipIntro = override?.skipIntro ?: defaultSkipIntro(),
+            nextEpisode = override?.nextEpisode ?: defaultNextEpisode(),
+
+            cacheFactory = null,
+            isClipEnabled = false,
+            isChapterEnabled = false,
+            chapters = defaultChapters(),
+
+            customControls = defaultControls()
+        )
+    }
+
+    private fun defaultAdsConfig() = AdsConfig(
+        adTagUrl = "https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/vmap_ad_samples&sz=640x480&cust_params=sample_ar%3Dpremidpost&ciu_szs=300x250&gdfp_req=1&ad_rule=1&output=vmap&unviewed_position_start=1&env=vp&cmsid=496&vid=short_onecue&correlator=",
+        enableAds = false
+    )
+
+    private fun defaultGamConfig() = GAMAdsConfig(
+        verticalBan = "ca-app-pub-3940256099942544/6300978111",
+        horizontalBan = "/21775744923/example/fixed-size-banner",
+        timeIntervalInMilliseconds = 600000,
+        isAdsEnabled = false
+    )
+
+    private fun defaultSkipIntro() = SkipIntro(
+        startTime = 5000L,
+        endTime = 95000L,
+        enableSkipIntro = true
+    )
+
+    private fun defaultNextEpisode() = NextEpisode(
+        showBeforeEndMs = "160000",
+        enableNextEpisode = true
+    )
+
+    private fun defaultChapters() = listOf(
+        Chapter("intro", "Intro", 0L),
+        Chapter("main", "Main Content", 186000L),
+        Chapter("end", "Special Thanks", 2004000L)
+    )
+
+    private fun defaultControls() = PlayerCustomControls(
+        iconTintRes = R.color.white,
+        playIconRes = R.drawable.ic_play,
+        pauseIconRes = R.drawable.ic_pause,
+        forwardIconRes = R.drawable.ic_forward,
+        rewindIconRes = R.drawable.ic_rewined,
+        backIconRes = R.drawable.ic_back_arrow,
+        settingsIconRes = R.drawable.ic_settings,
+        pipIconRes = R.drawable.ic_pip,
+        fullScreenIconRes = R.drawable.ic_collapse,
+        exitFullScreenIconRes = R.drawable.ic_expand,
+        lockIconRes = R.drawable.ic_lock,
+        unlockIconRes = R.drawable.ic_unlock,
+        muteIconRes = R.drawable.ic_mute,
+        unMuteIconRes = R.drawable.ic_unmute,
+        crossFadeIconRes = R.drawable.ic_cross,
+        seasonSelectorIconRes = R.drawable.ic_episode,
+        brightnessIconRes = R.drawable.ic_brightness,
+        nextEpisodeIconRes = R.drawable.ic_next_episode,
+    )
+
     @OptIn(UnstableApi::class)
     fun buildContentListFromDownloaded(
-        downloadedContentEntity: DownloadedContentEntity
+        downloadedContentEntity: DownloadEntity
     ): List<PlayerModel> {
 
         val downloadCache = (applicationContext as AppClass).downloadCache
@@ -292,22 +278,22 @@ object FileUtils {
         val downloadManager = (applicationContext as AppClass).downloadManager
 
         // ✅ Determine if content is DRM: if licenseUri exists, it's DRM content
-        val isDrm = downloadedContentEntity.licenseUri.isNotBlank()
+        val isDrm = downloadedContentEntity.drm?.isNotBlank()
 
         return listOf(
             PlayerModel(
                 id = downloadedContentEntity.contentId,
                 // ▶️ Playback URL
-                hlsUrl = downloadedContentEntity.contentUrl,
-                mpdUrl = downloadedContentEntity.contentUrl,
+                hlsUrl = downloadedContentEntity.hlsUrl,
+                mpdUrl = downloadedContentEntity.mpdUrl,
 
                 // 🔐 DRM
-                drm = if (isDrm) "1" else "0",
-                drmToken = downloadedContentEntity.licenseUri,
+                drm = if (isDrm == true) "1" else "0",
+                drmToken = downloadedContentEntity.drmToken,
 
                 // 🖼️ Artwork
-                imageUrl = downloadedContentEntity.thumbnailUrl
-                    ?: downloadedContentEntity.seasonImage,
+                imageUrl = downloadedContentEntity.imageUrl
+                    ?: downloadedContentEntity.seasonBanner,
 
                 // 📝 Metadata
                 episodeTitle = downloadedContentEntity.title.orEmpty(),
@@ -347,19 +333,18 @@ object FileUtils {
     fun buildDownloadContentList(
         context: Context,
         contentItem: ContentItem?
-    ): DownloadModel? {
+    ): DownloadEntity? {
 
         if (contentItem == null) return null
 
-        //  val hlsUrl = contentItem.hlsUrl?.takeIf { it.isNotBlank() }
-        val hlsUrl = contentItem.url?.takeIf { it.isNotBlank() }
+        val hlsUrl = contentItem.hlsUrl?.takeIf { it.isNotBlank() }
         val mpdUrl = contentItem.url?.takeIf { it.isNotBlank() }
 
         // Skip if no playable URL is available
         if (hlsUrl == null && mpdUrl == null) return null
 
-        return DownloadModel(
-            id = contentItem.id.orEmpty(),
+        return DownloadEntity(
+            contentId = contentItem.id.orEmpty(),
             seasonId = contentItem.seasonId.orEmpty(),
             hlsUrl = hlsUrl,
             mpdUrl = mpdUrl,

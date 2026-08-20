@@ -39,8 +39,10 @@ animationCoreVersion = "1.10.3"
 
 
 [libraries]
+androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3Exoplayer" }
 androidx-media3-datasource = { module = "androidx.media3:media3-datasource", version.ref = "media3DatasourceVersion" }
 androidx-media3-exoplayer-ima = { module = "androidx.media3:media3-exoplayer-ima", version.ref = "media3Exoplayer" }
+androidx-media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3Exoplayer" }
 desugar-jdk-libs = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleRuntimeKtx" }

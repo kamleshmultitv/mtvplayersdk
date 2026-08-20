@@ -68,13 +68,15 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "videosdk"
-                version = "mobile-1.0.58"
+                version = "mobile-2.0.30"
             }
         }
     }
 }
 
 dependencies {
+    testImplementation(libs.junit)
+
     // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -114,6 +116,8 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.ima)
     implementation(libs.interactivemedia)
     implementation(libs.play.services.ads)
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.common)
 
     implementation("androidx.compose.foundation:foundation:1.10.3")
 

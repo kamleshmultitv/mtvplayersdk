@@ -47,11 +47,11 @@ android {
     }
 
     // ✅ REQUIRED for AGP 8+ + JitPack
-    publishing {
+  /*  publishing {
         singleVariant("release") {
             withSourcesJar()
         }
-    }
+    }*/
 
 }
 
@@ -67,7 +67,7 @@ android {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "mtvdownloader"
-                version = "download-1.0.9"
+                version = "download-1.0.10"
             }
         }
     }

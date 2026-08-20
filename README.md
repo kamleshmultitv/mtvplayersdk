@@ -1,94 +1,143 @@
-# 🎬 Mtv Video Player SDK (Android)
+# Mtv Video Player SDK for Android
 
-A modern **Android Video Player SDK** built with **Media3** and **Jetpack Compose**, designed for high‑performance video playback, reels, and feed‑based experiences.
+Mtv Video Player SDK is a Jetpack Compose video player built on AndroidX Media3. It supports HLS, DASH, MP4, Widevine DRM, Cast, PiP, ads, subtitles, skip intro, next episode, chapters, sprites, live playback, and fullscreen/reels style playback modes.
 
----
+## Features
 
-## ✨ Features
+- HLS, DASH, MP4, and live stream playback
+- Widevine DRM playback with license URL/token support
+- Jetpack Compose controller UI
+- Picture-in-Picture support
+- Fullscreen and mini player modes
+- Reels playback mode
+- Chromecast / Google Cast controls
+- SRT subtitles
+- Playback speed and quality selection
+- Skip intro and next episode actions
+- Chapter markers and IMA ad cue markers
+- Sprite thumbnail preview while scrubbing
+- Free preview and preview-end callbacks
+- IMA / Google ad configuration
+- Custom control icons and control visibility config
+- Age rating overlay
+- Watermark config
 
-* ▶️ HLS & DASH playback
-* 🔐 Widevine DRM support
-* 🎨 Jetpack Compose–based UI
-* 🪟 Picture‑in‑Picture (PiP)
-* 🔳 Fullscreen playback
-* 📝 Subtitles (SRT)
-* ⏩ Playback speed & quality selection
-* Live Url support
+## Installation
 
----
+Add JitPack in your project-level `settings.gradle.kts`:
 
-## 📦 Installation
-
-### 1. Add JitPack Repository
-
-In your **project‑level `settings.gradle` or `build.gradle`**:
-
-```gradle
-repositories {
-    maven { url "https://jitpack.io" }
+```kotlin
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+    }
 }
 ```
 
-### 2. Add SDK Dependency
+Add the SDK dependency in your app module:
 
-```gradle
+```kotlin
 dependencies {
-    implementation "com.github.kamleshmultitv:mtvplayersdk:mobile-1.0.42"
+    implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.30")
 }
 ```
 
-## ⚠️ Required for IMA Ads support
+## Android Setup
 
-If you use Ads (IMA), enable core library desugaring in your app level gradle:
-```gradle
-compileOptions {
-coreLibraryDesugaringEnabled true
-}
+Minimum supported SDK is API 24.
 
-dependencies {
-coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
-}
-
-```
-
----
-
-## ⚙️ Android Setup (Required)
-
-### Permissions
-
-Add in **AndroidManifest.xml**:
+Add the required permissions:
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
-### Enable Picture‑in‑Picture
+For Picture-in-Picture, configure your activity:
 
 ```xml
 <activity
     android:name=".MainActivity"
-    android:supportsPictureInPicture="true"
-    android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation" />
+    android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation"
+    android:resizeableActivity="true"
+    android:supportsPictureInPicture="true" />
 ```
 
----
+Enable Compose in your app module:
 
-## 🎨 Jetpack Compose Setup
-
-```gradle
+```kotlin
 android {
     buildFeatures {
-        compose true
+        compose = true
     }
- 
 }
 ```
 
----
+If you use IMA ads, enable core library desugaring:
 
-## 🧩 SDK Composable API
+```kotlin
+android {
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+}
+```
+
+If you use Google Mobile Ads, add your AdMob app id:
+
+```xml
+<meta-data
+    android:name="com.google.android.gms.ads.APPLICATION_ID"
+    android:value="ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy" />
+```
+
+## Basic Usage
+
+```kotlin
+import androidx.compose.runtime.Composable
+import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.videosdk.utils.PlayerMode
+
+@Composable
+fun PlayerScreen(
+    isFullScreen: Boolean,
+    onFullScreenChange: (Boolean) -> Unit
+) {
+    val contentList = listOf(
+        PlayerModel(
+            id = "episode-1",
+            hlsUrl = "https://example.com/video/master.m3u8",
+            mpdUrl = "https://example.com/video/manifest.mpd",
+            imageUrl = "https://example.com/thumb.jpg",
+            title = "Gita Gyan Episode 1",
+            episodeTitle = "Gita Gyan Episode 1",
+            seasonTitle = "Gita Gyan",
+            srt = "https://example.com/subtitles.srt",
+            isLive = false
+        )
+    )
+
+    MtvVideoPlayerSdk(
+        contentList = contentList,
+        index = 0,
+        playerMode = if (isFullScreen) PlayerMode.FULL_SCREEN else PlayerMode.MINI,
+        onPlayerBack = {
+            if (isFullScreen) onFullScreenChange(false)
+        },
+        setFullScreen = onFullScreenChange
+    )
+}
+```
+
+## Composable API
 
 ```kotlin
 @OptIn(UnstableApi::class)
@@ -97,26 +146,61 @@ fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
     pipListener: PipListener? = null,
-    onPlayerBack: (Boolean) -> Unit,
-    setFullScreen: (Boolean) -> Unit
+    isInPipMode: Boolean = false,
+    isDeepLink: Boolean? = false,
+    playerMode: PlayerMode = PlayerMode.MINI,
+    playerStateListener: PlayerStateListener? = null,
+    controller: PlayerController? = null,
+    isMutedInitially: Boolean = true,
+    onPlayerBack: (Boolean) -> Unit = {},
+    setFullScreen: (Boolean) -> Unit = {},
+    onIndexChanged: (Int) -> Unit = {},
+    episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle(),
+    showControls: Boolean = true,
+    playerConfig: PlayerConfig = PlayerConfig(),
+    onCurrentIndexChanged: (Int) -> Unit = {},
+    onPreviewPrimaryAction: () -> Unit = {},
+    onPreviewSecondaryAction: () -> Unit = {}
 )
 ```
 
----
+`PlayerMode` values:
 
-## 📦 PlayerModel
+```kotlin
+enum class PlayerMode {
+    MINI,
+    FULL_SCREEN,
+    REELS
+}
+```
+
+## PlayerModel
+
+Use `PlayerModel` to describe each playable item.
 
 ```kotlin
 data class PlayerModel(
+    val id: String? = null,
     val hlsUrl: String? = null,
     val mpdUrl: String? = null,
+    val videoUrl: String? = null,
     val liveUrl: String? = null,
+    val seekTo: Long? = null,
+    var deepLinkEndMs: Long? = null,
+    var deepLinkClipDuration: Long? = null,
+    val drm: String? = null,
     val drmToken: String? = null,
     val imageUrl: String? = null,
+    val thumbnail: String? = null,
     val title: String? = null,
-    val description: String? = null,
+    val episodeTitle: String? = null,
+    val episodeDescription: String? = null,
     val seasonTitle: String? = null,
     val seasonDescription: String? = null,
+    val description: String? = null,
+    val seasonNumber: String? = null,
+    val episodeNumber: String? = null,
+    val duration: String? = null,
     val srt: String? = null,
     val spriteUrl: String? = null,
     val playbackSpeed: Float = 1.0f,
@@ -124,85 +208,260 @@ data class PlayerModel(
     val selectedVideoQuality: Int = 1080,
     val isLive: Boolean = false,
     val adsConfig: AdsConfig? = null,
-    val cuePoints: List<CuePoint> = emptyList()
+    val gamAdsConfig: GAMAdsConfig? = null,
+    val skipIntro: SkipIntro? = null,
+    val nextEpisode: NextEpisode? = null,
+    val customControls: PlayerCustomControls? = null,
+    val isClipEnabled: Boolean = false,
+    val isChapterEnabled: Boolean = false,
+    val chapters: List<Chapter>? = null,
+    val ageRating: String? = null,
+    val contentRating: String? = null
 )
 ```
 
----
+For offline playback, `PlayerModel` also supports cache/download fields: `cacheFactory`, `downloadManager`, and `downloadCache`.
 
-## ▶️ SDK Usage (Compose)
+## Skip Intro and Next Episode
 
-Use `MtvVideoPlayerSdk` to play videos using a content list with full control over PiP, fullscreen, and navigation.
+```kotlin
+PlayerModel(
+    hlsUrl = "https://example.com/video/master.m3u8",
+    skipIntro = SkipIntro(
+        startTime = 5_000L,
+        endTime = 95_000L,
+        enableSkipIntro = true
+    ),
+    nextEpisode = NextEpisode(
+        showBeforeEndMs = "160000",
+        enableNextEpisode = true
+    )
+)
+```
 
-### Example Usage
+`showBeforeEndMs` accepts a duration-like string parsed by the SDK. Numeric strings are treated as milliseconds.
+
+## Player Config
+
+Use `PlayerConfig` to control SDK behavior and feature visibility.
 
 ```kotlin
 MtvVideoPlayerSdk(
     contentList = contentList,
-    index = selectedIndex.intValue,
-    pipListener = pipListener,
-    onPlayerBack = { /* handle back */ },
-    setFullScreen = { isFullscreen ->
-        // handle fullscreen change
+    playerConfig = PlayerConfig(
+        controls = PlayerControlsConfig(
+            play = true,
+            pause = true,
+            seekBack = ControlSeekConfig(enabled = true, seconds = 10),
+            seekForward = ControlSeekConfig(enabled = true, seconds = 10),
+            previous = true,
+            next = true,
+            mute = true,
+            unmute = true,
+            seasonSelector = true,
+            settings = true,
+            pip = true,
+            fullscreen = true,
+            exitFullscreen = true
+        ),
+        freePreview = FreePreviewConfig(
+            enabled = true,
+            durationMs = 60_000L,
+            popupAllowed = true,
+            popupText = "Continue watching?",
+            buttonLabel = "Subscribe"
+        ),
+        watermark = WatermarkConfig(
+            enabled = true,
+            imageUrl = "https://example.com/watermark.png",
+            type = "image",
+            position = WatermarkPosition.TOP_RIGHT,
+            textColor = "#FFFFFF",
+            fontSize = "12"
+        )
+    )
+)
+```
+
+## Ads
+
+Enable IMA/VMAP ads per content item:
+
+```kotlin
+PlayerModel(
+    hlsUrl = "https://example.com/video/master.m3u8",
+    adsConfig = AdsConfig(
+        adTagUrl = "https://pubads.g.doubleclick.net/gampad/ads?...",
+        enableAds = true
+    )
+)
+```
+
+Enable GAM banner configuration:
+
+```kotlin
+PlayerModel(
+    hlsUrl = "https://example.com/video/master.m3u8",
+    gamAdsConfig = GAMAdsConfig(
+        verticalBan = "/21775744923/example/fixed-size-banner",
+        horizontalBan = "/21775744923/example/fixed-size-banner",
+        timeIntervalInMilliseconds = 600_000L,
+        isAdsEnabled = true
+    )
+)
+```
+
+## Listener Callbacks
+
+```kotlin
+MtvVideoPlayerSdk(
+    contentList = contentList,
+    playerStateListener = object : PlayerStateListener {
+        override fun onPlayerReady(durationMs: Long) {}
+        override fun onBuffering(isBuffering: Boolean) {}
+        override fun onPlayStateChanged(isPlaying: Boolean) {}
+        override fun onPlaybackCompleted() {}
+        override fun onFullScreenChanged(isFullScreen: Boolean) {}
+        override fun onPipModeChanged(isInPip: Boolean) {}
+        override fun onAdStateChanged(isAdPlaying: Boolean) {}
+        override fun onMuteStateChanged(isMuted: Boolean) {}
+        override fun onVideoChanged(index: Int) {}
     }
 )
 ```
 
----
+## PiP
 
-## 🪟 Picture‑in‑Picture
+Pass a `PipListener` and keep `isInPipMode` in sync with your activity callback.
 
 ```kotlin
-onEnterPip = {
-    activity.enterPictureInPictureMode()
+val pipListener = object : PipListener {
+    override fun onPipRequested(isPipActive: Boolean) {
+        // Call activity.enterPictureInPictureMode(...) from your Activity.
+    }
 }
+
+MtvVideoPlayerSdk(
+    contentList = contentList,
+    pipListener = pipListener,
+    isInPipMode = isInPictureInPictureMode
+)
 ```
 
----
+## Programmatic Control
 
-## 🧪 Supported Formats
+```kotlin
+val controller = remember { PlayerController() }
 
-* HLS (`.m3u8`)
-* DASH (`.mpd`)
-* MP4
-* Widevine DRM streams
+MtvVideoPlayerSdk(
+    contentList = contentList,
+    controller = controller
+)
 
----
+controller.togglePlayPause()
+controller.toggleMute()
+controller.play(
+    PlayerModel(hlsUrl = "https://example.com/another-video/master.m3u8")
+)
+```
 
-## ✅ Requirements
+## Cast
 
-* Android API 24+
-* Kotlin
-* Jetpack Compose
-* Media3
+The SDK includes a Cast options provider. To use your own Cast receiver application id, override `app_id_prod` in your app resources:
 
----
+```xml
+<string name="app_id_prod">YOUR_CAST_RECEIVER_APP_ID</string>
+```
 
-## 🛡️ Proguard (app-specific)
+## Chapters
+
+```kotlin
+PlayerModel(
+    hlsUrl = "https://example.com/video/master.m3u8",
+    isChapterEnabled = true,
+    chapters = listOf(
+        Chapter(id = "intro", title = "Intro", startMs = 0L),
+        Chapter(id = "topic-1", title = "Topic 1", startMs = 120_000L)
+    )
+)
+```
+
+## Custom Icons
+
+```kotlin
+PlayerModel(
+    hlsUrl = "https://example.com/video/master.m3u8",
+    customControls = PlayerCustomControls(
+        iconTintRes = R.color.white,
+        playIconRes = R.drawable.ic_play,
+        pauseIconRes = R.drawable.ic_pause,
+        forwardIconRes = R.drawable.ic_forward_10,
+        rewindIconRes = R.drawable.ic_replay_10,
+        settingsIconRes = R.drawable.ic_settings,
+        fullScreenIconRes = R.drawable.ic_fullscreen,
+        exitFullScreenIconRes = R.drawable.ic_fullscreen_exit
+    )
+)
+```
+
+## Deep Link Clips
+
+Use `seekTo`, `deepLinkEndMs`, and `deepLinkClipDuration` for clipped/deep-link playback.
+
+```kotlin
+PlayerModel(
+    id = "clip-1",
+    hlsUrl = "https://example.com/video/master.m3u8",
+    seekTo = 30_000L,
+    deepLinkEndMs = 90_000L,
+    deepLinkClipDuration = 60_000L
+)
+```
+
+## Supported Formats
+
+- HLS (`.m3u8`)
+- DASH (`.mpd`)
+- MP4 / direct video URLs
+- Widevine DRM streams
+- Live URLs
+
+## Requirements
+
+- Android API 24+
+- Kotlin
+- Jetpack Compose
+- AndroidX Media3
+- Google Cast services for Cast support
+
+## ProGuard / R8
+
+The SDK is designed to work with standard Android R8 settings. If your app enables shrinking and receives missing-rule warnings from dependencies, keep the generated rules from AGP and add app-specific rules as needed.
+
+Common app-side rules:
 
 ```proguard
-# App-specific ProGuard rules only
-
-# Keep line numbers for crash reports (optional)
 -keepattributes SourceFile,LineNumberTable
-
-# Add app-only rules here if needed
-
-# ================= R8 AUTO-GENERATED MISSING RULES =================
-# Generated by Android Gradle Plugin – safe to keep
-
 -dontwarn com.app.videosdk.listener.PipListener
+-dontwarn com.app.videosdk.listener.PlayerStateListener
 -dontwarn com.app.videosdk.model.PlayerModel
 -dontwarn com.app.videosdk.ui.MtvVideoPlayerSdkKt
 ```
 
----
+## Development
 
-## 🤝 Support
+Build the SDK module:
 
-* GitHub Issues
-* SDK Support Team
+```bash
+sh gradlew :videosdk:compileDebugKotlin
+```
 
----
+Build the sample app:
 
-🚀 **Mtv Video Player SDK** – Built for scalable, high‑performance Android video experiences.
+```bash
+sh gradlew :app:assembleDebug
+```
+
+## Support
+
+Use GitHub Issues for bug reports, integration questions, and feature requests.

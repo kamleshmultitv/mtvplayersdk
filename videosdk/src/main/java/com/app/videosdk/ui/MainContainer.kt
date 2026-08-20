@@ -84,6 +84,8 @@ fun MainContainer(
     startInFullScreen: Boolean = false,
     playerMode: PlayerMode = PlayerMode.OTT, // ✅ add this
 ) {
+    val isReelsMode = playerMode == PlayerMode.REELS
+    val isOttPlaybackMode = !isReelsMode
 
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -122,8 +124,7 @@ fun MainContainer(
 
     var isFullScreen by remember(selectedIndex.intValue) {
         mutableStateOf(
-            if (playerMode == PlayerMode.REELS) true
-            else startInFullScreen
+            isReelsMode || startInFullScreen || playerMode == PlayerMode.FULL_SCREEN
         )
     }
 
@@ -133,7 +134,7 @@ fun MainContainer(
         }
     }
 
-    if (playerMode == PlayerMode.OTT) {
+    if (isOttPlaybackMode) {
         FullScreenHandler(isFullScreen)
     }
     var isControllerVisible by remember { mutableStateOf(false) }
@@ -338,7 +339,7 @@ fun MainContainer(
                     Player.STATE_ENDED -> {
                         isLoading = false
 
-                        if (playerMode == PlayerMode.OTT) {
+                        if (isOttPlaybackMode) {
                             val total = contentList?.size ?: 0
                             val nextIndex = selectedIndex.intValue + 1
                             if (nextIndex < total) {
@@ -568,7 +569,9 @@ fun MainContainer(
     Box(
         modifier = when (playerMode) {
             PlayerMode.REELS -> Modifier.fillMaxSize()
-            PlayerMode.OTT -> Modifier
+            PlayerMode.OTT,
+            PlayerMode.MINI,
+            PlayerMode.FULL_SCREEN -> Modifier
                 .fillMaxWidth()
                 .then(
                     if (isFullScreen)
@@ -616,7 +619,9 @@ fun MainContainer(
                             PlayerMode.REELS -> Modifier
                                 .fillMaxSize() // 🔥 ALWAYS FULL SCREEN
 
-                            PlayerMode.OTT -> Modifier
+                            PlayerMode.OTT,
+                            PlayerMode.MINI,
+                            PlayerMode.FULL_SCREEN -> Modifier
                                 .fillMaxWidth()
                                 .then(
                                     if (isFullScreen)
@@ -669,7 +674,7 @@ fun MainContainer(
 
                                 // 🔥 PINCH ZOOM
                                 .then(
-                                    if (playerMode == PlayerMode.OTT)
+                                    if (isOttPlaybackMode)
                                         Modifier.pointerInput(
                                             isFullScreen,
                                             pipEnabled,
@@ -761,13 +766,13 @@ fun MainContainer(
                                     isCurrentlyLockScreen = isLockScreen,
                                     exoPlayer = player,
                                     modifier = Modifier.fillMaxSize(),
-                                    isControllerVisible,
+                                    isControlsVisible = isControllerVisible,
                                     onShowControls = { isControllerVisible = it },
                                     isPipEnabled = { pipEnabled = it },
                                     onSettingsButtonClick = { isSettingsClick = it },
                                     isLoading = isLoading,
                                     onBackPressed = {
-                                        if (playerMode == PlayerMode.OTT && isFullScreen) {
+                                        if (isOttPlaybackMode && isFullScreen) {
                                             isFullScreen = false
                                             setFullScreen(false)
                                             playerStateListener?.onFullScreenChanged(false)

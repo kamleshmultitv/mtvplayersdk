@@ -1,6 +1,7 @@
 package com.app.sample.retrofit
 
 import com.app.sample.model.ContentResponse
+import com.app.sample.model.LookUpResponses
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Url
@@ -15,4 +16,10 @@ interface RetrofitService {
         @Url url: String,
         @Header("Authorization") token: String?,
     ): ContentResponse?
+
+    @GET
+    suspend fun getContentDetails(
+        @Url url: String,
+        @Header("Authorization") token: String?
+    ): LookUpResponses?
 }

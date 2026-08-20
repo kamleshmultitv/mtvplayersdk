@@ -9,19 +9,24 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -38,6 +43,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
@@ -47,6 +53,7 @@ import com.app.videosdk.model.CueType
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils.formatTime
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomSlider(
     playerModel: PlayerModel? = null,
@@ -77,6 +84,12 @@ fun CustomSlider(
         targetValue = if (isSeeking) 24.dp else 8.dp,
         animationSpec = androidx.compose.animation.core.spring(),
         label = "containerHeight"
+    )
+
+    val animatedScrubContainerHeight by androidx.compose.animation.core.animateDpAsState(
+        targetValue = if (isSeeking && !isLive && duration > 0) 56.dp else animatedContainerHeight,
+        animationSpec = androidx.compose.animation.core.spring(),
+        label = "scrubContainerHeight"
     )
 
     /* ---------- LIVE EDGE ---------- */
@@ -126,62 +139,95 @@ fun CustomSlider(
 
         /* ---------- SEEK BAR ---------- */
 
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
-                .height(animatedContainerHeight),
-            contentAlignment = Alignment.Center
+                .height(animatedScrubContainerHeight),
+            contentAlignment = Alignment.BottomCenter
         ) {
+            if (isSeeking && !isLive && duration > 0) {
+                val previewBubbleWidth = 64.dp
+                val maxPreviewBubbleOffset = (maxWidth - previewBubbleWidth).coerceAtLeast(0.dp)
+                val previewBubbleOffset =
+                    ((maxWidth * sliderPosition) - (previewBubbleWidth / 2))
+                        .coerceIn(0.dp, maxPreviewBubbleOffset)
+                val previewTimeMs =
+                    ((playerModel?.seekTo ?: 0L) + (sliderPosition * duration).toLong())
+                        .coerceAtLeast(0L)
 
-            Slider(
-                value = sliderPosition,
-                valueRange = 0f..1f,
+                Text(
+                    text = formatTime(previewTimeMs),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = previewBubbleOffset)
+                        .width(previewBubbleWidth)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.72f))
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                )
+            }
 
-                onValueChange = { value ->
-                    sliderPosition = value
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                Slider(
+                    value = sliderPosition,
+                    valueRange = 0f..1f,
 
-                    if (!isSeeking) {
-                        isSeeking = true
-                        onDragStateChange(true)
-                    }
+                    onValueChange = { value ->
+                        sliderPosition = value
 
-                    showControls(true) // ✅ ALWAYS keep controls visible
+                        if (!isSeeking) {
+                            isSeeking = true
+                            onDragStateChange(true)
+                        }
 
-                    if (duration > 0) {
-                        onPreviewChange((value * duration).toLong())
-                    }
-                },
+                        showControls(true) // ✅ ALWAYS keep controls visible
 
-                onValueChangeFinished = {
+                        if (duration > 0) {
+                            onPreviewChange((value * duration).toLong())
+                        }
+                    },
 
-                    val seekPosition = (sliderPosition * duration).toLong()
+                    onValueChangeFinished = {
 
-                    val nearestChapter = chapters.minByOrNull {
-                        kotlin.math.abs(it.startMs - seekPosition)
-                    }
+                        val baseOffset = playerModel?.seekTo ?: 0L
+                        val seekPosition = baseOffset + (sliderPosition * duration).toLong()
 
-                    if (nearestChapter != null &&
-                        kotlin.math.abs(nearestChapter.startMs - seekPosition) < 3000
-                    ) {
-                        onSeek(nearestChapter.startMs)
-                    } else {
-                        onSeek(seekPosition)
-                    }
+                        val nearestChapter = chapters.minByOrNull {
+                            kotlin.math.abs(it.startMs - seekPosition)
+                        }
 
-                    isSeeking = false
-                    onDragStateChange(false)
-                    showControls(true)
-                },
+                        if (nearestChapter != null &&
+                            kotlin.math.abs(nearestChapter.startMs - seekPosition) < 3000
+                        ) {
+                            onSeek(nearestChapter.startMs)
+                        } else {
+                            onSeek(seekPosition)
+                        }
 
-                colors = SliderDefaults.colors(
-                    thumbColor = Color.Red,
-                    activeTrackColor = Color.Transparent,
-                    inactiveTrackColor = Color.Transparent
-                ),
+                        isSeeking = false
+                        onDragStateChange(false)
+                        showControls(true)
+                    },
 
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .drawBehind {
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color.Transparent,
+                        activeTrackColor = Color.Transparent,
+                        inactiveTrackColor = Color.Transparent
+                    ),
+
+                    thumb = {
+                        Box(modifier = Modifier.size(0.dp))
+                    },
+
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(animatedContainerHeight)
+                        .drawBehind {
 
                         val trackHeightPx = animatedTrackHeight.toPx()
                         val trackY = size.height / 2 - trackHeightPx / 2
@@ -243,10 +289,25 @@ fun CustomSlider(
                             }
                         }
 
+                        if (duration > 0) {
+                            val pointerWidthPx =
+                                if (isSeeking) 3.dp.toPx() else trackHeightPx
+                            val maxPointerLeft = (size.width - pointerWidthPx).coerceAtLeast(0f)
+                            val pointerLeft =
+                                (size.width * sliderPosition - pointerWidthPx / 2)
+                                    .coerceIn(0f, maxPointerLeft)
 
+                            drawRoundRect(
+                                color = Color.Red,
+                                topLeft = Offset(pointerLeft, trackY),
+                                size = Size(pointerWidthPx, trackHeightPx),
+                                cornerRadius = CornerRadius(trackHeightPx / 2)
+                            )
+                        }
 
-                    }
-            )
+                        }
+                )
+            }
         }
 
         /* ---------- DURATION / LIVE ---------- */
@@ -292,8 +353,3 @@ fun CustomSlider(
         }
     }
 }
-
-
-
-
-

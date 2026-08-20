@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -35,7 +36,8 @@ fun CustomVolumeController(
     playerModel: PlayerModel? = null,
     exoPlayer: ExoPlayer,
     modifier: Modifier = Modifier,
-    onShowControls: (Boolean) -> Unit = {}
+    onShowControls: (Boolean) -> Unit = {},
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
     val context = LocalContext.current
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
@@ -107,23 +109,26 @@ fun CustomVolumeController(
             .size(60.dp, 200.dp)
             .then(dragGesture)
     ) {
-        // Volume Icon (Mute/Unmute)
-        IconButton(
-            modifier = Modifier.wrapContentSize()
-                .size(24.dp),
-            onClick = {
-                onShowControls(true)
-                isMuted = !isMuted
-                exoPlayer.volume = if (isMuted) 0f else systemVolume / maxVolume
+        val canToggleVolume = if (isMuted) controlsConfig.unmute else controlsConfig.mute
+
+        if (canToggleVolume) {
+            IconButton(
+                modifier = Modifier.wrapContentSize()
+                    .size(24.dp),
+                onClick = {
+                    onShowControls(true)
+                    isMuted = !isMuted
+                    exoPlayer.volume = if (isMuted) 0f else systemVolume / maxVolume
+                }
+            ) {
+                CustomIcon(
+                    resId = if (isMuted) playerModel?.customControls?.muteIconRes else playerModel?.customControls?.unMuteIconRes,
+                    defaultIcon = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                    contentDescription = if (isMuted) "Unmute" else "Mute",
+                    modifier = Modifier.size(24.dp),
+                    tint = playerModel?.customControls?.iconTintRes
+                )
             }
-        ) {
-            CustomIcon(
-                resId = if (isMuted) playerModel?.customControls?.muteIconRes else playerModel?.customControls?.unMuteIconRes,
-                defaultIcon = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                contentDescription = if (isMuted) "Unmute" else "Mute",
-                modifier = Modifier.size(24.dp),
-                tint = playerModel?.customControls?.iconTintRes
-            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))

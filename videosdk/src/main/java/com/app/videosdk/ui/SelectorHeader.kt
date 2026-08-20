@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateMapOf
@@ -37,17 +38,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.OptionItemModel
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils.calculatePitch
 import com.app.videosdk.utils.PlayerUtils.changeVideoResolution
-import com.app.videosdk.utils.PlayerUtils.getAudioTrack
-import com.app.videosdk.utils.PlayerUtils.getSubTitleFormats
+import com.app.videosdk.utils.PlayerUtils.getTextTrackOptions
 import com.app.videosdk.utils.PlayerUtils.getVideoFormats
 import com.app.videosdk.utils.PlayerUtils.selectAudioTrack
+import com.app.videosdk.utils.PlayerUtils.selectTextTrack
 import com.app.videosdk.utils.PlayerUtils.setAutoVideoResolution
 import com.app.videosdk.utils.PlayerUtils.showAudioTrack
 import com.app.videosdk.viewmodel.VideoViewModel
@@ -59,6 +61,22 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
     val selectedItems = remember { mutableStateMapOf<Int, Int>() }
     val options by viewModel.options.collectAsState()
     var selectedOption by remember { mutableStateOf(options.firstOrNull()?.id) }
+    var captionOptions by remember(exoPlayer) { mutableStateOf(getTextTrackOptions(exoPlayer)) }
+
+    DisposableEffect(exoPlayer) {
+        val player = exoPlayer ?: return@DisposableEffect onDispose {}
+
+        captionOptions = getTextTrackOptions(player)
+
+        val listener = object : Player.Listener {
+            override fun onTracksChanged(tracks: Tracks) {
+                captionOptions = getTextTrackOptions(player)
+            }
+        }
+
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
 
     // Intercept Back button to close the header and resume video
     BackHandler(enabled = true) {
@@ -133,30 +151,18 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
                 }
 
                 2 -> {
-                    val subTitleList = remember(exoPlayer) { getSubTitleFormats(exoPlayer) }
-                    val availableList = remember(context, subTitleList) {
-                        getAudioTrack(
-                            context,
-                            listOf("off") + subTitleList.mapNotNull { it.language ?: it.label }
-                        )
+                    val selectedCaptionIndex = selectedItems[selectedOption]?.takeIf {
+                        it in captionOptions.indices
                     }
+                        ?: captionOptions.indexOfFirst { it.isSelected }.takeIf { it >= 0 }
+                        ?: 0
 
                     SelectionList(
-                        items = availableList.map { it.name.toString() },
-                        selectedIndex = selectedItems[selectedOption] ?: -1
+                        items = captionOptions.map { it.displayName },
+                        selectedIndex = selectedCaptionIndex
                     ) { index ->
                         selectedItems[selectedOption!!] = index
-                        exoPlayer?.trackSelectionParameters =
-                            exoPlayer.trackSelectionParameters.buildUpon()
-                                .setTrackTypeDisabled(
-                                    C.TRACK_TYPE_TEXT,
-                                    availableList[index].id == "off"
-                                )
-                                .apply {
-                                    if (availableList[index].id != "off") {
-                                        setPreferredTextLanguages(availableList[index].id ?: "en")
-                                    }
-                                }.build()
+                        selectTextTrack(captionOptions[index], exoPlayer)
                     }
                 }
 

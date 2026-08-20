@@ -25,4 +25,23 @@ interface PlayerStateListener {
     fun onReelChanged(position: Int) {}
 
     fun onPreloadNext(index: Int) {}
+
+    fun onMuteStateChanged(isMuted: Boolean) {}
+
+    fun onCastPlaybackStateChanged(
+        playerState: Int,
+        idleReason: Int,
+        contentType: String?,
+        contentId: String?,
+        contentUrl: String?
+    ) {}
+
+    fun onCastPlaybackFailed(
+        message: String,
+        playerState: Int,
+        idleReason: Int,
+        contentType: String?,
+        contentId: String?,
+        contentUrl: String?
+    ) {}
 }

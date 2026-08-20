@@ -3,7 +3,6 @@ package com.app.videosdk.ui
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -14,25 +13,17 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -47,26 +38,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.exoplayer.ExoPlayer
-import coil.compose.rememberAsyncImagePainter
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.model.CuePoint
+import com.app.videosdk.model.EpisodeNowPlayingStyle
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.reels.ReelsFooter
 import com.app.videosdk.utils.CastUtils
 import com.app.videosdk.utils.PlayerMode
 import com.app.videosdk.utils.PlayerUtils.timeToMillis
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun CustomPlayerController(
@@ -79,6 +72,8 @@ fun CustomPlayerController(
     isCurrentlyFullScreen: Boolean,
     isCurrentlyLockScreen: Boolean,
     exoPlayer: ExoPlayer,
+    externalCastUtils: CastUtils? = null,
+    episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle(),
     modifier: Modifier,
     isControlsVisible: Boolean,
     onShowControls: (Boolean) -> Unit,
@@ -91,9 +86,13 @@ fun CustomPlayerController(
     isSkipIntroClicked: Boolean,
     onSkipIntroClicked: (Boolean) -> Unit,
     onNextEpisodeClick: (Int) -> Unit,
+    showContentTitle: Boolean = true,
     onChapterClick: () -> Unit = {},
+    onCutClick: () -> Unit = {},
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
+    showPreviousControl: Boolean = false,
     mode: PlayerMode? = null,
-    onSettingsClick: (Boolean) -> Unit
+    onSettingsClick: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -102,9 +101,10 @@ fun CustomPlayerController(
     val fullScreenState = rememberUpdatedState(isFullScreen)
     val lockScreenState = rememberUpdatedState(isLockScreen)
 
-    val castUtils = remember(context, exoPlayer) {
+    val rememberedCastUtils = remember(context, exoPlayer) {
         CastUtils(context, exoPlayer)
     }
+    val castUtils = externalCastUtils ?: rememberedCastUtils
     val isCasting by remember { derivedStateOf { castUtils.isCasting() } }
 
     var isZoomed by remember { mutableStateOf(false) }
@@ -121,6 +121,26 @@ fun CustomPlayerController(
     var onSeek by remember { mutableStateOf(false) }
     val currentPlayerModel = playerModelList?.getOrNull(index)
     var expandSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(castUtils, currentPlayerModel, externalCastUtils) {
+        if (externalCastUtils == null) {
+            castUtils.setupCastSession(currentPlayerModel)
+        }
+    }
+
+    DisposableEffect(castUtils, externalCastUtils) {
+        onDispose {
+            if (externalCastUtils == null) {
+                castUtils.release()
+            }
+        }
+    }
+
+    LaunchedEffect(isCurrentlyFullScreen, expandSheet) {
+        if (!isCurrentlyFullScreen && expandSheet) {
+            expandSheet = false
+        }
+    }
 
 
     /* ---------------- SKIP INTRO ---------------- */
@@ -142,12 +162,14 @@ fun CustomPlayerController(
         currentPosition,
         currentPlayerModel,
         nextEpisodeClicked,
-        duration
+        duration,
+        controlsConfig.next
     ) {
         derivedStateOf {
             val next = currentPlayerModel?.nextEpisode ?: return@derivedStateOf false
 
             if (
+                !controlsConfig.next ||
                 exoPlayer.isPlayingAd ||          // 🔥 KEY FIX
                 duration <= 0L ||
                 currentPosition <= 0L ||
@@ -169,12 +191,14 @@ fun CustomPlayerController(
         currentPosition,
         currentPlayerModel,
         nextEpisodeClicked,
-        duration
+        duration,
+        controlsConfig.next
     ) {
         derivedStateOf {
             val next = currentPlayerModel?.nextEpisode ?: return@derivedStateOf false
 
             if (
+                !controlsConfig.next ||
                 exoPlayer.isPlayingAd ||          // 🔥 KEY FIX
                 duration <= 0L ||
                 currentPosition <= 0L ||
@@ -223,10 +247,11 @@ fun CustomPlayerController(
     /* ⭐ FIX 2: SINGLE SOURCE OF TRUTH FOR VISIBILITY */
     val shouldForceShowControls by remember(
         isInNextEpisodeWindow,
-        showSkipIntro
+        showSkipIntro,
+        expandSheet
     ) {
         derivedStateOf {
-            isInNextEpisodeWindow || showSkipIntro
+            isInNextEpisodeWindow || showSkipIntro || expandSheet
         }
     }
 
@@ -239,7 +264,7 @@ fun CustomPlayerController(
                 else exoPlayer.currentPosition
 
             isPlaying = exoPlayer.isPlaying
-            delay(1000)
+            delay(1000.milliseconds)
         }
     }
 
@@ -258,13 +283,13 @@ fun CustomPlayerController(
         }
 
         // ⏱ Normal behavior
-        delay(3000)
+        delay(3000.milliseconds)
         showControlsState.value(!isPlaying)
     }
 
     LaunchedEffect(onSeek) {
         if (onSeek) {
-            delay(500)
+            delay(500.milliseconds)
             onSeek = false
         }
     }
@@ -283,10 +308,11 @@ fun CustomPlayerController(
 
     var hasShownNextEpisodeControls by remember(index) { mutableStateOf(false) }
 
-    LaunchedEffect(currentPosition, currentPlayerModel) {
+    LaunchedEffect(currentPosition, currentPlayerModel, controlsConfig.next) {
         val next = currentPlayerModel?.nextEpisode ?: return@LaunchedEffect
 
         if (
+            controlsConfig.next &&
             !hasShownNextEpisodeControls &&
             !currentPlayerModel.isLive &&
             next.enableNextEpisode &&
@@ -307,14 +333,32 @@ fun CustomPlayerController(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
-            .padding(16.dp)
     ) {
+        if (isControlsVisible && !expandSheet) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.00f to Color.Black.copy(alpha = 0.86f),
+                                0.18f to Color.Black.copy(alpha = 0.52f),
+                                0.45f to Color.Black.copy(alpha = 0.34f),
+                                0.62f to Color.Black.copy(alpha = 0.34f),
+                                0.84f to Color.Black.copy(alpha = 0.62f),
+                                1.00f to Color.Black.copy(alpha = 0.90f)
+                            )
+                        )
+                    )
+            )
+        }
 
         /* ---- TOP BAR ---- */
         AnimatedVisibility(
-            visible = isControlsVisible,
-            modifier = Modifier.align(Alignment.TopCenter),
+            visible = isControlsVisible && !expandSheet,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .zIndex(2f),
 
             enter = slideInVertically(
                 initialOffsetY = { -it },   // 🔥 start ABOVE the screen
@@ -349,6 +393,8 @@ fun CustomPlayerController(
                 context = context,
                 castUtils = castUtils,
                 pipListener = pipListener,
+                controlsConfig = controlsConfig,
+                showContentTitle = showContentTitle,
                 isPipEnabled = isPipEnabled,
                 onBackPressed = onBackPressed,
                 onSettingsClick = {
@@ -365,13 +411,22 @@ fun CustomPlayerController(
                 onChapterClick = {
                     onChapterClick()
                 },
-                mode = mode
+                mode = mode,
+                onCutClick = {
+                    onCutClick()
+                }
             )
         }
 
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+
         /* ---------- CENTER AREA ---------- */
 
-        if (isCurrentlyFullScreen) {
+        if (isCurrentlyFullScreen && !expandSheet) {
 
             Row(modifier = Modifier.fillMaxSize()) {
 
@@ -432,6 +487,8 @@ fun CustomPlayerController(
                         exoPlayer = exoPlayer,
                         castUtils = castUtils,
                         isCasting = isCasting,
+                        isFullScreen = isCurrentlyFullScreen,
+                        verticalOffset = (-6).dp,
                         onShowControls = showControlsState.value,
                         onForward = { showForwardIcon = true },
                         onRewind = { showRewindIcon = true },
@@ -439,14 +496,15 @@ fun CustomPlayerController(
                         onRewindHide = { showForwardIcon = false },
                         isZoomed = isZoomed,
                         onZoomChange = { isZoomed = it },
-                        mode = mode
+                        mode = mode,
+                        controlsConfig = controlsConfig
                     )
                 }
 
                 /* ---- VOLUME (RIGHT) ---- */
                 if (mode != PlayerMode.REELS) {
                     AnimatedVisibility(
-                        visible = isControlsVisible,
+                        visible = isControlsVisible && (controlsConfig.mute || controlsConfig.unmute),
                         modifier = Modifier
                             .weight(0.1f)
                             .fillMaxHeight(),
@@ -479,21 +537,21 @@ fun CustomPlayerController(
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxHeight()
-                                .weight(0.1f),
+                                .fillMaxHeight(),
                             contentAlignment = Alignment.Center
                         ) {
                             CustomVolumeController(
                                 playerModel = playerModel,
                                 exoPlayer = exoPlayer,
-                                onShowControls = showControlsState.value
+                                onShowControls = showControlsState.value,
+                                controlsConfig = controlsConfig
                             )
                         }
                     }
                 }
             }
 
-            if (mode != PlayerMode.OTT) {
+            if (mode == PlayerMode.REELS) {
                 ReelsFooter(
                     onLikeClick = {
                     },
@@ -513,6 +571,8 @@ fun CustomPlayerController(
                 exoPlayer = exoPlayer,
                 castUtils = castUtils,
                 isCasting = isCasting,
+                isFullScreen = isCurrentlyFullScreen,
+                verticalOffset = 0.dp,
                 onShowControls = showControlsState.value,
                 onForward = { showForwardIcon = true },
                 onRewind = { showRewindIcon = true },
@@ -520,7 +580,8 @@ fun CustomPlayerController(
                 onRewindHide = { showForwardIcon = false },
                 isZoomed = isZoomed,
                 onZoomChange = { isZoomed = it },
-                mode = mode
+                mode = mode,
+                controlsConfig = controlsConfig
             )
         }
 
@@ -528,16 +589,19 @@ fun CustomPlayerController(
 
         if (mode != PlayerMode.REELS) {
             AnimatedVisibility(
-                visible = showSkipIntro,
+                visible = showSkipIntro && !expandSheet,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp, start = 8.dp)
+                    .padding(bottom = if (isCurrentlyFullScreen) 56.dp else 32.dp, start = 8.dp)
             ) {
+                val skipIntroButtonShape = RoundedCornerShape(8.dp)
+
                 Box(
                     modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.60f), skipIntroButtonShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.95f), skipIntroButtonShape)
                         .clickable {
                             onSkipIntroClicked(true)
                             currentPlayerModel?.skipIntro?.endTime?.let { endTime ->
@@ -549,7 +613,7 @@ fun CustomPlayerController(
                 ) {
                     Text(
                         text = "Skip Intro",
-                        color = Color.Black,
+                        color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -559,19 +623,21 @@ fun CustomPlayerController(
             /* ---------- Next Episode BUTTON ---------- */
 
             AnimatedVisibility(
-                visible = showNextEpisode,
+                visible = controlsConfig.next && showNextEpisode && !expandSheet,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(bottom = if (isCurrentlyFullScreen) 75.dp else 45.dp)
+                    .padding(bottom = if (isCurrentlyFullScreen) 56.dp else 32.dp)
             ) {
                 if (playerModelList != null && playerModelList.size > 1) {
                     val isLastItem = index >= playerModelList.lastIndex
+                    val nextEpisodeButtonShape = RoundedCornerShape(8.dp)
 
                     Box(
                         modifier = Modifier
-                            .background(Color.Gray, RoundedCornerShape(4.dp))
+                            .background(Color.Gray.copy(alpha = 0.60f), nextEpisodeButtonShape)
+                            .border(1.dp, Color.White.copy(alpha = 0.95f), nextEpisodeButtonShape)
                             .clickable(enabled = !isLastItem) {
                                 if (!isLastItem) {
                                     nextEpisodeClicked = true
@@ -585,7 +651,7 @@ fun CustomPlayerController(
                         Box(
                             modifier = Modifier
                                 .matchParentSize()
-                                .clip(RoundedCornerShape(4.dp))
+                                .clip(nextEpisodeButtonShape)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -614,8 +680,10 @@ fun CustomPlayerController(
         /* ---------- BOTTOM CONTROLS ---------- */
 
         AnimatedVisibility(
-            visible = isControlsVisible,
-            modifier = Modifier.align(Alignment.BottomCenter),
+            visible = isControlsVisible && !expandSheet,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = if (isCurrentlyFullScreen) 0.dp else 8.dp),
 
             enter = slideInVertically(
                 initialOffsetY = { it },   // from bottom
@@ -667,16 +735,27 @@ fun CustomPlayerController(
                     }
                 },
                 expandSheet = {
-                    expandSheet = it
+                    expandSheet = if (isCurrentlyFullScreen) {
+                        it
+                    } else {
+                        false
+                    }
                 },
+                onPrevious = playContent,
+                controlsConfig = controlsConfig,
+                showPreviousControl = showPreviousControl,
                 mode = mode
             )
         }
 
-        if (expandSheet) {
+        }
+
+        if (expandSheet && isCurrentlyFullScreen) {
             EpisodeSelectionSheet(
                 expandSheet = true,
                 playerModelList = playerModelList,
+                currentIndex = index,
+                nowPlayingStyle = episodeNowPlayingStyle,
                 isCasting = isCasting,
                 exoPlayer = exoPlayer,
                 onDismiss = { expandSheet = false },

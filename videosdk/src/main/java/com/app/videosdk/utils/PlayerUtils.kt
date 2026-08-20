@@ -3,10 +3,13 @@ package com.app.videosdk.utils
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresPermission
+import androidx.compose.runtime.Composition
+import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.Format
@@ -14,6 +17,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -36,10 +41,25 @@ import com.app.videosdk.model.VideoQualityModel
 import com.google.ads.interactivemedia.v3.api.AdEvent
 import com.google.common.collect.ImmutableList
 import com.google.gson.Gson
+import java.io.File
+import androidx.media3.transformer.EditedMediaItem
+import androidx.media3.transformer.ExportResult
+import androidx.media3.transformer.ExportException
+import androidx.media3.transformer.Transformer
 import kotlin.math.pow
 
 
 object PlayerUtils {
+
+    data class TextTrackOption(
+        val id: String,
+        val displayName: String,
+        val language: String?,
+        val mediaTrackGroup: TrackGroup?,
+        val trackIndex: Int,
+        val isOff: Boolean = false,
+        val isSelected: Boolean = false
+    )
 
     /* =========================================================
        PLAYER + IMA
@@ -56,7 +76,8 @@ object PlayerUtils {
         playerView: PlayerView? = null,
         adsConfig: AdsConfig? = null,
         adsListener: AdsListener? = null,
-        existingAdsLoader: ImaAdsLoader? = null
+        existingAdsLoader: ImaAdsLoader? = null,
+        playWhenReady: Boolean = true
     ): Pair<ExoPlayer, ImaAdsLoader?> {
 
         val content = contentList?.get(selectedIndex)
@@ -115,7 +136,6 @@ object PlayerUtils {
                         .build()
 
                 } else null
-
 
 
         /* ================= DATASOURCE ================= */
@@ -235,9 +255,23 @@ object PlayerUtils {
             } else {
                 Log.d("PlayerUtils", "Using ONLINE MediaItem: $resolvedUri")
 
+                val deepStart = content?.seekTo ?: 0L
+                val deepEnd = content?.deepLinkEndMs
+
                 MediaItem.Builder()
                     .setUri(resolvedUri)
                     .apply {
+
+                        // ✅ THIS MAKES SEEK BAR = CLIP DURATION
+                        if (deepEnd != null && deepEnd > deepStart) {
+                            setClippingConfiguration(
+                                MediaItem.ClippingConfiguration.Builder()
+                                    .setStartPositionMs(deepStart)
+                                    .setEndPositionMs(deepEnd)
+                                    .build()
+                            )
+                        }
+
                         if (!drmToken.isNullOrBlank()) {
                             setDrmConfiguration(
                                 MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
@@ -272,7 +306,10 @@ object PlayerUtils {
 
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
-        exoPlayer.playWhenReady = true
+        contentList?.get(selectedIndex)?.seekTo?.let { position ->
+            exoPlayer.seekTo(position)
+        }
+        exoPlayer.playWhenReady = playWhenReady
 
         return exoPlayer to adsLoader
     }
@@ -303,7 +340,6 @@ object PlayerUtils {
     }
 
 
-
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     fun resolveToPlayableUri(
         contentList: List<PlayerModel>? = null,
@@ -316,6 +352,7 @@ object PlayerUtils {
         val mpd = content?.mpdUrl
         val hls = content?.hlsUrl
         val live = content?.liveUrl
+        val direct = content?.videoUrl
 
         // ✅ STRICT RULE
         // DRM → DASH ONLY
@@ -324,6 +361,7 @@ object PlayerUtils {
             content?.drm == "1" && !mpd.isNullOrBlank() -> mpd   // ✅ FIX
             content?.drm != "1" && !hls.isNullOrBlank() -> hls
             !live.isNullOrBlank() -> live
+            !direct.isNullOrBlank() -> direct
             else -> null
         }?.trim()
 
@@ -403,6 +441,96 @@ object PlayerUtils {
         trackSelector.setParameters(parameters)
     }
 
+    fun getTextTrackOptions(exoPlayer: ExoPlayer?): List<TextTrackOption> {
+        val trackOptions = mutableListOf<TextTrackOption>()
+        val trackGroups = exoPlayer?.currentTracks?.groups.orEmpty()
+        var hasSelectedTextTrack = false
+
+        trackGroups
+            .filter { it.type == C.TRACK_TYPE_TEXT }
+            .forEachIndexed { groupIndex, group ->
+                val mediaTrackGroup = group.mediaTrackGroup
+                for (trackIndex in 0 until group.length) {
+                    val format = group.getTrackFormat(trackIndex)
+                    val language = format.language.cleanTrackText()
+                    val label = format.label.cleanTrackText()
+                    val displayName = label
+                        ?: language
+                        ?: format.id.cleanTrackText()
+                        ?: "Subtitle ${trackOptions.size + 1}"
+                    val isSelected = group.isTrackSelected(trackIndex)
+
+                    if (isSelected) {
+                        hasSelectedTextTrack = true
+                    }
+
+                    trackOptions.add(
+                        TextTrackOption(
+                            id = language
+                                ?: label
+                                ?: format.id.cleanTrackText()
+                                ?: "text_${groupIndex}_$trackIndex",
+                            displayName = displayName,
+                            language = language,
+                            mediaTrackGroup = mediaTrackGroup,
+                            trackIndex = trackIndex,
+                            isSelected = isSelected
+                        )
+                    )
+                }
+            }
+
+        return listOf(
+            TextTrackOption(
+                id = "off",
+                displayName = "Off",
+                language = null,
+                mediaTrackGroup = null,
+                trackIndex = C.INDEX_UNSET,
+                isOff = true,
+                isSelected = !hasSelectedTextTrack
+            )
+        ) + trackOptions
+    }
+
+    fun selectTextTrack(option: TextTrackOption, exoPlayer: ExoPlayer?) {
+        val player = exoPlayer ?: return
+        val builder = player.trackSelectionParameters
+            .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+
+        if (option.isOff) {
+            player.trackSelectionParameters = builder
+                .setPreferredTextLanguages()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+            return
+        }
+
+        builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+
+        option.mediaTrackGroup?.let { group ->
+            builder.setOverrideForType(TrackSelectionOverride(group, option.trackIndex))
+        }
+
+        val languageVariants = option.language.toPreferredTextLanguageVariants()
+        if (languageVariants.isNotEmpty()) {
+            builder.setPreferredTextLanguages(*languageVariants.toTypedArray())
+        }
+
+        player.trackSelectionParameters = builder.build()
+    }
+
+    private fun String?.cleanTrackText(): String? =
+        this?.trim()?.takeIf { it.isNotEmpty() && !it.equals("und", ignoreCase = true) }
+
+    private fun String?.toPreferredTextLanguageVariants(): List<String> {
+        val language = cleanTrackText() ?: return emptyList()
+        val normalized = language.replace('_', '-')
+        val lower = normalized.lowercase()
+        return listOf(language, normalized, lower).distinct()
+    }
+
     @OptIn(UnstableApi::class)
     fun getSubTitleFormats(exoPlayer: ExoPlayer?): List<Format> {
         val subTitleFormatList = mutableListOf<Format>()
@@ -416,12 +544,6 @@ object PlayerUtils {
         subtitleRendererIndices.forEach { subtitleRendererIndex ->
             val override = mappedTrackInfo.getTrackGroups(subtitleRendererIndex)
             subTitleFormatList.addAll(getVideoQualityList(override))
-        }
-
-        if (subTitleFormatList.isEmpty()) {
-            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                .build()
         }
 
         return subTitleFormatList
@@ -544,5 +666,106 @@ object PlayerUtils {
 
             else -> 0L
         }
+    }
+
+    // share clip
+    @OptIn(UnstableApi::class)
+    fun exportClip(
+        context: Context,
+        videoUri: Uri,
+        clipStart: Long
+    ) {
+
+        val clipDuration = 120_000L
+
+        val mediaItem = MediaItem.Builder()
+            .setUri(videoUri)
+            .setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(clipStart)
+                    .setEndPositionMs(clipStart + clipDuration)
+                    .build()
+            )
+            .build()
+
+        val editedMediaItem = EditedMediaItem.Builder(mediaItem).build()
+
+        val transformer = Transformer.Builder(context).build()
+
+        val outputFile = File(
+            context.cacheDir,
+            "clip_${System.currentTimeMillis()}.mp4"
+        )
+
+        transformer.addListener(object : Transformer.Listener {
+
+            override fun onCompleted(
+                composition: androidx.media3.transformer.Composition,
+                exportResult: ExportResult
+            ) {
+                Log.d("Clip", "Export completed")
+
+                // ✅ CALL SHARE HERE
+                shareVideo(context, outputFile)
+            }
+
+            override fun onError(
+                composition: androidx.media3.transformer.Composition,
+                exportResult: ExportResult,
+                exception: ExportException
+            ) {
+                exception.printStackTrace()
+            }
+        })
+
+        transformer.start(
+            editedMediaItem,
+            outputFile.absolutePath
+        )
+    }
+
+
+    fun shareVideo(context: Context, file: File) {
+
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            file
+        )
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "video/mp4"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        context.startActivity(
+            Intent.createChooser(intent, "Share Clip")
+        )
+    }
+
+    fun createShareUrl(
+        contentId: String? = null,
+        url: String? = null,
+        clipStart: Long,
+        clipEnd: Long,
+        totalClipDuration: Long
+    ): String {
+        return "https://www.artofliving.app/watch?url=$url&contentId=$contentId&start=$clipStart&end=$clipEnd&totalClipDuration=$totalClipDuration"
+    }
+
+    fun shareLink(
+        context: Context,
+        shareUrl: String
+    ) {
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, shareUrl)
+        }
+
+        context.startActivity(
+            Intent.createChooser(intent, "Share Clip")
+        )
     }
 }
