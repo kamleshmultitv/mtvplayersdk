@@ -15,7 +15,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MTV Player SDK"
+rootProject.name = "MtvReelsSDK"
 include(":app")
 include(":videosdk")
 include(":mtvdownloader")
