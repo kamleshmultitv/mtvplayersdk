@@ -11,6 +11,19 @@
         android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
 
+    <queries>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.facebook.lite" />
+        <package android:name="com.instagram.android" />
+
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+
     <application>
         <activity android:name="com.google.android.gms.cast.framework.media.widget.ExpandedControllerActivity"
             android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"/>

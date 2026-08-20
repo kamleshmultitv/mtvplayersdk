@@ -38,6 +38,7 @@ data class PlayerModel(
     val skipIntro: SkipIntro? = null,
     val nextEpisode: NextEpisode? = null,
     val customControls: PlayerCustomControls? = null,
+    val controlsConfig: PlayerControlsConfig? = null,
     val isClipEnabled: Boolean = false,
     val isChapterEnabled: Boolean = false,
     val chapters: List<Chapter>? = null,
@@ -66,5 +67,8 @@ data class PlayerModel(
      * Alternate backend field supported for APIs that name the classification
      * `contentRating`. [ageRating] takes precedence when both contain a value.
      */
-    val contentRating: String? = null
+    val contentRating: String? = null,
+
+    /** Public URL used by share surfaces. Falls back to playback URLs when absent. */
+    val shareUrl: String? = null
 )

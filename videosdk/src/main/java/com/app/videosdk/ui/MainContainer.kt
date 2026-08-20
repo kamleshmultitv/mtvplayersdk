@@ -8,23 +8,21 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,15 +30,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.toColorInt
 import androidx.media3.common.C
@@ -48,44 +46,43 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
-import androidx.media3.common.VideoSize
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.AdsListener
-import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
-import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
-import com.app.videosdk.ui.chapter.ChapterDrawer
-import com.app.videosdk.utils.PlayerMode
+import com.app.videosdk.ui.reels.ReelsSettingsSheet
 import com.app.videosdk.utils.PlayerUtils
-import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
-import com.google.android.gms.cast.framework.CastContext
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.max
 
 @OptIn(UnstableApi::class)
 @Composable
 fun MainContainer(
     contentList: List<PlayerModel>?,
     index: Int? = 0,
-    pipListener: PipListener?,
-    isInPipMode: Boolean,
     playerStateListener: PlayerStateListener?,
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit,
     startInFullScreen: Boolean = false,
-    playerMode: PlayerMode = PlayerMode.OTT, // ✅ add this
+    isReelPageActive: Boolean = true,
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
-    val isReelsMode = playerMode == PlayerMode.REELS
-    val isOttPlaybackMode = !isReelsMode
+    if (LocalInspectionMode.current) {
+        MainContainerPreviewSurface(
+            playerModel = contentList?.getOrNull(index ?: 0),
+            isReelPageActive = isReelPageActive
+        )
+        return
+    }
 
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
@@ -97,10 +94,9 @@ fun MainContainer(
         PlayerView(context).apply {
             useController = false
             layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
         }
     }
-
-    CastContext.getSharedInstance(context)
 
     val safeIndex = remember(contentList, index) {
         val size = contentList?.size ?: 0
@@ -121,40 +117,30 @@ fun MainContainer(
     }
 
     val playerModel = contentList?.getOrNull(selectedIndex.intValue)
+    val modelControlsConfig = playerModel?.controlsConfig ?: controlsConfig
 
     var isFullScreen by remember(selectedIndex.intValue) {
-        mutableStateOf(
-            isReelsMode || startInFullScreen || playerMode == PlayerMode.FULL_SCREEN
-        )
+        mutableStateOf(startInFullScreen)
     }
 
     LaunchedEffect(startInFullScreen) {
-        if (startInFullScreen) {
-            setFullScreen(true)
-        }
-    }
-
-    if (isOttPlaybackMode) {
-        FullScreenHandler(isFullScreen)
+        isFullScreen = startInFullScreen
     }
     var isControllerVisible by remember { mutableStateOf(false) }
-    var isLockScreen by remember { mutableStateOf(false) }
-    var showUnlockConfirm by remember { mutableStateOf(false) }
-    var isLockOverlayVisible by remember { mutableStateOf(true) }
-    var pipEnabled = isInPipMode
     var isLoading by remember { mutableStateOf(false) }
+    var isPlayerPlaying by remember { mutableStateOf(false) }
+    var isSeekbarDragging by remember { mutableStateOf(false) }
     var isSettingsClick by remember { mutableStateOf(false) }
+    val reelsSettingsSelectedItems = remember(selectedIndex.intValue) {
+        mutableStateMapOf<Int, Int>()
+    }
+    var reelsSettingsSelectedOption by remember(selectedIndex.intValue) {
+        mutableStateOf<Int?>(null)
+    }
     var isAdsShowing by remember { mutableStateOf(false) }
     var showLShapeAd by remember { mutableStateOf(false) }
     val triggeredLBands = remember { mutableSetOf<String>() }
     val coroutineScope = rememberCoroutineScope()
-    var lastVideoSize by remember { mutableStateOf<VideoSize?>(null) }
-    var currentChapter by remember { mutableStateOf<Chapter?>(null) }
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
-    var hasActivatedFill by remember { mutableStateOf(false) }
-    var preloadPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
-
-    var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
 
     val imaCuePoints = remember {
         mutableStateListOf<CuePoint>()
@@ -188,10 +174,12 @@ fun MainContainer(
 
     val subtitleUri = if (isLive) "" else playerModel?.srt.orEmpty()
 
-    var containerSize by remember { mutableStateOf(Size.Zero) }
-    var fillScale by remember { mutableFloatStateOf(1f) }
-    var isFilled by remember { mutableStateOf(false) }
-    var zoomAccumulator by remember { mutableFloatStateOf(1f) }
+    var hasRenderedFirstFrame by remember(selectedIndex.intValue, playbackUrl) { mutableStateOf(false) }
+    var hasReleasedStartupBitrate by remember(selectedIndex.intValue, playbackUrl) { mutableStateOf(false) }
+    val posterUrl = remember(playerModel) {
+        playerModel?.imageUrl?.takeIf { it.isNotBlank() }
+            ?: playerModel?.thumbnail?.takeIf { it.isNotBlank() }
+    }
 
     val adsListener = remember {
         object : AdsListener {
@@ -251,7 +239,9 @@ fun MainContainer(
             srt = subtitleUri,
             playerView = playerView,
             adsConfig = model.adsConfig,
-            adsListener = adsListener
+            adsListener = adsListener,
+            playWhenReady = isReelPageActive,
+            fastStart = true
         )
     }
 
@@ -281,24 +271,22 @@ fun MainContainer(
         }
     }
 
-    // 🔥 Position Tracker for Auto-Show Controls (Intro / Next Episode)
-    var hasShownNextEpisodeControls by remember(selectedIndex.intValue) { mutableStateOf(false) }
-    var hasShownSkipIntroControls by remember(selectedIndex.intValue) { mutableStateOf(false) }
-
     DisposableEffect(exoPlayer) {
         val player = exoPlayer ?: return@DisposableEffect onDispose {}
 
         val listener = object : Player.Listener {
-            override fun onVideoSizeChanged(videoSize: VideoSize) {
-                hasActivatedFill = false
-                lastVideoSize = videoSize
-                if (videoSize.width == 0 || containerSize == Size.Zero) return
-                fillScale = max(
-                    containerSize.width / videoSize.width,
-                    containerSize.height / videoSize.height
-                )
-                isFilled = false
-                zoomAccumulator = 1f
+            override fun onRenderedFirstFrame() {
+                hasRenderedFirstFrame = true
+
+                if (!hasReleasedStartupBitrate) {
+                    hasReleasedStartupBitrate = true
+                    player.trackSelectionParameters =
+                        player.trackSelectionParameters
+                            .buildUpon()
+                            .setMaxVideoBitrate(Int.MAX_VALUE)
+                            .setForceHighestSupportedBitrate(false)
+                            .build()
+                }
             }
 
             override fun onPlaybackStateChanged(state: Int) {
@@ -338,15 +326,6 @@ fun MainContainer(
 
                     Player.STATE_ENDED -> {
                         isLoading = false
-
-                        if (isOttPlaybackMode) {
-                            val total = contentList?.size ?: 0
-                            val nextIndex = selectedIndex.intValue + 1
-                            if (nextIndex < total) {
-                                selectedIndex.intValue = nextIndex
-                            }
-                        }
-
                         playerStateListener?.onPlaybackCompleted()
                     }
 
@@ -368,6 +347,7 @@ fun MainContainer(
 
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                isPlayerPlaying = isPlaying
                 playerStateListener?.onPlayStateChanged(isPlaying)
             }
 
@@ -412,26 +392,7 @@ fun MainContainer(
             player.removeListener(listener)
             adsLoader?.setPlayer(null)
             player.release()
-
-            // 🔥 Release preload player too
-            preloadPlayer?.release()
-            preloadPlayer = null
         }
-    }
-
-    LaunchedEffect(containerSize, showLShapeAd) {
-
-        val videoSize = lastVideoSize ?: return@LaunchedEffect
-
-        if (videoSize.width == 0 || containerSize == Size.Zero) return@LaunchedEffect
-
-        fillScale = max(
-            containerSize.width / videoSize.width,
-            containerSize.height / videoSize.height
-        )
-
-        isFilled = false
-        zoomAccumulator = 1f
     }
 
     LaunchedEffect(selectedIndex.intValue) {
@@ -439,13 +400,47 @@ fun MainContainer(
         imaCuePoints.clear()
     }
 
-    LaunchedEffect(index, selectedIndex.intValue) {
+    LaunchedEffect(exoPlayer, isReelPageActive) {
+        if (isReelPageActive) {
+            exoPlayer?.playWhenReady = true
+            exoPlayer?.play()
+        } else {
+            exoPlayer?.playWhenReady = false
+            exoPlayer?.pause()
+        }
+    }
 
-        if (playerMode != PlayerMode.REELS) return@LaunchedEffect
+    LaunchedEffect(
+        isReelPageActive,
+        isControllerVisible,
+        isPlayerPlaying,
+        isSeekbarDragging,
+        isAdsShowing,
+        isSettingsClick,
+        selectedIndex.intValue
+    ) {
+        if (
+            !isReelPageActive ||
+            !isControllerVisible ||
+            !isPlayerPlaying ||
+            isSeekbarDragging ||
+            isAdsShowing ||
+            isSettingsClick
+        ) {
+            return@LaunchedEffect
+        }
 
-        val shouldPlay = index == selectedIndex.intValue
+        delay(3000L)
 
-        exoPlayer?.playWhenReady = shouldPlay
+        if (
+            exoPlayer?.isPlaying == true &&
+            isControllerVisible &&
+            !isSeekbarDragging &&
+            !isAdsShowing &&
+            !isSettingsClick
+        ) {
+            isControllerVisible = false
+        }
     }
 
 
@@ -458,7 +453,6 @@ fun MainContainer(
         while (true) {
 
             val currentPos = player.currentPosition
-            val model = playerModel
 
             // 🔥 L-BAND CUE HANDLER
             lBandCuePoints.forEach { cue ->
@@ -466,7 +460,6 @@ fun MainContainer(
                 if (!triggeredLBands.contains(cue.id)
                     && currentPos >= cue.positionMs
                     && !isAdsShowing
-                    && !pipEnabled
                     && isFullScreen
                 ) {
 
@@ -477,53 +470,8 @@ fun MainContainer(
                     coroutineScope.launch {
                         delay(15_000L)
 
-                        if (!isAdsShowing && !pipEnabled) {
+                        if (!isAdsShowing) {
                             showLShapeAd = false
-                        }
-                    }
-                }
-            }
-
-            if (model != null && !model.isLive) {
-
-                model.skipIntro?.let { intro ->
-                    if (!isSkipIntroClicked &&
-                        !hasShownSkipIntroControls &&
-                        intro.enableSkipIntro
-                    ) {
-
-                        val startTime = intro.startTime ?: 0L
-
-                        if (currentPos >= startTime &&
-                            currentPos < startTime + 2000 &&
-                            !isAdsShowing
-                        ) {
-                            hasShownSkipIntroControls = true
-                            isControllerVisible = true
-                        }
-                    }
-                }
-
-                model.nextEpisode?.let { next ->
-
-                    if (!hasShownNextEpisodeControls &&
-                        next.enableNextEpisode &&
-                        contentDuration > 0
-                    ) {
-
-                        val showBeforeEndMs =
-                            parseDurationToMillis(next.showBeforeEndMs)
-
-                        val triggerTime =
-                            (contentDuration - showBeforeEndMs)
-                                .coerceAtLeast(0L)
-
-                        if (currentPos >= triggerTime &&
-                            triggerTime != 0L &&
-                            !isAdsShowing
-                        ) {
-                            hasShownNextEpisodeControls = true
-                            isControllerVisible = true
                         }
                     }
                 }
@@ -533,307 +481,230 @@ fun MainContainer(
         }
     }
 
-    val chapters = remember(playerModel) {
-        if (playerModel?.isChapterEnabled == true)
-            playerModel.chapters?.sortedBy { it.startMs }
-        else
-            emptyList()
-    }
+    val reelsCollapsedHeight = configuration.screenWidthDp.dp * 16 / 9
 
-    LaunchedEffect(exoPlayer, chapters) {
-
-        val player = exoPlayer ?: return@LaunchedEffect
-
-        if (chapters?.isEmpty() == true) {
-            currentChapter = null
-            return@LaunchedEffect
-        }
-
-        while (true) {
-
-            val position = player.currentPosition
-
-            currentChapter =
-                chapters?.lastOrNull { position >= it.startMs }
-
-            delay(500)
-        }
-    }
-
-    LaunchedEffect(isLockScreen, isLockOverlayVisible) {
-        if (isLockScreen && isLockOverlayVisible) {
-            delay(3000)
-            isLockOverlayVisible = false
-        }
-    }
-    Box(
-        modifier = when (playerMode) {
-            PlayerMode.REELS -> Modifier.fillMaxSize()
-            PlayerMode.OTT,
-            PlayerMode.MINI,
-            PlayerMode.FULL_SCREEN -> Modifier
-                .fillMaxWidth()
-                .then(
-                    if (isFullScreen)
+    Box(modifier = Modifier.fillMaxSize()) {
+        LShapeAdContainer(
+            playerModel = playerModel,
+            isFullScreen = isFullScreen,
+            isVisible = showLShapeAd && !isAdsShowing,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                val videoSurfaceModifier = Modifier.then(
+                    if (isFullScreen) {
                         Modifier.fillMaxSize()
-                    else
-                        Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
+                    } else {
+                        Modifier
+                            .align(Alignment.Center)
+                            .fillMaxWidth()
+                            .height(reelsCollapsedHeight)
+                    }
                 )
-        }
-    ) {
+                val showStartupPoster =
+                    !hasRenderedFirstFrame && !posterUrl.isNullOrBlank() && !isAdsShowing
 
-        // 🔥 Drawer RTL only
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                AndroidView(
+                    factory = { playerView },
+                    update = { view ->
+                        if (view.player !== exoPlayer) {
+                            view.player = exoPlayer
+                        }
 
-            ModalNavigationDrawer(
-                drawerState = drawerState,
-                gesturesEnabled = true,
-                drawerContent = {
-                    if (playerModel?.isChapterEnabled == true &&
-                        playerModel.chapters?.isNotEmpty() == true
-                    ) {
-                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                            ChapterDrawer(
-                                chapters = playerModel.chapters,
-                                currentChapter = currentChapter,
-                                onChapterClick = { chapter ->
-                                    exoPlayer?.seekTo(chapter.startMs)
-                                    coroutineScope.launch { drawerState.close() }
+                        val targetResizeMode =
+                            if (isFullScreen) {
+                                AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                            } else {
+                                AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            }
+                        if (view.resizeMode != targetResizeMode) {
+                            view.resizeMode = targetResizeMode
+                        }
+
+                        view.subtitleView?.apply {
+                            setApplyEmbeddedStyles(false)
+                            setApplyEmbeddedFontSizes(false)
+                            setStyle(
+                                CaptionStyleCompat(
+                                    android.graphics.Color.WHITE,
+                                    "#80000000".toColorInt(),
+                                    android.graphics.Color.TRANSPARENT,
+                                    CaptionStyleCompat.EDGE_TYPE_NONE,
+                                    android.graphics.Color.TRANSPARENT,
+                                    android.graphics.Typeface.DEFAULT
+                                )
+                            )
+                        }
+                    },
+                    modifier = Modifier
+                        .then(videoSurfaceModifier)
+                        .background(Color.Black)
+                        .pointerInput(isSettingsClick) {
+                            detectTapGestures(
+                                onTap = {
+                                    if (!isSettingsClick) {
+                                        isControllerVisible = !isControllerVisible
+                                    }
                                 }
                             )
                         }
+                )
+
+                if (showStartupPoster) {
+                    AsyncImage(
+                        model = posterUrl,
+                        contentDescription = null,
+                        contentScale = if (isFullScreen) ContentScale.Crop else ContentScale.Fit,
+                        modifier = Modifier
+                            .then(videoSurfaceModifier)
+                            .background(Color.Black)
+                    )
+                }
+
+                if (!isControllerVisible && !isSettingsClick) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onTap = {
+                                        isControllerVisible = true
+                                    }
+                                )
+                            }
+                    )
+                }
+
+                if (!isControllerVisible && isLoading && !showStartupPoster) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = Color.White
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = isControllerVisible,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    exoPlayer?.let { player ->
+                        CustomPlayerController(
+                            playerModelList = contentList,
+                            index = selectedIndex.intValue,
+                            totalDuration = contentDuration,
+                            isFullScreen = { full ->
+                                isFullScreen = full
+                                setFullScreen(full)
+                                playerStateListener?.onFullScreenChanged(full)
+                            },
+                            isCurrentlyFullScreen = isFullScreen,
+                            exoPlayer = player,
+                            modifier = Modifier.fillMaxSize(),
+                            isControlsVisible = isControllerVisible,
+                            onShowControls = { isControllerVisible = it },
+                            isLoading = isLoading,
+                            onBackPressed = { onPlayerBack(true) },
+                            cuePoints = imaCuePoints,
+                            controlsConfig = modelControlsConfig,
+                            onSeekbarDraggingChanged = { dragging ->
+                                isSeekbarDragging = dragging
+                            },
+                            onSettingsClick = {
+                                isSettingsClick = true
+                            }
+                        )
                     }
                 }
 
-            ) {
-
-                // 🔥 Reset back to LTR for player
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-
-                    LShapeAdContainer(
+                if (isSettingsClick) {
+                    ReelsSettingsSheet(
                         playerModel = playerModel,
-                        isFullScreen = isFullScreen,
-                        isVisible = showLShapeAd && !isAdsShowing && !pipEnabled,
-                        modifier = when (playerMode) {
-
-                            PlayerMode.REELS -> Modifier
-                                .fillMaxSize() // 🔥 ALWAYS FULL SCREEN
-
-                            PlayerMode.OTT,
-                            PlayerMode.MINI,
-                            PlayerMode.FULL_SCREEN -> Modifier
-                                .fillMaxWidth()
-                                .then(
-                                    if (isFullScreen)
-                                        Modifier.fillMaxSize()
-                                    else
-                                        Modifier.height(configuration.screenWidthDp.dp * 9 / 16)
-                                )
-                        }.background(Color.Black)
-
-                    ) {
-
-                        AndroidView(
-                            factory = { playerView },
-                            update = { view ->
-
-                                if (view.player !== exoPlayer) {
-                                    view.player = exoPlayer
-                                }
-
-                                view.subtitleView?.apply {
-
-                                    setApplyEmbeddedStyles(false)
-                                    setApplyEmbeddedFontSizes(false)
-
-                                    setStyle(
-                                        CaptionStyleCompat(
-                                            android.graphics.Color.WHITE,
-                                            "#80000000".toColorInt(),
-                                            android.graphics.Color.TRANSPARENT,
-                                            CaptionStyleCompat.EDGE_TYPE_NONE,
-                                            android.graphics.Color.TRANSPARENT,
-                                            android.graphics.Typeface.DEFAULT
-                                        )
-                                    )
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
-
-                                    val finalScale = when {
-                                        zoomAccumulator > fillScale -> zoomAccumulator
-                                        isFilled -> fillScale
-                                        else -> 1f
-                                    }
-
-                                    scaleX = finalScale
-                                    scaleY = finalScale
-                                }
-
-                                // 🔥 PINCH ZOOM
-                                .then(
-                                    if (isOttPlaybackMode)
-                                        Modifier.pointerInput(
-                                            isFullScreen,
-                                            pipEnabled,
-                                            isAdsShowing
-                                        ) {
-                                            detectTransformGestures { _, _, zoom, _ ->
-
-                                                if (!pipEnabled && !isAdsShowing && !isLockScreen) {
-
-                                                    if (!isFullScreen) {
-                                                        isFullScreen = true
-                                                        setFullScreen(true)
-                                                        playerStateListener?.onFullScreenChanged(
-                                                            true
-                                                        )
-                                                    }
-
-                                                    if (!hasActivatedFill) {
-                                                        isFilled = true
-                                                        hasActivatedFill = true
-                                                        zoomAccumulator = fillScale
-                                                    } else {
-                                                        zoomAccumulator *= zoom
-                                                        zoomAccumulator =
-                                                            zoomAccumulator.coerceIn(fillScale, 3f)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    else Modifier
-                                )
-
-
-                                // 🔥 SINGLE TAP
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onDoubleTap = {
-                                            hasActivatedFill = false
-                                            isFilled = false
-                                            zoomAccumulator = 1f
-                                            // Reset zoom on double tap
-                                            if (zoomAccumulator > 1f) {
-                                                zoomAccumulator = 1f
-                                            }
-                                        },
-                                        onTap = {
-                                            when {
-                                                isLockScreen -> {
-                                                    isLockOverlayVisible = true
-                                                }
-
-                                                !pipEnabled && !isSettingsClick -> {
-                                                    isControllerVisible = !isControllerVisible
-                                                }
-                                            }
-                                        }
-                                    )
-                                }
-
-                        )
-
-                        // 🔄 Loading
-                        if (!isControllerVisible && isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.align(Alignment.Center),
-                                color = Color.White
-                            )
+                        exoPlayer = exoPlayer,
+                        selectedItemsState = reelsSettingsSelectedItems,
+                        selectedOptionId = reelsSettingsSelectedOption,
+                        onSelectedOptionChange = { optionId ->
+                            reelsSettingsSelectedOption = optionId
+                        },
+                        onDismiss = {
+                            isSettingsClick = false
                         }
-
-                        // 🎛 Controller
-                        AnimatedVisibility(
-                            visible = isControllerVisible && !pipEnabled && !isLockScreen,
-                            enter = fadeIn(),
-                            exit = fadeOut()
-                        ) {
-                            exoPlayer?.let { player ->
-                                CustomPlayerController(
-                                    playerModelList = contentList,
-                                    index = selectedIndex.intValue,
-                                    totalDuration = contentDuration,
-                                    pipListener = pipListener,
-                                    isFullScreen = { full ->
-                                        isFullScreen = full
-                                        setFullScreen(full)
-                                        playerStateListener?.onFullScreenChanged(full)
-                                    },
-                                    isLockScreen = { isLockScreen = it },
-                                    isCurrentlyFullScreen = isFullScreen,
-                                    isCurrentlyLockScreen = isLockScreen,
-                                    exoPlayer = player,
-                                    modifier = Modifier.fillMaxSize(),
-                                    isControlsVisible = isControllerVisible,
-                                    onShowControls = { isControllerVisible = it },
-                                    isPipEnabled = { pipEnabled = it },
-                                    onSettingsButtonClick = { isSettingsClick = it },
-                                    isLoading = isLoading,
-                                    onBackPressed = {
-                                        if (isOttPlaybackMode && isFullScreen) {
-                                            isFullScreen = false
-                                            setFullScreen(false)
-                                            playerStateListener?.onFullScreenChanged(false)
-                                        } else {
-                                            onPlayerBack(true)
-                                        }
-                                    },
-                                    cuePoints = imaCuePoints/* +
-                                            if (playerModel?.gamAdsConfig?.isAdsEnabled == true)
-                                                lBandCuePoints
-                                            else emptyList()*/,
-                                    playContent = { selectedIndex.intValue = it },
-                                    isSkipIntroClicked = isSkipIntroClicked,
-                                    onSkipIntroClicked = { isSkipIntroClicked = it },
-                                    onNextEpisodeClick = { selectedIndex.intValue = it },
-                                    onChapterClick = {
-                                        if (playerModel?.isChapterEnabled == true) {
-                                            coroutineScope.launch { drawerState.open() }
-                                        }
-                                    },
-                                    mode = playerMode,
-                                    onSettingsClick = {
-                                        isSettingsClick = true
-                                    }
-
-                                )
-                            }
-                        }
-
-                        // 🔒 Lock Overlay
-                        if (isLockScreen) {
-                            AnimatedVisibility(
-                                visible = isLockOverlayVisible && !pipEnabled,
-                                enter = fadeIn(),
-                                exit = fadeOut()
-                            ) {
-                                exoPlayer?.let {
-                                    LockScreenOverlay(
-                                        playerModel = playerModel,
-                                        isLocked = isLockScreen,
-                                        showUnlockConfirm = showUnlockConfirm,
-                                        onUnlockRequest = { showUnlockConfirm = true },
-                                        onConfirmUnlock = {
-                                            isLockScreen = false
-                                            showUnlockConfirm = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        // ⚙ Settings
-                        if (isSettingsClick) {
-                            SelectorHeader(
-                                playerModel = playerModel,
-                                exoPlayer = exoPlayer
-                            ) { isSettingsClick = it }
-                        }
-                    }
+                    )
                 }
             }
         }
     }
 }
+
+@Composable
+private fun MainContainerPreviewSurface(
+    playerModel: PlayerModel?,
+    isReelPageActive: Boolean
+) {
+    val title = playerModel?.episodeTitle
+        ?: playerModel?.title
+        ?: "MainContainer preview"
+    val subtitle = if (isReelPageActive) "Reels active page" else "Reels prefetched page"
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF171717))
+        )
+
+        Text(
+            text = title,
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        )
+
+        Text(
+            text = subtitle,
+            color = Color.White.copy(alpha = 0.72f),
+            fontSize = 14.sp,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        Text(
+            text = "Static Compose preview",
+            color = Color.White.copy(alpha = 0.56f),
+            fontSize = 12.sp,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(16.dp)
+        )
+    }
+}
+
+@Preview(name = "MainContainer Reels", widthDp = 360, heightDp = 720, showBackground = true)
+@Composable
+private fun MainContainerReelsPreview() {
+    MainContainer(
+        contentList = mainContainerPreviewItems(),
+        index = 0,
+        playerStateListener = null,
+        onPlayerBack = {},
+        setFullScreen = {},
+        startInFullScreen = true,
+        isReelPageActive = true
+    )
+}
+
+private fun mainContainerPreviewItems(): List<PlayerModel> =
+    listOf(
+        PlayerModel(
+            title = "Preview Reel",
+            episodeTitle = "Morning Flow",
+            hlsUrl = "https://example.com/reel.m3u8"
+        )
+    )

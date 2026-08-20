@@ -39,9 +39,7 @@ import com.app.sample.model.OverrideContent
 import com.app.sample.utils.FileUtils.buildPlayerContentList
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
-import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.ui.MtvVideoPlayerSdk
-import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun ContentBody(
@@ -80,16 +78,13 @@ fun ContentBody(
 
     var showDownloadedList by remember { mutableStateOf(false) }
     var selectedItem by remember { mutableStateOf<DownloadEntity?>(null) }
-    var showSdkEdgeCases by remember { mutableStateOf(false) }
-    var isSdkEdgeCaseFullScreen by remember { mutableStateOf(false) }
-    var isSdkEdgeCaseStatusBarSafe by remember { mutableStateOf(true) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(R.color.black))
             .then(
-                if (!isFullScreen && (!showSdkEdgeCases || (!isSdkEdgeCaseFullScreen && isSdkEdgeCaseStatusBarSafe))) {
+                if (!isFullScreen) {
                     Modifier.statusBarsPadding()
                 } else {
                     Modifier
@@ -100,34 +95,14 @@ fun ContentBody(
 
             // 🎬 SDK Video Player (KEYED)
             key(contentList) {
-
-                // ✅ derive mode from existing boolean
-                val playerMode = if (isFullScreen) {
-                    PlayerMode.FULL_SCREEN
-                } else {
-                    PlayerMode.MINI
-                }
-
                 MtvVideoPlayerSdk(
                     contentList = contentList,
                     index = selectedIndex.intValue,
-                    mode = PlayerMode.REELS,
-                    pipListener = pipListener,
-                    isInPipMode = isInPipMode,
                     isDeepLink = isDeepLink,
-
-                    // ✅ FIXED (dynamic mode)
-                    playerMode = playerMode,
 
                     onIndexChanged = { newIndex ->
                         selectedIndex.intValue = newIndex
                     },
-
-                    episodeNowPlayingStyle = EpisodeNowPlayingStyle(
-                        pillBackgroundColor = Color(0xFF00C853),
-                        pillTextColor = Color.White,
-                        pillDotColor = Color.White
-                    ),
 
                     // ✅ Back handling (no logic change)
                     onPlayerBack = {
@@ -181,38 +156,6 @@ fun ContentBody(
         }
 
         // ➕ Floating Action Button
-        if (!isFullScreen) {
-            FloatButton { config ->
-
-                if (config.url.isBlank()) {
-                    // ✅ APPLY CONFIG TO EXISTING API CONTENT
-                    onOverrideContent(
-                        OverrideContent(
-                            url = null,                 // 👈 IMPORTANT
-                            drmToken = null,
-                            isLive = false,
-                            adsConfig = config.adsConfig,
-                            skipIntro = config.skipIntro,
-                            nextEpisode = config.nextEpisode
-                        )
-                    )
-                } else {
-                    // ✅ OVERRIDE CONTENT
-                    selectedIndex.intValue = 0
-                    onOverrideContent(
-                        OverrideContent(
-                            url = config.url,
-                            drmToken = config.drmToken,
-                            isLive = config.isLive,
-                            adsConfig = config.adsConfig,
-                            skipIntro = config.skipIntro,
-                            nextEpisode = config.nextEpisode
-                        )
-                    )
-                }
-            }
-
-        }
 
         if (!isFullScreen && downloadedContentList.isNotEmpty()) {
             FloatingActionButton(
@@ -234,22 +177,6 @@ fun ContentBody(
             }
         }
 
-        if (false && !isFullScreen) {
-            FloatingActionButton(
-                onClick = {
-                    showSdkEdgeCases = true
-                },
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 32.dp, bottom = 160.dp),
-                containerColor = Color(0xFFFFB300),
-                contentColor = Color.Black,
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text("QA")
-            }
-        }
-
         if (showDownloadedList) {
             DownloadedContentList(downloadContentList = downloadedContentList,
                 onItemClick = { item ->
@@ -265,20 +192,6 @@ fun ContentBody(
                 onBack = {
                     selectedItem = null
                 })
-        }
-
-        if (showSdkEdgeCases) {
-            SdkEdgeCaseScreen(
-                pipListener = pipListener,
-                isInPipMode = isInPipMode,
-                onFullScreenChange = { isSdkEdgeCaseFullScreen = it },
-                onStatusBarSafeAreaChange = { isSdkEdgeCaseStatusBarSafe = it },
-                onClose = {
-                    isSdkEdgeCaseFullScreen = false
-                    isSdkEdgeCaseStatusBarSafe = true
-                    showSdkEdgeCases = false
-                }
-            )
         }
     }
 }

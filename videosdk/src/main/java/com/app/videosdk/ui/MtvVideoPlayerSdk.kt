@@ -9,7 +9,6 @@ import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.model.PlayerConfig
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.ui.ott.OttContainer
 import com.app.videosdk.ui.reels.ReelsContainer
 import com.app.videosdk.utils.PlayerMode
 
@@ -19,12 +18,12 @@ import com.app.videosdk.utils.PlayerMode
 fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
-    mode: PlayerMode? = null,
+    mode: PlayerMode? = PlayerMode.REELS,
     pipListener: PipListener? = null,
     isInPipMode: Boolean = false,
     startInFullScreen: Boolean = false,
     isDeepLink: Boolean? = false,
-    playerMode: PlayerMode = PlayerMode.MINI,
+    playerMode: PlayerMode = PlayerMode.REELS,
     playerStateListener: PlayerStateListener? = null,
     controller: PlayerController? = null,
     isMutedInitially: Boolean = true,
@@ -39,31 +38,12 @@ fun MtvVideoPlayerSdk(
     onPreviewPrimaryAction: () -> Unit = {},
     onPreviewSecondaryAction: () -> Unit = {}
 ) {
-    val effectiveMode = mode ?: playerMode
-    val shouldStartFullscreen =
-        startInFullScreen || playerMode == PlayerMode.FULL_SCREEN || effectiveMode == PlayerMode.FULL_SCREEN
-
-    if (effectiveMode == PlayerMode.REELS) {
-        ReelsContainer(
-            contentList = contentList,
-            pipListener = pipListener,
-            isInPipMode = isInPipMode,
-            playerStateListener = playerStateListener,
-            setFullScreen = setFullScreen,
-            startInFullScreen = true,
-            playerMode = PlayerMode.REELS
-        )
-    } else {
-        OttContainer(
-            contentList = contentList,
-            index = index,
-            pipListener = pipListener,
-            isInPipMode = isInPipMode,
-            playerStateListener = playerStateListener,
-            onPlayerBack = onPlayerBack,
-            setFullScreen = setFullScreen,
-            startInFullScreen = shouldStartFullscreen,
-            playerMode = playerMode
-        )
-    }
+    ReelsContainer(
+        contentList = contentList,
+        playerStateListener = playerStateListener,
+        onPlayerBack = onPlayerBack,
+        setFullScreen = setFullScreen,
+        startInFullScreen = startInFullScreen,
+        controlsConfig = playerConfig.controls
+    )
 }

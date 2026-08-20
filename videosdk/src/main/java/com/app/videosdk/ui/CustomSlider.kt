@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,7 +48,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
-import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
 import com.app.videosdk.model.PlayerModel
@@ -66,8 +66,7 @@ fun CustomSlider(
     isLive: Boolean = false,
     exoPlayer: ExoPlayer? = null,
     onDragStateChange: (Boolean) -> Unit = {},
-    onPreviewChange: (Long) -> Unit = {},
-    chapters: List<Chapter> = emptyList()
+    onPreviewChange: (Long) -> Unit = {}
 ) {
     var sliderPosition by remember { mutableFloatStateOf(0f) }
     var isSeeking by remember { mutableStateOf(false) }
@@ -84,12 +83,6 @@ fun CustomSlider(
         targetValue = if (isSeeking) 24.dp else 8.dp,
         animationSpec = androidx.compose.animation.core.spring(),
         label = "containerHeight"
-    )
-
-    val animatedScrubContainerHeight by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (isSeeking && !isLive && duration > 0) 56.dp else animatedContainerHeight,
-        animationSpec = androidx.compose.animation.core.spring(),
-        label = "scrubContainerHeight"
     )
 
     /* ---------- LIVE EDGE ---------- */
@@ -119,31 +112,15 @@ fun CustomSlider(
         label = "blinkAlpha"
     )
 
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 0.dp)
     ) {
-
-        /* ---------- CURRENT TIME ---------- */
-
-        if (!isLive) {
-            Text(
-                text = formatTime(currentPosition),
-                color = Color.White,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(end = 8.dp)
-            )
-        }
-
-        /* ---------- SEEK BAR ---------- */
-
         BoxWithConstraints(
             modifier = Modifier
-                .weight(1f)
-                .height(animatedScrubContainerHeight),
-            contentAlignment = Alignment.BottomCenter
+                .fillMaxWidth()
+                .height(if (isSeeking && !isLive && duration > 0) 32.dp else 0.dp)
         ) {
             if (isSeeking && !isLive && duration > 0) {
                 val previewBubbleWidth = 64.dp
@@ -170,6 +147,25 @@ fun CustomSlider(
                         .padding(horizontal = 6.dp, vertical = 3.dp)
                 )
             }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            /* ---------- CURRENT TIME ---------- */
+
+            if (!isLive) {
+                Text(
+                    text = formatTime(currentPosition),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
+
+            /* ---------- SEEK BAR ---------- */
 
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
                 Slider(
@@ -196,17 +192,7 @@ fun CustomSlider(
                         val baseOffset = playerModel?.seekTo ?: 0L
                         val seekPosition = baseOffset + (sliderPosition * duration).toLong()
 
-                        val nearestChapter = chapters.minByOrNull {
-                            kotlin.math.abs(it.startMs - seekPosition)
-                        }
-
-                        if (nearestChapter != null &&
-                            kotlin.math.abs(nearestChapter.startMs - seekPosition) < 3000
-                        ) {
-                            onSeek(nearestChapter.startMs)
-                        } else {
-                            onSeek(seekPosition)
-                        }
+                        onSeek(seekPosition)
 
                         isSeeking = false
                         onDragStateChange(false)
@@ -224,8 +210,7 @@ fun CustomSlider(
                     },
 
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
+                        .weight(1f)
                         .height(animatedContainerHeight)
                         .drawBehind {
 
@@ -270,25 +255,6 @@ fun CustomSlider(
                             }
                         }
 
-                        if (duration > 0 && chapters.isNotEmpty()) {
-
-                            chapters.forEach { chapter ->
-
-                                val x = (chapter.startMs.toFloat() / duration) * size.width
-                                val markerSize = if (isSeeking) 8.dp.toPx() else 6.dp.toPx()
-
-                                drawRoundRect(
-                                    color = if (playerModel?.isChapterEnabled == true) Color.Cyan else Color.Transparent ,
-                                    topLeft = Offset(
-                                        x - markerSize / 2,
-                                        size.height / 2 - markerSize / 2
-                                    ),
-                                    size = Size(markerSize, markerSize),
-                                    cornerRadius = CornerRadius(markerSize / 2)
-                                )
-                            }
-                        }
-
                         if (duration > 0) {
                             val pointerWidthPx =
                                 if (isSeeking) 3.dp.toPx() else trackHeightPx
@@ -308,47 +274,47 @@ fun CustomSlider(
                         }
                 )
             }
-        }
 
-        /* ---------- DURATION / LIVE ---------- */
+            /* ---------- DURATION / LIVE ---------- */
 
-        if (!isLive) {
-            Text(
-                text = formatTime(duration),
-                color = Color.White,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        } else {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(
-                        if (isAtLiveEdge) Color.Transparent
-                        else Color.Gray.copy(alpha = 0.3f)
-                    )
-                    .clickable {
-                        onSeek(duration)
-                        exoPlayer?.play()
-                    }
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .alpha(if (isAtLiveEdge) blinkAlpha else 1f)
-                        .clip(CircleShape)
-                        .background(if (isAtLiveEdge) Color.Red else Color.Gray)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
+            if (!isLive) {
                 Text(
-                    text = if (isAtLiveEdge) "LIVE" else "Go Live",
-                    color = if (isAtLiveEdge) Color.Red else Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
+                    text = formatTime(duration),
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 8.dp)
                 )
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            if (isAtLiveEdge) Color.Transparent
+                            else Color.Gray.copy(alpha = 0.3f)
+                        )
+                        .clickable {
+                            onSeek(duration)
+                            exoPlayer?.play()
+                        }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .alpha(if (isAtLiveEdge) blinkAlpha else 1f)
+                            .clip(CircleShape)
+                            .background(if (isAtLiveEdge) Color.Red else Color.Gray)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isAtLiveEdge) "LIVE" else "Go Live",
+                        color = if (isAtLiveEdge) Color.Red else Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

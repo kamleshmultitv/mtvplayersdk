@@ -26,7 +26,10 @@ data class PlayerControlsConfig(
     val settings: Boolean = true,
     val pip: Boolean = true,
     val fullscreen: Boolean = true,
-    val exitFullscreen: Boolean = true
+    val exitFullscreen: Boolean = true,
+    val share: Boolean = true,
+    val bookmark: Boolean = true,
+    val seekbar: Boolean = true
 )
 
 data class ControlSeekConfig(

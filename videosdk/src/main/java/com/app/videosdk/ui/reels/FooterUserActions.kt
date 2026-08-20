@@ -4,19 +4,29 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.app.videosdk.R
+import com.app.videosdk.model.PlayerControlsConfig
+import com.app.videosdk.model.PlayerCustomControls
 
 
 @Composable
 fun FooterUserActions(
+    customControls: PlayerCustomControls? = null,
+    controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
     onLikeClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
-    onSettingsClick: () -> Unit = {}
+    onSettingsClick: () -> Unit = {},
+    isFullScreen: Boolean = true,
+    onFullScreenClick: () -> Unit = {}
 ) {
 
     Column(
@@ -24,29 +34,58 @@ fun FooterUserActions(
         modifier = Modifier.padding(end = 12.dp)
     ) {
 
-        UserActionWithText(
-            drawableRes = R.drawable.ic_share,
-            text = "Share",
-            iconColor = Color.White,
-            onClick = onShareClick
-        )
+        if (controlsConfig.share) {
+            UserActionWithText(
+                resId = customControls?.shareIconRes,
+                defaultIcon = Icons.Default.Share,
+                text = "Share",
+                iconTintRes = customControls?.iconTintRes,
+                onClick = onShareClick
+            )
 
-        Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+        }
 
-        UserActionWithText(
-            drawableRes = R.drawable.ic_settings,
-            text = "Settings",
-            iconColor = Color.White,
-            onClick = onSettingsClick
-        )
+        if (controlsConfig.settings) {
+            UserActionWithText(
+                resId = customControls?.settingsIconRes,
+                defaultIcon = Icons.Default.Settings,
+                text = "Settings",
+                iconTintRes = customControls?.iconTintRes,
+                onClick = onSettingsClick
+            )
 
-        Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+        }
 
-        UserActionWithoutText(
-            drawableRes = R.drawable.ic_bookmark,
-            iconColor = Color.White,
-            onClick = onLikeClick
-        )
+        val showFullScreenButton =
+            if (isFullScreen) controlsConfig.exitFullscreen else controlsConfig.fullscreen
+
+        if (showFullScreenButton) {
+            UserActionWithText(
+                resId = if (isFullScreen) {
+                    customControls?.exitFullScreenIconRes
+                } else {
+                    customControls?.fullScreenIconRes
+                },
+                defaultIcon = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                text = if (isFullScreen) "Collapse" else "Expand",
+                iconTintRes = customControls?.iconTintRes,
+                onClick = onFullScreenClick
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+
+        if (controlsConfig.bookmark) {
+            UserActionWithoutText(
+                resId = customControls?.bookmarkIconRes,
+                defaultIcon = Icons.Default.BookmarkBorder,
+                iconTintRes = customControls?.iconTintRes,
+                contentDescription = "Bookmark",
+                onClick = onLikeClick
+            )
+        }
 
         Spacer(modifier = Modifier.height(72.dp))
     }

@@ -1,7 +1,5 @@
 package com.app.videosdk.ui
 
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,72 +11,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.utils.CastUtils
-import com.app.videosdk.utils.PlayerMode
 
 @Composable
 fun CenterControls(
     playerModel: PlayerModel? = null,
     isLoading: Boolean,
     exoPlayer: ExoPlayer,
-    castUtils: CastUtils,
-    isCasting: Boolean,
-    isFullScreen: Boolean,
     verticalOffset: Dp = 0.dp,
-    onShowControls: (Boolean) -> Unit,
-    onForward: () -> Unit,
-    onRewind: () -> Unit,
-    onForwardHide: () -> Unit,
-    onRewindHide: () -> Unit,
-    isZoomed: Boolean,
-    onZoomChange: (Boolean) -> Unit,
-    mode: PlayerMode? = null,
+    onPlayPauseClick: (Boolean) -> Unit = {},
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
-    val gestureModifier = Modifier
-        .pointerInput(Unit) {
-            detectTransformGestures { _, _, zoom, _ ->
-                if (zoom > 1f && !isZoomed) onZoomChange(true)
-                else if (zoom < 1f && isZoomed) onZoomChange(false)
-            }
-        }
-        .pointerInput(Unit) {
-            detectTapGestures(
-                onTap = { onShowControls(false) },
-                onDoubleTap = { offset ->
-                    val isLeft = offset.x < size.width / 2
-                    val isSeekAllowed =
-                        if (isLeft) controlsConfig.seekBack.enabled
-                        else controlsConfig.seekForward.enabled
-
-                    if (isSeekAllowed) {
-                        val current =
-                            if (isCasting) castUtils.getCastPosition()
-                            else exoPlayer.currentPosition
-
-                        val seekSeconds =
-                            if (isLeft) controlsConfig.seekBack.safeSeconds
-                            else controlsConfig.seekForward.safeSeconds
-
-                        val newPosition =
-                            maxOf(current + if (isLeft) -(seekSeconds * 1000L) else seekSeconds * 1000L, 0)
-
-                        if (isCasting) castUtils.seekOnCast(newPosition)
-                        else exoPlayer.seekTo(newPosition)
-
-                        if (isLeft) onRewind() else onForward()
-                    }
-                }
-            )
-        }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -89,19 +36,14 @@ fun CenterControls(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(70.dp)
-                .then(gestureModifier)
+                .height(88.dp)
         ) {
             ForwardBackwardButtonsOverlay(
                 playerModel = playerModel,
                 exoPlayer = exoPlayer,
-                context = LocalContext.current,
-                onRewindIconHide = onRewindHide,
-                onForwardIconHide = onForwardHide,
                 isControllerVisible = true,
-                isFullScreen = isFullScreen,
                 controlsConfig = controlsConfig,
-                mode = mode
+                onPlayPauseClick = onPlayPauseClick
             )
 
             if (isLoading) {

@@ -20,6 +20,7 @@ import com.app.videosdk.model.AdsConfig
 import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.GAMAdsConfig
 import com.app.videosdk.model.NextEpisode
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerCustomControls
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.model.SkipIntro
@@ -27,6 +28,15 @@ import okhttp3.internal.platform.PlatformRegistry.applicationContext
 import org.json.JSONObject
 
 object FileUtils {
+
+    private val defaultControlsConfig = PlayerControlsConfig(
+        share = true,
+        bookmark = false,
+        seekbar = true,
+        settings = true,
+        fullscreen = true,
+        exitFullscreen = true
+    )
 
     /* ---------------------------------- */
     /* DRM TOKEN                           */
@@ -120,6 +130,8 @@ object FileUtils {
                     adsConfig = override.adsConfig ?: AdsConfig(enableAds = false),
                     skipIntro = override.skipIntro ?: SkipIntro(enableSkipIntro = false),
                     nextEpisode = override.nextEpisode ?: NextEpisode(enableNextEpisode = false),
+                    shareUrl = override.url,
+                    controlsConfig = defaultControlsConfig,
                     customControls = defaultControls()
                 )
             )
@@ -135,6 +147,8 @@ object FileUtils {
                     seekTo = deeplink.seekTo,
                     deepLinkEndMs = deeplink.clipEndTime,
                     deepLinkClipDuration = deeplink.totalClipDuration,
+                    shareUrl = deeplink.url,
+                    controlsConfig = defaultControlsConfig,
                     customControls = defaultControls()
                 )
             )
@@ -203,6 +217,8 @@ object FileUtils {
             episodeNumber = content.episodeNumber.orEmpty(),
             duration = content.duration.orEmpty(),
             srt = content.subtitle?.firstOrNull()?.srt.orEmpty(),
+            shareUrl = content.shareUrl?.takeIf { it.isNotBlank() }
+                ?: content.permalink?.takeIf { it.isNotBlank() },
 
             adsConfig = override?.adsConfig ?: defaultAdsConfig(),
             gamAdsConfig = defaultGamConfig(),
@@ -214,6 +230,7 @@ object FileUtils {
             isChapterEnabled = false,
             chapters = defaultChapters(),
 
+            controlsConfig = defaultControlsConfig,
             customControls = defaultControls()
         )
     }
@@ -266,6 +283,8 @@ object FileUtils {
         seasonSelectorIconRes = R.drawable.ic_episode,
         brightnessIconRes = R.drawable.ic_brightness,
         nextEpisodeIconRes = R.drawable.ic_next_episode,
+        shareIconRes = R.drawable.ic_share,
+        bookmarkIconRes = R.drawable.ic_bookmark
     )
 
     @OptIn(UnstableApi::class)
@@ -306,26 +325,8 @@ object FileUtils {
                 cacheFactory = cacheFactory,
                 downloadManager = downloadManager,
                 downloadCache = downloadCache,
-                customControls = PlayerCustomControls(
-                    iconTintRes = R.color.white,
-                    playIconRes = R.drawable.ic_play,
-                    pauseIconRes = R.drawable.ic_pause,
-                    forwardIconRes = R.drawable.ic_forward,
-                    rewindIconRes = R.drawable.ic_rewined,
-                    backIconRes = R.drawable.ic_back_arrow,
-                    settingsIconRes = R.drawable.ic_settings,
-                    pipIconRes = R.drawable.ic_pip,
-                    fullScreenIconRes = R.drawable.ic_collapse,
-                    exitFullScreenIconRes = R.drawable.ic_expand,
-                    lockIconRes = R.drawable.ic_lock,
-                    unlockIconRes = R.drawable.ic_unlock,
-                    muteIconRes = R.drawable.ic_mute,
-                    unMuteIconRes = R.drawable.ic_unmute,
-                    crossFadeIconRes = R.drawable.ic_cross,
-                    seasonSelectorIconRes = R.drawable.ic_episode,
-                    brightnessIconRes = R.drawable.ic_brightness,
-                    nextEpisodeIconRes = R.drawable.ic_next_episode,
-                )
+                controlsConfig = defaultControlsConfig,
+                customControls = defaultControls()
             )
         )
     }

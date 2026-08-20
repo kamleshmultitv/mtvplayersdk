@@ -24,6 +24,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider
 import androidx.media3.exoplayer.hls.SampleQueueMappingException
 import androidx.media3.exoplayer.ima.ImaAdsLoader
@@ -77,7 +78,8 @@ object PlayerUtils {
         adsConfig: AdsConfig? = null,
         adsListener: AdsListener? = null,
         existingAdsLoader: ImaAdsLoader? = null,
-        playWhenReady: Boolean = true
+        playWhenReady: Boolean = true,
+        fastStart: Boolean = false
     ): Pair<ExoPlayer, ImaAdsLoader?> {
 
         val content = contentList?.get(selectedIndex)
@@ -179,10 +181,37 @@ object PlayerUtils {
 
         /* ================= PLAYER ================= */
 
+        val trackSelector = DefaultTrackSelector(context).apply {
+            var parameters = buildUponParameters()
+                .setForceHighestSupportedBitrate(false)
+
+            if (fastStart) {
+                parameters = parameters.setMaxVideoBitrate(FAST_START_MAX_VIDEO_BITRATE)
+            }
+
+            setParameters(parameters)
+        }
+
+        val playerBuilder = ExoPlayer.Builder(context)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .setTrackSelector(trackSelector)
+
+        if (fastStart) {
+            playerBuilder.setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        FAST_START_MIN_BUFFER_MS,
+                        FAST_START_MAX_BUFFER_MS,
+                        FAST_START_BUFFER_FOR_PLAYBACK_MS,
+                        FAST_START_BUFFER_FOR_REBUFFER_MS
+                    )
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build()
+            )
+        }
+
         val exoPlayer =
-            ExoPlayer.Builder(context)
-                .setMediaSourceFactory(mediaSourceFactory)
-                .build()
+            playerBuilder.build()
 
         /* ================= ERROR LOGGING ================= */
 
@@ -313,6 +342,12 @@ object PlayerUtils {
 
         return exoPlayer to adsLoader
     }
+
+    const val FAST_START_MAX_VIDEO_BITRATE = 450_000
+    private const val FAST_START_MIN_BUFFER_MS = 500
+    private const val FAST_START_MAX_BUFFER_MS = 5_000
+    private const val FAST_START_BUFFER_FOR_PLAYBACK_MS = 150
+    private const val FAST_START_BUFFER_FOR_REBUFFER_MS = 500
 
     @OptIn(UnstableApi::class)
     private fun buildOfflineDrmMediaItemOrNull(

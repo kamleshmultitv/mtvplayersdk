@@ -32,4 +32,8 @@ data class PlayerCustomControls(
     val brightnessIconRes: Int? = null,
     val nextEpisodeIconRes: Int? = null,
 
+    // Reels Controls
+    val shareIconRes: Int? = null,
+    val bookmarkIconRes: Int? = null,
+
 )
