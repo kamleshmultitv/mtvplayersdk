@@ -6,6 +6,10 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.PlayerControlsConfig
@@ -23,9 +27,14 @@ fun ReelsContainer(
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
     val pageCount = contentList?.size ?: 0
+    var isFullScreen by remember { mutableStateOf(startInFullScreen) }
 
     val pagerState = rememberPagerState {
         pageCount
+    }
+
+    LaunchedEffect(startInFullScreen) {
+        isFullScreen = startInFullScreen
     }
 
     LaunchedEffect(pagerState.currentPage, pageCount) {
@@ -52,6 +61,10 @@ fun ReelsContainer(
             onPlayerBack = onPlayerBack,
             setFullScreen = setFullScreen,
             startInFullScreen = startInFullScreen,
+            isFullScreen = isFullScreen,
+            onFullScreenModeChanged = { full ->
+                isFullScreen = full
+            },
             isReelPageActive = page == pagerState.currentPage,
             controlsConfig = controlsConfig
         )

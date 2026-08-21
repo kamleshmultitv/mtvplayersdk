@@ -68,7 +68,7 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv.mtvplayersdk"
                 artifactId = "videosdk"
-                version = "reels-1.0.0"
+                version = "reels-1.0.1"
             }
         }
     }

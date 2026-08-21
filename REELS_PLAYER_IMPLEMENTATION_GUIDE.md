@@ -2,7 +2,7 @@
 
 This guide explains how a third-party Android app should integrate the MTV Video Player SDK reels player.
 
-The reels player is a full-screen vertical feed player. It supports smooth page scrolling, next-item prefetch callbacks, first-frame poster display, fast-start playback, seekbar, play/pause, expand/collapse, share sheet, settings bottom sheet, and app-provided control icons.
+The reels player is a full-screen vertical feed player. It supports smooth page scrolling, next-item prefetch callbacks, first decoded video frame rendering, fast-start playback, seekbar, play/pause, expand/collapse, share sheet, settings bottom sheet, and app-provided control icons.
 
 ## 1. Requirements
 
@@ -10,7 +10,7 @@ The reels player is a full-screen vertical feed player. It supports smooth page 
 - Kotlin Android app
 - Jetpack Compose enabled
 - Internet playback URLs, preferably HLS (`.m3u8`) or DASH (`.mpd`)
-- Poster image URL per reel for best first-frame experience
+- Playback URLs that can start quickly enough for vertical feed scrolling
 
 ## 2. Add The SDK Dependency
 
@@ -89,7 +89,7 @@ Use:
 - `hlsUrl`: HLS playback URL.
 - `mpdUrl`: DASH playback URL, especially for DRM content.
 - `drm = "1"` and `drmToken`: if playback uses Widevine license/token.
-- `imageUrl` or `thumbnail`: poster shown until first video frame is rendered.
+- `imageUrl` or `thumbnail`: optional image metadata. The reels player does not cover the video with this image during scroll; it keeps the Media3 surface visible so the first decoded video frame is rendered.
 - `title` or `episodeTitle`: title used by share text and metadata.
 - `shareUrl`: public content URL for share sheet.
 - `srt`: subtitle URL, if available.
@@ -122,7 +122,7 @@ fun ApiReel.toPlayerModel(): PlayerModel {
 }
 ```
 
-For fastest perceived startup, always pass `imageUrl` or `thumbnail`. The reels player displays this image until Media3 renders the first video frame.
+For fastest perceived startup, provide optimized HLS/DASH streams with a short startup segment. The reels player keeps the video surface visible and renders the first decoded frame instead of showing a thumbnail overlay during scroll.
 
 ## 5. Basic Reels Screen
 
@@ -226,23 +226,137 @@ fun ReelsFeedPlayer(
 
 ## 7. Paging And Prefetch Strategy
 
-The SDK calls:
+The SDK does not call a third-party app API directly. It does not know the app's offset, limit, cursor, auth token, endpoint, cache, or Paging 3 setup.
+
+The host app owns:
+
+- The current loaded `contentList`.
+- The next `offset` or cursor.
+- The `limit` / page size.
+- `isLoadingMore` and `hasMore` guards.
+- The API call that fetches the next page.
+- Appending new items to the existing feed state.
+
+The SDK only emits scroll/prefetch signals through `PlayerStateListener`:
 
 - `onReelChanged(position)` when the visible reel changes.
-- `onPreloadNext(index)` when the SDK needs the next item to be available soon.
+- `onPreloadNext(index)` when the SDK is preparing the next reel index.
 
-Recommended app-side behavior:
+Recommended rule: when the user is close to the end of the loaded list, call the app's next offset API once and append the new items.
 
 ```kotlin
+private const val LOAD_MORE_THRESHOLD = 3
+
 override fun onPreloadNext(index: Int) {
-    val shouldLoadMore = index >= reels.lastIndex - 2
-    if (shouldLoadMore && !isLoadingNextPage) {
+    val remainingItems = reels.size - 1 - index
+    val shouldLoadMore = remainingItems <= LOAD_MORE_THRESHOLD
+
+    if (shouldLoadMore && !isLoadingNextPage && hasMorePages) {
         loadNextReelsPage()
     }
 }
 ```
 
-Do not rebuild a completely new `contentList` object on every frame. Update the list only when new data arrives.
+Offset-based API example:
+
+```kotlin
+class ReelsViewModel : ViewModel() {
+    var reels by mutableStateOf<List<PlayerModel>>(emptyList())
+        private set
+
+    private var nextOffset = 0
+    private val limit = 10
+    private var isLoadingMore = false
+    private var hasMorePages = true
+
+    fun loadInitialPage() {
+        if (reels.isNotEmpty()) return
+        loadNextReelsPage()
+    }
+
+    fun loadNextReelsPage() {
+        if (isLoadingMore || !hasMorePages) return
+
+        isLoadingMore = true
+
+        viewModelScope.launch {
+            try {
+                val response = api.getReels(
+                    offset = nextOffset,
+                    limit = limit
+                )
+
+                val newItems = response.items.map { it.toPlayerModel() }
+
+                reels = reels + newItems
+                nextOffset += newItems.size
+                hasMorePages = newItems.size == limit
+            } finally {
+                isLoadingMore = false
+            }
+        }
+    }
+
+    fun onSdkPreloadNext(index: Int) {
+        val remainingItems = reels.size - 1 - index
+        if (remainingItems <= 3) {
+            loadNextReelsPage()
+        }
+    }
+}
+```
+
+Compose integration:
+
+```kotlin
+@Composable
+fun ThirdPartyReelsRoute(
+    viewModel: ReelsViewModel,
+    close: () -> Unit
+) {
+    val reels = viewModel.reels
+
+    LaunchedEffect(Unit) {
+        viewModel.loadInitialPage()
+    }
+
+    MtvVideoPlayerSdk(
+        contentList = reels,
+        index = 0,
+        playerStateListener = object : PlayerStateListener {
+            override fun onReelChanged(position: Int) {
+                // Optional analytics/current item tracking.
+            }
+
+            override fun onPreloadNext(index: Int) {
+                viewModel.onSdkPreloadNext(index)
+            }
+        },
+        onPlayerBack = { close() },
+        setFullScreen = {}
+    )
+}
+```
+
+If the app uses Android Paging 3, the same rule applies: keep Paging in the app layer, convert the loaded page items to `PlayerModel`, and append/submit the expanded list to the SDK. The SDK callback tells the app that the feed is near the end; the app's `PagingSource` decides the next offset:
+
+```kotlin
+override fun onPreloadNext(index: Int) {
+    val remainingItems = playerModels.size - 1 - index
+    if (remainingItems <= 3) {
+        pagingViewModel.requestNextPageIfNeeded()
+    }
+}
+```
+
+Important integration rules:
+
+- Append new page items; do not replace the list with only the new page.
+- Do not reset `index` to `0` when appending more data.
+- Guard every next-page request with `isLoadingMore` and `hasMorePages`.
+- Use stable `PlayerModel.id` values.
+- Keep API pagination logic in the third-party app or its ViewModel, not inside the SDK.
+- Update the list only when new data arrives, not on every scroll callback.
 
 ## 8. Control Visibility Flags
 
@@ -320,7 +434,7 @@ The reels player provides:
 - Vertical scroll feed.
 - Active page playback only.
 - Next page prefetch signal.
-- Poster image until first video frame.
+- Media3 video surface remains visible while the first frame is decoded.
 - Fast-start playback using initial low bitrate and short startup buffer.
 - Automatic adaptive quality upgrade after first rendered frame.
 - Tap anywhere to show hidden controls.
@@ -519,8 +633,8 @@ Before release, verify:
 - First visible reel starts automatically.
 - Next reel starts when scrolled into view.
 - Previous/inactive reels pause.
-- Poster image appears before first frame.
-- No black frame appears on slow networks.
+- First decoded frame is rendered by the player surface instead of a thumbnail overlay.
+- Slow networks show loading state until playback is ready.
 - Tap anywhere shows controls.
 - Playing video auto-hides controls after a short delay.
 - Paused video keeps controls visible.
@@ -535,9 +649,9 @@ Before release, verify:
 
 ## 20. Troubleshooting
 
-### Black screen before playback
+### Black screen or loader before playback
 
-Provide `imageUrl` or `thumbnail` for every reel. The SDK uses it as the startup poster until the first frame renders.
+Optimize the playback stream for fast startup. Prefer HLS/DASH ladders with short initial segments and reachable CDN URLs. The reels player keeps the Media3 surface visible and does not use `imageUrl` or `thumbnail` as a startup overlay.
 
 ### Controls do not appear
 
@@ -570,6 +684,16 @@ Use stable `PlayerModel.id` values and do not reorder `contentList` unexpectedly
 Append new items to the existing feed state instead of replacing the entire screen state on every callback.
 
 ## 21. Minimal Production Template
+
+Example state shape:
+
+```kotlin
+data class ReelsUiState(
+    val items: List<ApiReel> = emptyList(),
+    val isLoadingMore: Boolean = false,
+    val hasMore: Boolean = true
+)
+```
 
 ```kotlin
 @Composable
@@ -622,7 +746,8 @@ fun ThirdPartyReelsScreen(
         ),
         playerStateListener = object : PlayerStateListener {
             override fun onPreloadNext(index: Int) {
-                if (index >= playerModels.lastIndex - 2 && !state.isLoadingMore) {
+                val remainingItems = playerModels.size - 1 - index
+                if (remainingItems <= 3 && !state.isLoadingMore && state.hasMore) {
                     loadMore()
                 }
             }

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,7 +59,6 @@ import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.reels.ReelsSettingsSheet
 import com.app.videosdk.utils.PlayerUtils
-import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -73,6 +71,8 @@ fun MainContainer(
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit,
     startInFullScreen: Boolean = false,
+    isFullScreen: Boolean = startInFullScreen,
+    onFullScreenModeChanged: (Boolean) -> Unit = {},
     isReelPageActive: Boolean = true,
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
@@ -117,13 +117,6 @@ fun MainContainer(
     val playerModel = contentList?.getOrNull(selectedIndex.intValue)
     val modelControlsConfig = playerModel?.controlsConfig ?: controlsConfig
 
-    var isFullScreen by remember(selectedIndex.intValue) {
-        mutableStateOf(startInFullScreen)
-    }
-
-    LaunchedEffect(startInFullScreen) {
-        isFullScreen = startInFullScreen
-    }
     var isControllerVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var isPlayerPlaying by remember { mutableStateOf(false) }
@@ -172,12 +165,7 @@ fun MainContainer(
 
     val subtitleUri = if (isLive) "" else playerModel?.srt.orEmpty()
 
-    var hasRenderedFirstFrame by remember(selectedIndex.intValue, playbackUrl) { mutableStateOf(false) }
     var hasReleasedStartupBitrate by remember(selectedIndex.intValue, playbackUrl) { mutableStateOf(false) }
-    val posterUrl = remember(playerModel) {
-        playerModel?.imageUrl?.takeIf { it.isNotBlank() }
-            ?: playerModel?.thumbnail?.takeIf { it.isNotBlank() }
-    }
 
     val adsListener = remember {
         object : AdsListener {
@@ -274,8 +262,6 @@ fun MainContainer(
 
         val listener = object : Player.Listener {
             override fun onRenderedFirstFrame() {
-                hasRenderedFirstFrame = true
-
                 if (!hasReleasedStartupBitrate) {
                     hasReleasedStartupBitrate = true
                     player.trackSelectionParameters =
@@ -505,8 +491,6 @@ fun MainContainer(
                             .height(reelsCollapsedHeight)
                     }
                 )
-                val showStartupPoster =
-                    !hasRenderedFirstFrame && !posterUrl.isNullOrBlank() && !isAdsShowing
 
                 AndroidView(
                     factory = { playerView },
@@ -554,17 +538,6 @@ fun MainContainer(
                         }
                 )
 
-                if (showStartupPoster) {
-                    AsyncImage(
-                        model = posterUrl,
-                        contentDescription = null,
-                        contentScale = if (isFullScreen) ContentScale.Crop else ContentScale.Fit,
-                        modifier = Modifier
-                            .then(videoSurfaceModifier)
-                            .background(Color.Black)
-                    )
-                }
-
                 if (!isControllerVisible && !isSettingsClick) {
                     Box(
                         modifier = Modifier
@@ -579,7 +552,7 @@ fun MainContainer(
                     )
                 }
 
-                if (!isControllerVisible && isLoading && !showStartupPoster) {
+                if (!isControllerVisible && isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
                         color = Color.White
@@ -597,7 +570,7 @@ fun MainContainer(
                             index = selectedIndex.intValue,
                             totalDuration = contentDuration,
                             isFullScreen = { full ->
-                                isFullScreen = full
+                                onFullScreenModeChanged(full)
                                 setFullScreen(full)
                                 playerStateListener?.onFullScreenChanged(full)
                             },
@@ -691,6 +664,8 @@ private fun MainContainerPreviewSurface(
 @Preview(name = "MainContainer Reels", widthDp = 360, heightDp = 720, showBackground = true)
 @Composable
 private fun MainContainerReelsPreview() {
+    var isFullScreen by remember { mutableStateOf(true) }
+
     MainContainer(
         contentList = mainContainerPreviewItems(),
         index = 0,
@@ -698,6 +673,8 @@ private fun MainContainerReelsPreview() {
         onPlayerBack = {},
         setFullScreen = {},
         startInFullScreen = true,
+        isFullScreen = isFullScreen,
+        onFullScreenModeChanged = { isFullScreen = it },
         isReelPageActive = true
     )
 }
