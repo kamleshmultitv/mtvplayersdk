@@ -140,5 +140,6 @@ dependencies {
 
     // implementation(libs.mtvdownloadsdk)
     // implementation(libs.mtvplayersdk)
+    // implementation(libs.reelssdk)
 
 }

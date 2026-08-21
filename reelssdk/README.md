@@ -6,7 +6,7 @@ Standalone vertical reels player for Android apps. This module is intentionally 
 
 ```kotlin
 dependencies {
-    implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.1")
+    implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.2")
 }
 ```
 
@@ -50,7 +50,7 @@ The module publishes:
 
 - `groupId`: `com.github.kamleshmultitv.mtvplayersdk`
 - `artifactId`: `reelssdk`
-- `version`: `reels-1.0.1`
+- `version`: `reels-1.0.2`
 
 JitPack should run:
 
@@ -64,5 +64,5 @@ All reels SDK Kotlin classes use `com.app.reelssdk.*`. The old mobile SDK keeps 
 
 ```kotlin
 implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.36")
-implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.1")
+implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.2")
 ```
