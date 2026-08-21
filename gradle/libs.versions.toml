@@ -18,7 +18,7 @@ google-gson = "2.13.2"
 mediarouterVersion = "1.8.1"
 mtvplayersdkVersion = "mobile-2.0.36"
 mtvDownloadSdkVersion = "download-1.1.1"
-reelssdk = "reels-1.0.3"
+reelssdk = "reels-1.0.5"
 playServicesAdsVersion = "24.9.0"
 playServicesCastFrameworkVersion = "22.2.0"
 retrofit = "3.0.0"
@@ -99,7 +99,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 # player sdk
-reelssdk = { module = "com.github.kamleshmultitv.mtvplayersdk:reelssdk", version.ref = "reelssdk" }
+reelssdk = { module = "com.github.kamleshmultitv:mtvreelssdk", version.ref = "reelssdk" }
 mtvplayersdk = { module = "com.github.kamleshmultitv:mtvplayersdk", version.ref = "mtvplayersdkVersion" }
 mtvdownloadsdk = { module = "com.github.kamleshmultitv:mtvdownloadsdk", version.ref = "mtvDownloadSdkVersion" }
 androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "animationCoreVersion" }

@@ -66,9 +66,9 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"])
 
-                groupId = "com.github.kamleshmultitv.mtvplayersdk"
-                artifactId = "reelssdk"
-                version = "reels-1.0.4"
+                groupId = "com.github.kamleshmultitv"
+                artifactId = "mtvreelssdk"
+                version = "reels-1.0.5"
             }
         }
     }
