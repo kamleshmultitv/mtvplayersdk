@@ -27,11 +27,22 @@ dependencyResolutionManagement {
 }
 ```
 
+When testing a locally published SDK from this same checkout, add `mavenLocal()` before JitPack and run `./gradlew :reelssdk:publishToMavenLocal` first:
+
+```kotlin
+repositories {
+    mavenLocal()
+    google()
+    mavenCentral()
+    maven(url = "https://jitpack.io")
+}
+```
+
 Add the SDK dependency in the app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.2")
+    implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.3")
 }
 ```
 
@@ -40,7 +51,7 @@ This artifact can be installed alongside the existing mobile player SDK because 
 ```kotlin
 dependencies {
     implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.36")
-    implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.2")
+    implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.3")
 }
 ```
 
@@ -55,9 +66,9 @@ This branch publishes the `reelssdk` Android library artifact. The current publi
 
 - `groupId`: `com.github.kamleshmultitv.mtvplayersdk`
 - `artifactId`: `reelssdk`
-- `version`: `reels-1.0.2`
+- `version`: `reels-1.0.3`
 
-This is a multi-module repository, so third-party apps should depend on the `reelssdk` module artifact, not the sample `app` module or the downloader module. If you publish a different Git tag/version, replace `reels-1.0.2` with that release version.
+This is a multi-module repository, so third-party apps should depend on the `reelssdk` module artifact, not the sample `app` module or the downloader module. If you publish a different Git tag/version, replace `reels-1.0.3` with that release version.
 
 ## 3. Android Setup
 
@@ -562,35 +573,35 @@ The `reelssdk` module uses `maven-publish`, publishes the `release` variant, and
 ```kotlin
 groupId = "com.github.kamleshmultitv.mtvplayersdk"
 artifactId = "reelssdk"
-version = "reels-1.0.2"
+version = "reels-1.0.3"
 ```
 
 After `publishToMavenLocal`, verify the generated Maven artifact exists:
 
 ```bash
-ls ~/.m2/repository/com/github/kamleshmultitv/mtvplayersdk/reelssdk/reels-1.0.2
+ls ~/.m2/repository/com/github/kamleshmultitv/mtvplayersdk/reelssdk/reels-1.0.3
 ```
 
 Expected files include:
 
-- `reelssdk-reels-1.0.2.aar`
-- `reelssdk-reels-1.0.2.pom`
-- `reelssdk-reels-1.0.2-sources.jar`
+- `reelssdk-reels-1.0.3.aar`
+- `reelssdk-reels-1.0.3.pom`
+- `reelssdk-reels-1.0.3-sources.jar`
 
 Then commit, push, and tag the exact commit:
 
 ```bash
 git add .
-git commit -m "Release reels SDK reels-1.0.2"
-git tag reels-1.0.2
+git commit -m "Release reels SDK reels-1.0.3"
+git tag reels-1.0.3
 git push origin reelssdk
-git push origin reels-1.0.2
+git push origin reels-1.0.3
 ```
 
 After JitPack finishes building the tag, third-party apps can use:
 
 ```kotlin
-implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.2")
+implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.3")
 ```
 
 Keep release work branch-safe:

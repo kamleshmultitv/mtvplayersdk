@@ -135,11 +135,11 @@ dependencies {
 
     // SDK
     implementation(project(":videosdk"))
-    implementation(project(":reelssdk"))
+  //  implementation(project(":reelssdk"))
     implementation(project(":mtvdownloader"))
 
     // implementation(libs.mtvdownloadsdk)
     // implementation(libs.mtvplayersdk)
-    // implementation(libs.reelssdk)
+     implementation(libs.reelssdk)
 
 }
