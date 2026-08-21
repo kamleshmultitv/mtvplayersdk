@@ -1,0 +1,49 @@
+####################################
+# KEEP GENERIC TYPE INFORMATION (CRITICAL)
+####################################
+-keepattributes Signature
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
+-keepattributes *Annotation*
+
+####################################
+# KEEP SDK PUBLIC API
+####################################
+-keep class com.app.reelssdk.** { *; }
+
+####################################
+# KEEP SDK MODELS (Gson-safe)
+####################################
+-keep class com.app.reelssdk.model.** {
+    <fields>;
+    <init>(...);
+}
+
+####################################
+# GOOGLE IMA SDK (MANDATORY)
+####################################
+-keep class com.google.ads.interactivemedia.** { *; }
+-dontwarn com.google.ads.interactivemedia.**
+
+####################################
+# MEDIA3 / EXOPLAYER
+####################################
+-keep class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+
+####################################
+# GSON (minimal & safe)
+####################################
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-dontwarn com.google.gson.**
+
+####################################
+# KOTLIN METADATA (SAFE)
+####################################
+-keep class kotlin.Metadata { *; }
+
+####################################
+# COMPOSE (SDK SAFETY)
+####################################
+-dontwarn androidx.compose.**

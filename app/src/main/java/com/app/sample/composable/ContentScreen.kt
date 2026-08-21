@@ -14,13 +14,10 @@ import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.DeepLinkResponse
 import com.app.sample.model.OverrideContent
 import com.app.sample.viewModel.ContentViewModel
-import com.app.videosdk.listener.PipListener
 
 @Composable
 fun ContentScreen(
     viewModel: ContentViewModel,
-    pipListener: PipListener,
-    isInPipMode: Boolean,
     isDeepLink: Boolean,
     deepLinkContentId: String?,
     deepLinkUrl: String?,
@@ -65,8 +62,6 @@ fun ContentScreen(
             overrideContent = overrideContent,
             deepLinkContent = deepLinkContent,
             isDeepLink = isDeepLink,
-            pipListener = pipListener,
-            isInPipMode = isInPipMode,
             isFullScreen = isFullScreen,
             onFullScreenChange = { isFullScreen = it },
             onOverrideContent = { overrideContent = it }

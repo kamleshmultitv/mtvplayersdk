@@ -37,9 +37,8 @@ import com.app.sample.model.ContentItem
 import com.app.sample.model.DeepLinkResponse
 import com.app.sample.model.OverrideContent
 import com.app.sample.utils.FileUtils.buildPlayerContentList
-import com.app.videosdk.listener.PipListener
-import com.app.videosdk.listener.PlayerStateListener
-import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.reelssdk.listener.ReelsPlayerStateListener
+import com.app.reelssdk.ui.MtvReelsPlayerSdk
 
 @Composable
 fun ContentBody(
@@ -49,9 +48,7 @@ fun ContentBody(
     selectedIndex: MutableIntState,
     overrideContent: OverrideContent?,
     deepLinkContent: DeepLinkResponse?,
-    pipListener: PipListener,
     isDeepLink: Boolean? = false,
-    isInPipMode: Boolean,
     isFullScreen: Boolean,
     onFullScreenChange: (Boolean) -> Unit,
     onOverrideContent: (OverrideContent?) -> Unit
@@ -95,14 +92,9 @@ fun ContentBody(
 
             // 🎬 SDK Video Player (KEYED)
             key(contentList) {
-                MtvVideoPlayerSdk(
+                MtvReelsPlayerSdk(
                     contentList = contentList,
                     index = selectedIndex.intValue,
-                    isDeepLink = isDeepLink,
-
-                    onIndexChanged = { newIndex ->
-                        selectedIndex.intValue = newIndex
-                    },
 
                     // ✅ Back handling (no logic change)
                     onPlayerBack = {
@@ -116,7 +108,7 @@ fun ContentBody(
                         onFullScreenChange(isFull)
                     },
 
-                    playerStateListener = object : PlayerStateListener {
+                    playerStateListener = object : ReelsPlayerStateListener {
 
                         override fun onPlayerReady(durationMs: Long) {
                             Log.d("CLIENT", "Player ready: $durationMs")
@@ -128,6 +120,10 @@ fun ContentBody(
 
                         override fun onPlaybackCompleted() {
                             Log.d("CLIENT", "Playback completed")
+                        }
+
+                        override fun onReelChanged(position: Int) {
+                            selectedIndex.intValue = position
                         }
 
                         override fun onFullScreenChanged(isFullScreen: Boolean) {

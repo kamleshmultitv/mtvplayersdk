@@ -1,10 +1,7 @@
-import org.gradle.api.publish.maven.MavenPublication
-
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("maven-publish")
 }
 
 android {
@@ -46,31 +43,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-
-    // ✅ REQUIRED for AGP 8+ + JitPack
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-        }
-    }
-}
-
-/**
- * ✅ Maven Publish (KEEP OUTSIDE android {})
- * This publishes ONLY videosdk (not app)
- */
-afterEvaluate {
-    publishing {
-        publications {
-            create<MavenPublication>("release") {
-                from(components["release"])
-
-                groupId = "com.github.kamleshmultitv.mtvplayersdk"
-                artifactId = "videosdk"
-                version = "reels-1.0.1"
-            }
-        }
     }
 }
 

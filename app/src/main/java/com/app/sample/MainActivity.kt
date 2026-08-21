@@ -1,11 +1,7 @@
 package com.app.sample
 
-import android.app.PictureInPictureParams
 import android.content.Intent
-import android.content.res.Configuration
-import android.os.Build
 import android.os.Bundle
-import android.util.Rational
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -15,13 +11,10 @@ import androidx.fragment.app.FragmentActivity
 import com.app.mtvdownloader.utils.NotificationPermission
 import com.app.sample.composable.ContentScreen
 import com.app.sample.viewModel.ContentViewModel
-import com.app.videosdk.listener.PipListener
 
-class MainActivity : FragmentActivity(), PipListener {
+class MainActivity : FragmentActivity() {
 
     private val viewModel: ContentViewModel by viewModels()
-
-    private val pipState = mutableStateOf(false)
 
     // ✅ Deep link states
     private val isDeepLinkState = mutableStateOf(false)
@@ -41,8 +34,6 @@ class MainActivity : FragmentActivity(), PipListener {
         setContent {
             ContentScreen(
                 viewModel = viewModel,
-                pipListener = this@MainActivity,
-                isInPipMode = pipState.value,
                 isDeepLink = isDeepLinkState.value,
                 deepLinkContentId = deepLinkContentId.value,
                 deepLinkUrl = deepLinkUrl.value,
@@ -84,41 +75,5 @@ class MainActivity : FragmentActivity(), PipListener {
                 ).show()
             }
         }
-    }
-
-    override fun onPipRequested(isPipActive: Boolean) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val params = PictureInPictureParams.Builder()
-                .setAspectRatio(Rational(16, 9))
-                .build()
-            enterPictureInPictureMode(params)
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        updatePipState(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) isInPictureInPictureMode else false
-        )
-    }
-
-    @Deprecated("Deprecated in android.app.Activity")
-    override fun onPictureInPictureModeChanged(
-        isInPictureInPictureMode: Boolean
-    ) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode)
-        updatePipState(isInPictureInPictureMode)
-    }
-
-    override fun onPictureInPictureModeChanged(
-        isInPictureInPictureMode: Boolean,
-        newConfig: Configuration
-    ) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        updatePipState(isInPictureInPictureMode)
-    }
-
-    private fun updatePipState(isInPictureInPictureMode: Boolean) {
-        pipState.value = isInPictureInPictureMode
     }
 }

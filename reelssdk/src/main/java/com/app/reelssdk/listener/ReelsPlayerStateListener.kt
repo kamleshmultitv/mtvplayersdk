@@ -1,0 +1,47 @@
+package com.app.reelssdk.listener
+
+import androidx.media3.common.PlaybackException
+
+interface ReelsPlayerStateListener {
+
+    fun onPlayerReady(durationMs: Long) {}
+
+    fun onBuffering(isBuffering: Boolean) {}
+
+    fun onPlayStateChanged(isPlaying: Boolean) {}
+
+    fun onPlaybackCompleted() {}
+
+    fun onPlayerError(error: PlaybackException) {}
+
+    fun onVideoChanged(index: Int) {}
+
+    fun onFullScreenChanged(isFullScreen: Boolean) {}
+
+    fun onPipModeChanged(isInPip: Boolean) {}
+
+    fun onAdStateChanged(isAdPlaying: Boolean) {}
+
+    fun onReelChanged(position: Int) {}
+
+    fun onPreloadNext(index: Int) {}
+
+    fun onMuteStateChanged(isMuted: Boolean) {}
+
+    fun onCastPlaybackStateChanged(
+        playerState: Int,
+        idleReason: Int,
+        contentType: String?,
+        contentId: String?,
+        contentUrl: String?
+    ) {}
+
+    fun onCastPlaybackFailed(
+        message: String,
+        playerState: Int,
+        idleReason: Int,
+        contentType: String?,
+        contentId: String?,
+        contentUrl: String?
+    ) {}
+}

@@ -30,14 +30,15 @@
 -dontwarn androidx.media3.**
 
 ####################################
-# YOUR VIDEO SDK (public + internal)
+# SDKS (public + internal)
 ####################################
 -keep class com.app.videosdk.** { *; }
 -dontwarn com.app.videosdk.**
+-keep class com.app.reelssdk.** { *; }
+-dontwarn com.app.reelssdk.**
 
 ####################################
 # Kotlin metadata (safe)
 ####################################
 -keep class kotlin.Metadata { *; }
-
 

@@ -16,20 +16,20 @@ import com.app.sample.extra.ApiConstant.TOKEN
 import com.app.sample.model.ContentItem
 import com.app.sample.model.DeepLinkResponse
 import com.app.sample.model.OverrideContent
-import com.app.videosdk.model.AdsConfig
-import com.app.videosdk.model.Chapter
-import com.app.videosdk.model.GAMAdsConfig
-import com.app.videosdk.model.NextEpisode
-import com.app.videosdk.model.PlayerControlsConfig
-import com.app.videosdk.model.PlayerCustomControls
-import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.model.SkipIntro
+import com.app.reelssdk.model.AdsConfig
+import com.app.reelssdk.model.Chapter
+import com.app.reelssdk.model.GAMAdsConfig
+import com.app.reelssdk.model.NextEpisode
+import com.app.reelssdk.model.ReelsPlayerControlsConfig
+import com.app.reelssdk.model.ReelsPlayerCustomControls
+import com.app.reelssdk.model.ReelsPlayerModel
+import com.app.reelssdk.model.SkipIntro
 import okhttp3.internal.platform.PlatformRegistry.applicationContext
 import org.json.JSONObject
 
 object FileUtils {
 
-    private val defaultControlsConfig = PlayerControlsConfig(
+    private val defaultControlsConfig = ReelsPlayerControlsConfig(
         share = true,
         bookmark = false,
         seekbar = true,
@@ -83,7 +83,7 @@ object FileUtils {
                 jsonObject.toString()
             )
 
-        Log.d("MtvVideoPlayerSdk", "drmToken: $drmToken")
+        Log.d("MtvReelsPlayerSdk", "drmToken: $drmToken")
 
         return drmToken
     }
@@ -99,7 +99,7 @@ object FileUtils {
         overrideContent: OverrideContent?,
         deepLinkContent: DeepLinkResponse?,
         contentItem: ContentItem? = null
-    ): List<PlayerModel> {
+    ): List<ReelsPlayerModel> {
 
         /* =========================================================
            CASE 1 & 2 : SUBMIT (overrideContent has highest priority)
@@ -111,7 +111,7 @@ object FileUtils {
             if (override.url.isNullOrBlank()) {
 
                 return pagingItems.itemSnapshotList.items.mapNotNull { content ->
-                    createPlayerModelFromContent(
+                    createReelsPlayerModelFromContent(
                         context = context,
                         content = content,
                         override = override
@@ -121,7 +121,7 @@ object FileUtils {
 
             // ---------- CASE 2: Submit WITH URL ----------
             return listOf(
-                PlayerModel(
+                ReelsPlayerModel(
                     hlsUrl = if (!override.isLive) override.url else null,
                     liveUrl = if (override.isLive) override.url else null,
                     mpdUrl = override.url,
@@ -140,7 +140,7 @@ object FileUtils {
         deepLinkContent?.let { deeplink ->
             // ---------- CASE 2: Submit WITH URL ----------
             return listOf(
-                PlayerModel(
+                ReelsPlayerModel(
                     hlsUrl =  deeplink.url ,
                     mpdUrl = deeplink.url,
                     id = deeplink.contentId,
@@ -159,7 +159,7 @@ object FileUtils {
            ========================================================= */
 
         contentItem?.let { content ->
-            createPlayerModelFromContent(
+            createReelsPlayerModelFromContent(
                 context = context,
                 content = content,
                 override = null
@@ -173,7 +173,7 @@ object FileUtils {
            ========================================================= */
 
         return pagingItems.itemSnapshotList.items.mapNotNull { content ->
-            createPlayerModelFromContent(
+            createReelsPlayerModelFromContent(
                 context = context,
                 content = content,
                 override = null
@@ -181,17 +181,17 @@ object FileUtils {
         }
     }
 
-    private fun createPlayerModelFromContent(
+    private fun createReelsPlayerModelFromContent(
         context: Context,
         content: ContentItem,
         override: OverrideContent?
-    ): PlayerModel? {
+    ): ReelsPlayerModel? {
 
         val hls = content.hlsUrl?.takeIf { it.isNotBlank() }
         val mpd = content.url?.takeIf { it.isNotBlank() }
         if (hls == null && mpd == null) return null
 
-        return PlayerModel(
+        return ReelsPlayerModel(
             id = content.id.orEmpty(),
             ageRating = content.ageRating?.takeIf { it.isNotBlank() },
             hlsUrl = hls,
@@ -264,7 +264,7 @@ object FileUtils {
         Chapter("end", "Special Thanks", 2004000L)
     )
 
-    private fun defaultControls() = PlayerCustomControls(
+    private fun defaultControls() = ReelsPlayerCustomControls(
         iconTintRes = R.color.white,
         playIconRes = R.drawable.ic_play,
         pauseIconRes = R.drawable.ic_pause,
@@ -280,7 +280,7 @@ object FileUtils {
     @OptIn(UnstableApi::class)
     fun buildContentListFromDownloaded(
         downloadedContentEntity: DownloadEntity
-    ): List<PlayerModel> {
+    ): List<ReelsPlayerModel> {
 
         val downloadCache = (applicationContext as AppClass).downloadCache
         val cacheFactory = (applicationContext as AppClass).cacheDataSourceFactory
@@ -290,7 +290,7 @@ object FileUtils {
         val isDrm = downloadedContentEntity.drm?.isNotBlank()
 
         return listOf(
-            PlayerModel(
+            ReelsPlayerModel(
                 id = downloadedContentEntity.contentId,
                 // ▶️ Playback URL
                 hlsUrl = downloadedContentEntity.hlsUrl,

@@ -10,8 +10,8 @@ import androidx.compose.ui.res.colorResource
 import com.app.mtvdownloader.entity.DownloadEntity
 import com.app.sample.R
 import com.app.sample.utils.FileUtils.buildContentListFromDownloaded
-import com.app.videosdk.listener.PlayerStateListener
-import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.reelssdk.listener.ReelsPlayerStateListener
+import com.app.reelssdk.ui.MtvReelsPlayerSdk
 
 @Composable
 fun DownloadPlayer(
@@ -43,12 +43,12 @@ fun DownloadPlayer(
             .fillMaxSize()
             .background(colorResource(R.color.ic_launcher_background))
     ) {
-        MtvVideoPlayerSdk(
+        MtvReelsPlayerSdk(
             contentList = contentList,
             index = 0,
             onPlayerBack = {},
             setFullScreen = {  },
-            playerStateListener = object : PlayerStateListener {
+            playerStateListener = object : ReelsPlayerStateListener {
 
                 override fun onPlayerReady(durationMs: Long) {
                     Log.d("DownloadPlayer", "✅ Player ready: $durationMs ms")

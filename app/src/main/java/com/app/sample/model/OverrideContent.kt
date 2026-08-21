@@ -1,8 +1,8 @@
 package com.app.sample.model
 
-import com.app.videosdk.model.AdsConfig
-import com.app.videosdk.model.NextEpisode
-import com.app.videosdk.model.SkipIntro
+import com.app.reelssdk.model.AdsConfig
+import com.app.reelssdk.model.NextEpisode
+import com.app.reelssdk.model.SkipIntro
 
 data class OverrideContent(
     val url: String? = null,

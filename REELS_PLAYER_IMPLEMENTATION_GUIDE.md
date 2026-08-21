@@ -31,17 +31,33 @@ Add the SDK dependency in the app module:
 
 ```kotlin
 dependencies {
-    implementation("com.github.kamleshmultitv.mtvplayersdk:videosdk:reels-1.0.0")
+    implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.1")
 }
 ```
 
-This branch publishes the `videosdk` Android library artifact. The current publication values are:
+This artifact can be installed alongside the existing mobile player SDK because it uses a different artifactId and Kotlin package namespace:
+
+```kotlin
+dependencies {
+    implementation("com.github.kamleshmultitv:mtvplayersdk:mobile-2.0.36")
+    implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.1")
+}
+```
+
+Use separate imports in the host app:
+
+```kotlin
+import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.reelssdk.ui.MtvReelsPlayerSdk
+```
+
+This branch publishes the `reelssdk` Android library artifact. The current publication values are:
 
 - `groupId`: `com.github.kamleshmultitv.mtvplayersdk`
-- `artifactId`: `videosdk`
-- `version`: `reels-1.0.0`
+- `artifactId`: `reelssdk`
+- `version`: `reels-1.0.1`
 
-This is a multi-module repository, so third-party apps should depend on the `videosdk` module artifact, not the sample `app` module or the downloader module. If you publish a different Git tag/version, replace `reels-1.0.0` with that release version.
+This is a multi-module repository, so third-party apps should depend on the `reelssdk` module artifact, not the sample `app` module or the downloader module. If you publish a different Git tag/version, replace `reels-1.0.1` with that release version.
 
 ## 3. Android Setup
 
@@ -79,9 +95,9 @@ The SDK library manifest includes app package queries for WhatsApp, Facebook, In
 </queries>
 ```
 
-## 4. Map Your API Data To PlayerModel
+## 4. Map Your API Data To ReelsPlayerModel
 
-Each reel item must become a `PlayerModel`.
+Each reel item must become a `ReelsPlayerModel`.
 
 Use:
 
@@ -100,10 +116,10 @@ Use:
 Example mapper:
 
 ```kotlin
-import com.app.videosdk.model.PlayerModel
+import com.app.reelssdk.model.ReelsPlayerModel
 
-fun ApiReel.toPlayerModel(): PlayerModel {
-    return PlayerModel(
+fun ApiReel.toReelsPlayerModel(): ReelsPlayerModel {
+    return ReelsPlayerModel(
         id = id,
         hlsUrl = playback.hlsUrl,
         mpdUrl = playback.dashUrl,
@@ -126,7 +142,7 @@ For fastest perceived startup, provide optimized HLS/DASH streams with a short s
 
 ## 5. Basic Reels Screen
 
-Use `MtvVideoPlayerSdk` directly. This branch is reels-only, so `mode` and `playerMode` are not required.
+Use `MtvReelsPlayerSdk` directly. This artifact is reels-only, so mobile-player mode parameters are not part of the public API.
 
 ```kotlin
 import androidx.compose.foundation.background
@@ -137,12 +153,12 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.reelssdk.model.ReelsPlayerModel
+import com.app.reelssdk.ui.MtvReelsPlayerSdk
 
 @Composable
 fun ReelsPlayerScreen(
-    reels: List<PlayerModel>,
+    reels: List<ReelsPlayerModel>,
     onClose: () -> Unit
 ) {
     Box(
@@ -150,7 +166,7 @@ fun ReelsPlayerScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        MtvVideoPlayerSdk(
+        MtvReelsPlayerSdk(
             contentList = reels,
             index = 0,
             onPlayerBack = { onClose() },
@@ -164,29 +180,29 @@ The reels player internally uses a vertical pager and keeps one next page prepar
 
 ## 6. Recommended Full Integration
 
-Use a `PlayerStateListener` to observe current reel index and prefetch the next API item/page.
+Use a `ReelsPlayerStateListener` to observe current reel index and prefetch the next API item/page.
 
 ```kotlin
 import android.util.Log
 import androidx.compose.runtime.Composable
-import com.app.videosdk.listener.PlayerStateListener
-import com.app.videosdk.model.PlayerConfig
-import com.app.videosdk.model.PlayerControlsConfig
-import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.ui.MtvVideoPlayerSdk
+import com.app.reelssdk.listener.ReelsPlayerStateListener
+import com.app.reelssdk.model.ReelsPlayerConfig
+import com.app.reelssdk.model.ReelsPlayerControlsConfig
+import com.app.reelssdk.model.ReelsPlayerModel
+import com.app.reelssdk.ui.MtvReelsPlayerSdk
 
 @Composable
 fun ReelsFeedPlayer(
-    reels: List<PlayerModel>,
+    reels: List<ReelsPlayerModel>,
     onPreloadMore: (nextIndex: Int) -> Unit,
     onReelChanged: (index: Int) -> Unit,
     onBack: () -> Unit
 ) {
-    MtvVideoPlayerSdk(
+    MtvReelsPlayerSdk(
         contentList = reels,
         index = 0,
-        playerConfig = PlayerConfig(
-            controls = PlayerControlsConfig(
+        playerConfig = ReelsPlayerConfig(
+            controls = ReelsPlayerControlsConfig(
                 play = true,
                 pause = true,
                 share = true,
@@ -197,7 +213,7 @@ fun ReelsFeedPlayer(
                 exitFullscreen = true
             )
         ),
-        playerStateListener = object : PlayerStateListener {
+        playerStateListener = object : ReelsPlayerStateListener {
             override fun onReelChanged(position: Int) {
                 onReelChanged(position)
             }
@@ -237,7 +253,7 @@ The host app owns:
 - The API call that fetches the next page.
 - Appending new items to the existing feed state.
 
-The SDK only emits scroll/prefetch signals through `PlayerStateListener`:
+The SDK only emits scroll/prefetch signals through `ReelsPlayerStateListener`:
 
 - `onReelChanged(position)` when the visible reel changes.
 - `onPreloadNext(index)` when the SDK is preparing the next reel index.
@@ -261,7 +277,7 @@ Offset-based API example:
 
 ```kotlin
 class ReelsViewModel : ViewModel() {
-    var reels by mutableStateOf<List<PlayerModel>>(emptyList())
+    var reels by mutableStateOf<List<ReelsPlayerModel>>(emptyList())
         private set
 
     private var nextOffset = 0
@@ -286,7 +302,7 @@ class ReelsViewModel : ViewModel() {
                     limit = limit
                 )
 
-                val newItems = response.items.map { it.toPlayerModel() }
+                val newItems = response.items.map { it.toReelsPlayerModel() }
 
                 reels = reels + newItems
                 nextOffset += newItems.size
@@ -320,10 +336,10 @@ fun ThirdPartyReelsRoute(
         viewModel.loadInitialPage()
     }
 
-    MtvVideoPlayerSdk(
+    MtvReelsPlayerSdk(
         contentList = reels,
         index = 0,
-        playerStateListener = object : PlayerStateListener {
+        playerStateListener = object : ReelsPlayerStateListener {
             override fun onReelChanged(position: Int) {
                 // Optional analytics/current item tracking.
             }
@@ -338,7 +354,7 @@ fun ThirdPartyReelsRoute(
 }
 ```
 
-If the app uses Android Paging 3, the same rule applies: keep Paging in the app layer, convert the loaded page items to `PlayerModel`, and append/submit the expanded list to the SDK. The SDK callback tells the app that the feed is near the end; the app's `PagingSource` decides the next offset:
+If the app uses Android Paging 3, the same rule applies: keep Paging in the app layer, convert the loaded page items to `ReelsPlayerModel`, and append/submit the expanded list to the SDK. The SDK callback tells the app that the feed is near the end; the app's `PagingSource` decides the next offset:
 
 ```kotlin
 override fun onPreloadNext(index: Int) {
@@ -354,17 +370,17 @@ Important integration rules:
 - Append new page items; do not replace the list with only the new page.
 - Do not reset `index` to `0` when appending more data.
 - Guard every next-page request with `isLoadingMore` and `hasMorePages`.
-- Use stable `PlayerModel.id` values.
+- Use stable `ReelsPlayerModel.id` values.
 - Keep API pagination logic in the third-party app or its ViewModel, not inside the SDK.
 - Update the list only when new data arrives, not on every scroll callback.
 
 ## 8. Control Visibility Flags
 
-Controls can be configured globally through `PlayerConfig.controls`:
+Controls can be configured globally through `ReelsPlayerConfig.controls`:
 
 ```kotlin
-PlayerConfig(
-    controls = PlayerControlsConfig(
+ReelsPlayerConfig(
+    controls = ReelsPlayerControlsConfig(
         play = true,
         pause = true,
         share = true,
@@ -380,11 +396,11 @@ PlayerConfig(
 Controls can also be configured per item:
 
 ```kotlin
-PlayerModel(
+ReelsPlayerModel(
     id = "reel-1",
     hlsUrl = "https://example.com/reel.m3u8",
     imageUrl = "https://example.com/reel.jpg",
-    controlsConfig = PlayerControlsConfig(
+    controlsConfig = ReelsPlayerControlsConfig(
         share = true,
         bookmark = false,
         seekbar = true,
@@ -395,17 +411,17 @@ PlayerModel(
 )
 ```
 
-Per-item `controlsConfig` takes priority over global `PlayerConfig.controls`.
+Per-item `controlsConfig` takes priority over global `ReelsPlayerConfig.controls`.
 In the reels UI, the rendered controls are `play`, `pause`, `share`, `bookmark`, `seekbar`, `settings`, `fullscreen`, and `exitFullscreen`.
 
 ## 9. Custom Icons And Color
 
-The host app can provide icons through `PlayerCustomControls`.
+The host app can provide icons through `ReelsPlayerCustomControls`.
 
 ```kotlin
-import com.app.videosdk.model.PlayerCustomControls
+import com.app.reelssdk.model.ReelsPlayerCustomControls
 
-val controls = PlayerCustomControls(
+val controls = ReelsPlayerCustomControls(
     iconTintRes = R.color.white,
     playIconRes = R.drawable.ic_play,
     pauseIconRes = R.drawable.ic_pause,
@@ -417,7 +433,7 @@ val controls = PlayerCustomControls(
     crossFadeIconRes = R.drawable.ic_close
 )
 
-val reel = PlayerModel(
+val reel = ReelsPlayerModel(
     id = "reel-1",
     hlsUrl = "https://example.com/reel.m3u8",
     imageUrl = "https://example.com/reel.jpg",
@@ -463,7 +479,7 @@ Share text is built from:
 Recommended:
 
 ```kotlin
-PlayerModel(
+ReelsPlayerModel(
     id = "reel-1",
     title = "Yoga Short",
     hlsUrl = "https://cdn.example.com/reel/master.m3u8",
@@ -520,15 +536,15 @@ This reels branch always renders the reels player. Existing SDK parameters such 
 
 ## 16. Publishing On JitPack
 
-Before creating a release tag, verify the SDK from a clean `androidReels` checkout:
+Before creating a release tag, verify the SDK from a clean `reelssdk` branch checkout:
 
 ```bash
-git switch androidReels
-git pull --ff-only origin androidReels
+git switch reelssdk
+git pull --ff-only origin reelssdk
 git status --short
-./gradlew :videosdk:assembleRelease
-./gradlew :videosdk:publishToMavenLocal
-./gradlew :videosdk:lintRelease
+./gradlew :reelssdk:assembleRelease
+./gradlew :reelssdk:publishToMavenLocal
+./gradlew :reelssdk:lintRelease
 ```
 
 The repository contains `jitpack.yml` with:
@@ -538,43 +554,43 @@ jdk:
   - openjdk17
 
 install:
-  - ./gradlew :videosdk:publishToMavenLocal
+  - ./gradlew :reelssdk:publishToMavenLocal
 ```
 
-The `videosdk` module uses `maven-publish`, publishes the `release` variant, and includes a sources jar. For a new public release, update `videosdk/build.gradle.kts`:
+The `reelssdk` module uses `maven-publish`, publishes the `release` variant, and includes a sources jar. For a new public release, update `reelssdk/build.gradle.kts`:
 
 ```kotlin
 groupId = "com.github.kamleshmultitv.mtvplayersdk"
-artifactId = "videosdk"
-version = "reels-1.0.0"
+artifactId = "reelssdk"
+version = "reels-1.0.1"
 ```
 
 After `publishToMavenLocal`, verify the generated Maven artifact exists:
 
 ```bash
-ls ~/.m2/repository/com/github/kamleshmultitv/mtvplayersdk/videosdk/reels-1.0.0
+ls ~/.m2/repository/com/github/kamleshmultitv/mtvplayersdk/reelssdk/reels-1.0.1
 ```
 
 Expected files include:
 
-- `videosdk-reels-1.0.0.aar`
-- `videosdk-reels-1.0.0.pom`
-- `videosdk-reels-1.0.0-sources.jar`
+- `reelssdk-reels-1.0.1.aar`
+- `reelssdk-reels-1.0.1.pom`
+- `reelssdk-reels-1.0.1-sources.jar`
 
 Then commit, push, and tag the exact commit:
 
 ```bash
 git add .
-git commit -m "Release reels SDK reels-1.0.0"
-git tag reels-1.0.0
-git push origin androidReels
-git push origin reels-1.0.0
+git commit -m "Release reels SDK reels-1.0.1"
+git tag reels-1.0.1
+git push origin reelssdk
+git push origin reels-1.0.1
 ```
 
 After JitPack finishes building the tag, third-party apps can use:
 
 ```kotlin
-implementation("com.github.kamleshmultitv.mtvplayersdk:videosdk:reels-1.0.0")
+implementation("com.github.kamleshmultitv.mtvplayersdk:reelssdk:reels-1.0.1")
 ```
 
 Keep release work branch-safe:
@@ -585,14 +601,14 @@ git switch androidReels
 git switch androidMobile
 ```
 
-Switch branches only with a clean working tree or after committing/stashing. Reels work should be committed and pushed only on `androidReels`; OTT/mobile work should be committed and pushed only on `androidMobile`.
+Switch branches only with a clean working tree or after committing/stashing. Reels SDK work should be committed and pushed only on `reelssdk`; OTT/mobile work should be committed and pushed only on `androidMobile`.
 
 ## 17. DRM Content
 
 For Widevine/DASH:
 
 ```kotlin
-PlayerModel(
+ReelsPlayerModel(
     id = "drm-reel",
     mpdUrl = "https://example.com/manifest.mpd",
     drm = "1",
@@ -604,7 +620,7 @@ PlayerModel(
 For non-DRM HLS:
 
 ```kotlin
-PlayerModel(
+ReelsPlayerModel(
     id = "hls-reel",
     hlsUrl = "https://example.com/master.m3u8",
     imageUrl = "https://example.com/poster.jpg"
@@ -616,7 +632,7 @@ PlayerModel(
 Pass an SRT URL:
 
 ```kotlin
-PlayerModel(
+ReelsPlayerModel(
     id = "reel-with-subtitles",
     hlsUrl = "https://example.com/master.m3u8",
     srt = "https://example.com/subtitles.srt"
@@ -658,7 +674,7 @@ Optimize the playback stream for fast startup. Prefer HLS/DASH ladders with shor
 Make sure the item/global config has the relevant flags enabled:
 
 ```kotlin
-PlayerControlsConfig(
+ReelsPlayerControlsConfig(
     play = true,
     pause = true,
     seekbar = true,
@@ -677,7 +693,7 @@ Keep the same reel page alive. Selection state is preserved while the current re
 
 ### Wrong item plays after scroll
 
-Use stable `PlayerModel.id` values and do not reorder `contentList` unexpectedly while the user is scrolling.
+Use stable `ReelsPlayerModel.id` values and do not reorder `contentList` unexpectedly while the user is scrolling.
 
 ### App reloads all players on data update
 
@@ -703,7 +719,7 @@ fun ThirdPartyReelsScreen(
     close: () -> Unit
 ) {
     val playerModels = state.items.map { item ->
-        PlayerModel(
+        ReelsPlayerModel(
             id = item.id,
             hlsUrl = item.hlsUrl,
             mpdUrl = item.mpdUrl,
@@ -716,7 +732,7 @@ fun ThirdPartyReelsScreen(
             description = item.description,
             shareUrl = item.shareUrl,
             srt = item.subtitleUrl,
-            customControls = PlayerCustomControls(
+            customControls = ReelsPlayerCustomControls(
                 iconTintRes = R.color.white,
                 playIconRes = R.drawable.ic_play,
                 pauseIconRes = R.drawable.ic_pause,
@@ -729,11 +745,11 @@ fun ThirdPartyReelsScreen(
         )
     }
 
-    MtvVideoPlayerSdk(
+    MtvReelsPlayerSdk(
         contentList = playerModels,
         index = 0,
-        playerConfig = PlayerConfig(
-            controls = PlayerControlsConfig(
+        playerConfig = ReelsPlayerConfig(
+            controls = ReelsPlayerControlsConfig(
                 play = true,
                 pause = true,
                 seekbar = true,
@@ -744,7 +760,7 @@ fun ThirdPartyReelsScreen(
                 exitFullscreen = true
             )
         ),
-        playerStateListener = object : PlayerStateListener {
+        playerStateListener = object : ReelsPlayerStateListener {
             override fun onPreloadNext(index: Int) {
                 val remainingItems = playerModels.size - 1 - index
                 if (remainingItems <= 3 && !state.isLoadingMore && state.hasMore) {

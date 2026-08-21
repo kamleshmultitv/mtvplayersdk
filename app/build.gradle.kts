@@ -135,6 +135,7 @@ dependencies {
 
     // SDK
     implementation(project(":videosdk"))
+    implementation(project(":reelssdk"))
     implementation(project(":mtvdownloader"))
 
     // implementation(libs.mtvdownloadsdk)
