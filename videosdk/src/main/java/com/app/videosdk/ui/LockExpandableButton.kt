@@ -86,13 +86,19 @@ fun LockExpandableButton(
                     customControls?.unlockIconRes
                 else
                     customControls?.lockIconRes,
+                iconUrl = if (showUnlockConfirm)
+                    customControls?.unlockIconUrl
+                else
+                    customControls?.lockIconUrl,
                 defaultIcon = if (showUnlockConfirm)
                     Icons.Default.LockOpen
                 else
                     Icons.Default.Lock,
                 contentDescription = "Lock",
                 modifier = Modifier.size(24.dp),
-                tint = customControls?.iconTintRes
+                tint = customControls?.iconTintRes,
+                tintColorInt = customControls?.iconTintColorInt,
+                tintHex = customControls?.iconTintHex
             )
 
             AnimatedVisibility(visible = showUnlockConfirm) {

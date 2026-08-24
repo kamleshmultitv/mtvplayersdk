@@ -146,10 +146,13 @@ fun BottomControls(
                             ) {
                                 CustomIcon(
                                     resId = model?.customControls?.nextEpisodeIconRes,
+                                    iconUrl = model?.customControls?.nextEpisodeIconUrl,
                                     defaultIcon = Icons.Default.SkipNext,
                                     contentDescription = "Next Episode",
                                     modifier = Modifier.size(16.dp),
-                                    tint = model?.customControls?.iconTintRes
+                                    tint = model?.customControls?.iconTintRes,
+                                    tintColorInt = model?.customControls?.iconTintColorInt,
+                                    tintHex = model?.customControls?.iconTintHex
                                 )
 
                                 Text(
@@ -197,11 +200,14 @@ fun BottomControls(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             CustomIcon(
-                                resId = null,
+                                resId = model?.customControls?.previousEpisodeIconRes,
+                                iconUrl = model?.customControls?.previousEpisodeIconUrl,
                                 defaultIcon = Icons.Default.SkipPrevious,
                                 contentDescription = "Previous Episode",
                                 modifier = Modifier.size(16.dp),
-                                tint = model?.customControls?.iconTintRes
+                                tint = model?.customControls?.iconTintRes,
+                                tintColorInt = model?.customControls?.iconTintColorInt,
+                                tintHex = model?.customControls?.iconTintHex
                             )
 
                             Text(
