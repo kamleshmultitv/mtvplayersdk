@@ -88,9 +88,12 @@ fun TopBar(
         IconButton(onClick = onBackPressed) {
             CustomIcon(
                 resId = playerModel?.customControls?.backIconRes,
+                iconUrl = playerModel?.customControls?.backIconUrl,
                 defaultIcon = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = playerModel?.customControls?.iconTintRes
+                tint = playerModel?.customControls?.iconTintRes,
+                tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                tintHex = playerModel?.customControls?.iconTintHex
             )
         }
 
@@ -133,11 +136,14 @@ fun TopBar(
         if (isFullScreen && playerModel?.isClipEnabled == true) {
             IconButton(onClick = onCutClick) {
                 CustomIcon(
-                    resId = null,
+                    resId = playerModel.customControls?.cutIconRes,
+                    iconUrl = playerModel.customControls?.cutIconUrl,
                     defaultIcon = Icons.Default.ContentCut,
                     contentDescription = "Cut",
                     modifier = Modifier.size(24.dp),
-                    tint = playerModel.customControls?.iconTintRes
+                    tint = playerModel.customControls?.iconTintRes,
+                    tintColorInt = playerModel.customControls?.iconTintColorInt,
+                    tintHex = playerModel.customControls?.iconTintHex
                 )
             }
         }
@@ -145,11 +151,14 @@ fun TopBar(
         if (isFullScreen && playerModel?.isChapterEnabled == true) {
             IconButton(onClick = onChapterClick) {
                 CustomIcon(
-                    resId = null,
+                    resId = playerModel.customControls?.chapterIconRes,
+                    iconUrl = playerModel.customControls?.chapterIconUrl,
                     defaultIcon = Icons.Default.AutoStories,
                     contentDescription = "Chapter",
                     modifier = Modifier.size(24.dp),
-                    tint = playerModel.customControls?.iconTintRes
+                    tint = playerModel.customControls?.iconTintRes,
+                    tintColorInt = playerModel.customControls?.iconTintColorInt,
+                    tintHex = playerModel.customControls?.iconTintHex
                 )
             }
         }
@@ -173,10 +182,13 @@ fun TopBar(
                 IconButton(onClick = onSettingsClick) {
                     CustomIcon(
                         resId = playerModel?.customControls?.settingsIconRes,
+                        iconUrl = playerModel?.customControls?.settingsIconUrl,
                         defaultIcon = Icons.Default.Settings,
                         contentDescription = "Settings",
                         modifier = Modifier.size(24.dp),
-                        tint = playerModel?.customControls?.iconTintRes
+                        tint = playerModel?.customControls?.iconTintRes,
+                        tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                        tintHex = playerModel?.customControls?.iconTintHex
                     )
                 }
             }
@@ -186,10 +198,13 @@ fun TopBar(
             IconButton(onClick = onLockScreenToggle) {
                 CustomIcon(
                     resId = playerModel?.customControls?.lockIconRes,
+                    iconUrl = playerModel?.customControls?.lockIconUrl,
                     defaultIcon = Icons.Default.Lock,
                     contentDescription = "Toggle Lock Screen",
                     modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
+                    tint = playerModel?.customControls?.iconTintRes,
+                    tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                    tintHex = playerModel?.customControls?.iconTintHex
                 )
             }
         }
@@ -206,10 +221,13 @@ fun TopBar(
             ) {
                 CustomIcon(
                     resId = if (isFullScreen) playerModel?.customControls?.exitFullScreenIconRes else playerModel?.customControls?.fullScreenIconRes,
+                    iconUrl = if (isFullScreen) playerModel?.customControls?.exitFullScreenIconUrl else playerModel?.customControls?.fullScreenIconUrl,
                     defaultIcon = if (isFullScreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                     contentDescription = "Toggle Fullscreen",
                     modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
+                    tint = playerModel?.customControls?.iconTintRes,
+                    tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                    tintHex = playerModel?.customControls?.iconTintHex
                 )
             }
         }

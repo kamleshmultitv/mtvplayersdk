@@ -113,11 +113,14 @@ private fun CustomBrightnessControllerUi(
         ) {
             CustomIcon(
                 resId = playerModel?.customControls?.brightnessIconRes,
+                iconUrl = playerModel?.customControls?.brightnessIconUrl,
                 // 👇 Only change here
                 defaultIcon = brightnessIcon,
                 contentDescription = "Brightness",
                 modifier = Modifier.size(24.dp),
-                tint = playerModel?.customControls?.iconTintRes
+                tint = playerModel?.customControls?.iconTintRes,
+                tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                tintHex = playerModel?.customControls?.iconTintHex
             )
         }
 

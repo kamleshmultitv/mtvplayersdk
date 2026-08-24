@@ -58,6 +58,7 @@ androidx-mediarouter = { module = "androidx.mediarouter:mediarouter", version.re
 androidx-runtime = { module = "androidx.compose.runtime:runtime", version.ref = "runtime" }
 androidx-runtime-livedata = { module = "androidx.compose.runtime:runtime-livedata" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilComposeVersion" }
+coil-svg = { module = "io.coil-kt:coil-svg", version.ref = "coilComposeVersion" }
 google-accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontrollerVersion" }
 interactivemedia = { module = "com.google.ads.interactivemedia.v3:interactivemedia", version.ref = "interactivemediaVersion" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

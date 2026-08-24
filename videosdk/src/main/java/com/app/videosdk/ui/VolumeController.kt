@@ -123,10 +123,13 @@ fun CustomVolumeController(
             ) {
                 CustomIcon(
                     resId = if (isMuted) playerModel?.customControls?.muteIconRes else playerModel?.customControls?.unMuteIconRes,
+                    iconUrl = if (isMuted) playerModel?.customControls?.muteIconUrl else playerModel?.customControls?.unMuteIconUrl,
                     defaultIcon = if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
                     contentDescription = if (isMuted) "Unmute" else "Mute",
                     modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
+                    tint = playerModel?.customControls?.iconTintRes,
+                    tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                    tintHex = playerModel?.customControls?.iconTintHex
                 )
             }
         }

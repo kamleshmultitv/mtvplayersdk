@@ -120,10 +120,13 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
             ) {
                 CustomIcon(
                     resId = playerModel?.customControls?.crossFadeIconRes,
+                    iconUrl = playerModel?.customControls?.crossFadeIconUrl,
                     defaultIcon = Icons.Default.Close,
                     contentDescription = "Close",
                     modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
+                    tint = playerModel?.customControls?.iconTintRes,
+                    tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                    tintHex = playerModel?.customControls?.iconTintHex
                 )
             }
         }
