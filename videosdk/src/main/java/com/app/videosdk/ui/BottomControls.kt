@@ -88,13 +88,14 @@ fun BottomControls(
 
         /* ---------- SEEK BAR ---------- */
 
-        if (controlsConfig.seekbar) {
+        if (controlsConfig.seekbar || isLive) {
             CustomSlider(
                 playerModel = model,
                 currentPosition = currentPosition,
                 duration = duration,
                 cuePoints = cuePoints,
                 isLive = isLive,
+                showSeekbar = controlsConfig.seekbar,
                 exoPlayer = exoPlayer,
                 showControls = {},
 
