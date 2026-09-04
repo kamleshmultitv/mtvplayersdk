@@ -98,6 +98,7 @@ fun MtvVideoPlayerSdk(
     contentList: List<PlayerModel>? = null,
     index: Int? = 0,
     pipListener: PipListener? = null,
+    playerConfig: PlayerConfig = PlayerConfig(),
     onPlayerBack: (Boolean) -> Unit,
     setFullScreen: (Boolean) -> Unit
 )
@@ -156,6 +157,22 @@ MtvVideoPlayerSdk(
     setFullScreen = { isFullscreen ->
         // handle fullscreen change
     }
+)
+```
+
+### Hide seekbar
+
+```kotlin
+MtvVideoPlayerSdk(
+    contentList = contentList,
+    index = selectedIndex.intValue,
+    playerConfig = PlayerConfig(
+        controls = PlayerControlsConfig(
+            seekbar = false
+        )
+    ),
+    onPlayerBack = { /* handle back */ },
+    setFullScreen = { /* handle fullscreen */ }
 )
 ```
 

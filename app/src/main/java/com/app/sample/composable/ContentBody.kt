@@ -40,6 +40,8 @@ import com.app.sample.utils.FileUtils.buildPlayerContentList
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.EpisodeNowPlayingStyle
+import com.app.videosdk.model.PlayerConfig
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.ui.MtvVideoPlayerSdk
 import com.app.videosdk.utils.PlayerMode
 
@@ -111,6 +113,11 @@ fun ContentBody(
                 MtvVideoPlayerSdk(
                     contentList = contentList,
                     index = selectedIndex.intValue,
+                    playerConfig = PlayerConfig(
+                        controls = PlayerControlsConfig(
+                            seekbar = false
+                        )
+                    ),
                     pipListener = pipListener,
                     isInPipMode = isInPipMode,
                     isDeepLink = isDeepLink,

@@ -88,31 +88,33 @@ fun BottomControls(
 
         /* ---------- SEEK BAR ---------- */
 
-        CustomSlider(
-            playerModel = model,
-            currentPosition = currentPosition,
-            duration = duration,
-            cuePoints = cuePoints,
-            isLive = isLive,
-            exoPlayer = exoPlayer,
-            showControls = {},
+        if (controlsConfig.seekbar) {
+            CustomSlider(
+                playerModel = model,
+                currentPosition = currentPosition,
+                duration = duration,
+                cuePoints = cuePoints,
+                isLive = isLive,
+                exoPlayer = exoPlayer,
+                showControls = {},
 
-            onDragStateChange = { dragging ->
-                isDragging = dragging
-                onDragStateChange(dragging)
+                onDragStateChange = { dragging ->
+                    isDragging = dragging
+                    onDragStateChange(dragging)
 
-                if (!dragging && previewMs > 0) {
-                    onSeek(previewMs)
-                }
-            },
+                    if (!dragging && previewMs > 0) {
+                        onSeek(previewMs)
+                    }
+                },
 
-            onPreviewChange = { targetMs ->
-                previewMs = targetMs
-            },
+                onPreviewChange = { targetMs ->
+                    previewMs = targetMs
+                },
 
-            onSeek = onSeek,
-            chapters = model?.chapters ?: emptyList()
-        )
+                onSeek = onSeek,
+                chapters = model?.chapters ?: emptyList()
+            )
+        }
 
         /* ---------- BOTTOM ACTION BAR (FULLSCREEN ONLY) ---------- */
 

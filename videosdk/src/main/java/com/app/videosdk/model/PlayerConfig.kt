@@ -18,6 +18,7 @@ data class PlayerControlsConfig(
     val pause: Boolean = true,
     val seekBack: ControlSeekConfig = ControlSeekConfig(enabled = true, seconds = 10),
     val seekForward: ControlSeekConfig = ControlSeekConfig(enabled = true, seconds = 10),
+    val seekbar: Boolean = true,
     val previous: Boolean = true,
     val next: Boolean = true,
     val mute: Boolean = true,
