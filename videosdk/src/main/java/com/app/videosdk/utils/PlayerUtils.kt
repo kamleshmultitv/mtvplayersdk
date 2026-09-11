@@ -398,9 +398,15 @@ object PlayerUtils {
     fun getAudioTrackOptions(context: Context, exoPlayer: ExoPlayer?): List<AudioTrackOption> {
         val audioNameById = audioTrackNameById(context)
         val trackOptions = mutableListOf<AudioTrackOption>()
-
-        exoPlayer?.currentTracks?.groups.orEmpty()
+        val audioGroups = exoPlayer?.currentTracks?.groups.orEmpty()
             .filter { it.type == C.TRACK_TYPE_AUDIO }
+        val audioTrackCount = audioGroups.sumOf { group ->
+            (0 until group.length).count { trackIndex ->
+                group.isTrackSupported(trackIndex, true)
+            }
+        }
+
+        audioGroups
             .forEachIndexed { groupIndex, group ->
                 val mediaTrackGroup = group.mediaTrackGroup
                 for (trackIndex in 0 until group.length) {
@@ -409,13 +415,14 @@ object PlayerUtils {
                     val format = group.getTrackFormat(trackIndex)
                     val language = format.language.cleanTrackText()
                     val label = format.label.cleanTrackText()
-                    val id = format.id.cleanTrackText()
+                    val id = format.id.cleanTrackText()?.takeUnless { it.isNumericTrackId() }
                     val displayName = audioTrackDisplayName(
                         language = language,
                         label = label,
                         id = id,
                         audioNameById = audioNameById,
-                        fallbackIndex = trackOptions.size + 1
+                        fallbackIndex = trackOptions.size + 1,
+                        totalTrackCount = audioTrackCount
                     )
 
                     trackOptions.add(
@@ -621,7 +628,8 @@ object PlayerUtils {
         label: String?,
         id: String?,
         audioNameById: Map<String, String>,
-        fallbackIndex: Int
+        fallbackIndex: Int,
+        totalTrackCount: Int
     ): String {
         label?.let { return it }
 
@@ -643,8 +651,14 @@ object PlayerUtils {
         }
 
         id?.let { return it }
-        return "Audio $fallbackIndex"
+        return if (totalTrackCount <= 1) {
+            "Default Audio"
+        } else {
+            "Audio $fallbackIndex"
+        }
     }
+
+    private fun String.isNumericTrackId(): Boolean = all(Char::isDigit)
 
     private fun List<AudioTrackOption>.withUniqueAudioDisplayNames(): List<AudioTrackOption> {
         val totalByName = groupingBy { it.displayName }.eachCount()
