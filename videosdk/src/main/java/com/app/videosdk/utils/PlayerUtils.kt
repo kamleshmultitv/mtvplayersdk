@@ -46,6 +46,7 @@ import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.Transformer
+import java.util.Locale
 import kotlin.math.pow
 
 
@@ -58,6 +59,15 @@ object PlayerUtils {
         val mediaTrackGroup: TrackGroup?,
         val trackIndex: Int,
         val isOff: Boolean = false,
+        val isSelected: Boolean = false
+    )
+
+    data class AudioTrackOption(
+        val id: String,
+        val displayName: String,
+        val language: String?,
+        val mediaTrackGroup: TrackGroup,
+        val trackIndex: Int,
         val isSelected: Boolean = false
     )
 
@@ -379,23 +389,52 @@ object PlayerUtils {
 
     @OptIn(UnstableApi::class)
     fun showAudioTrack(context: Context, exoPlayer: ExoPlayer?): List<SubTitleModel> {
-        val exoPlayerInstance = exoPlayer ?: return emptyList()
-        val trackSelector =
-            exoPlayerInstance.trackSelector as? DefaultTrackSelector ?: return emptyList()
-        val trackGroups = trackSelector.currentMappedTrackInfo?.getTrackGroups(1) ?: run {
-            return emptyList()
+        return getAudioTrackOptions(context, exoPlayer).map { option ->
+            SubTitleModel(id = option.id, name = option.displayName)
         }
-        val audioTracks = (0 until trackGroups.length).mapNotNull { index ->
-            val format = trackGroups.get(index).getFormat(0)
-            val label = format.language ?: format.label
-            label.takeIf { it != null && it != "und" }
-        }.distinct()
+    }
 
-        return if (audioTracks.isNotEmpty()) {
-            getAudioTrack(context, audioTracks)
-        } else {
-            emptyList()
-        }
+    @OptIn(UnstableApi::class)
+    fun getAudioTrackOptions(context: Context, exoPlayer: ExoPlayer?): List<AudioTrackOption> {
+        val audioNameById = audioTrackNameById(context)
+        val trackOptions = mutableListOf<AudioTrackOption>()
+
+        exoPlayer?.currentTracks?.groups.orEmpty()
+            .filter { it.type == C.TRACK_TYPE_AUDIO }
+            .forEachIndexed { groupIndex, group ->
+                val mediaTrackGroup = group.mediaTrackGroup
+                for (trackIndex in 0 until group.length) {
+                    if (!group.isTrackSupported(trackIndex, true)) continue
+
+                    val format = group.getTrackFormat(trackIndex)
+                    val language = format.language.cleanTrackText()
+                    val label = format.label.cleanTrackText()
+                    val id = format.id.cleanTrackText()
+                    val displayName = audioTrackDisplayName(
+                        language = language,
+                        label = label,
+                        id = id,
+                        audioNameById = audioNameById,
+                        fallbackIndex = trackOptions.size + 1
+                    )
+
+                    trackOptions.add(
+                        AudioTrackOption(
+                            id = language
+                                ?: label
+                                ?: id
+                                ?: "audio_${groupIndex}_$trackIndex",
+                            displayName = displayName,
+                            language = language,
+                            mediaTrackGroup = mediaTrackGroup,
+                            trackIndex = trackIndex,
+                            isSelected = group.isTrackSelected(trackIndex)
+                        )
+                    )
+                }
+            }
+
+        return trackOptions.withUniqueAudioDisplayNames()
     }
 
     fun getAudioTrack(
@@ -435,10 +474,39 @@ object PlayerUtils {
     @OptIn(UnstableApi::class)
     fun selectAudioTrack(language: String, exoPlayer: ExoPlayer?) {
         val trackSelector = exoPlayer?.trackSelector as? DefaultTrackSelector ?: return
-        val parameters = trackSelector.buildUponParameters()
-            .setPreferredAudioLanguage(language)
+        val languageVariants = language.toPreferredAudioLanguageVariants()
+        val parameters = trackSelector
+            .buildUponParameters()
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+            .apply {
+                if (languageVariants.isNotEmpty()) {
+                    setPreferredAudioLanguages(*languageVariants.toTypedArray())
+                } else {
+                    setPreferredAudioLanguage(language)
+                }
+            }
             .build()
         trackSelector.setParameters(parameters)
+    }
+
+    @OptIn(UnstableApi::class)
+    fun selectAudioTrack(option: AudioTrackOption, exoPlayer: ExoPlayer?) {
+        val player = exoPlayer ?: return
+        val builder = player.trackSelectionParameters
+            .buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+            .setOverrideForType(TrackSelectionOverride(option.mediaTrackGroup, option.trackIndex))
+
+        val languageVariants = option.language.toPreferredAudioLanguageVariants()
+        if (languageVariants.isNotEmpty()) {
+            builder.setPreferredAudioLanguages(*languageVariants.toTypedArray())
+        } else {
+            builder.setPreferredAudioLanguages()
+        }
+
+        player.trackSelectionParameters = builder.build()
     }
 
     fun getTextTrackOptions(exoPlayer: ExoPlayer?): List<TextTrackOption> {
@@ -524,10 +592,79 @@ object PlayerUtils {
     private fun String?.cleanTrackText(): String? =
         this?.trim()?.takeIf { it.isNotEmpty() && !it.equals("und", ignoreCase = true) }
 
+    private fun String?.toPreferredAudioLanguageVariants(): List<String> {
+        val language = cleanTrackText() ?: return emptyList()
+        val normalized = language.replace('_', '-')
+        val lower = normalized.lowercase(Locale.US)
+        return listOf(language, normalized, lower).distinct()
+    }
+
+    private fun audioTrackNameById(context: Context): Map<String, String> {
+        return runCatching {
+            val json = context.assets
+                .open("hls.json")
+                .bufferedReader()
+                .use { it.readText() }
+            val subtitleArray =
+                Gson().fromJson(json, Array<SubTitleModel>::class.java)
+                    ?: emptyArray()
+            subtitleArray.mapNotNull { model ->
+                val id = model.id.cleanTrackText()?.lowercase(Locale.US) ?: return@mapNotNull null
+                val name = model.name.cleanTrackText() ?: return@mapNotNull null
+                id to name
+            }.toMap()
+        }.getOrDefault(emptyMap())
+    }
+
+    private fun audioTrackDisplayName(
+        language: String?,
+        label: String?,
+        id: String?,
+        audioNameById: Map<String, String>,
+        fallbackIndex: Int
+    ): String {
+        label?.let { return it }
+
+        language?.let { code ->
+            val normalized = code.trim().replace('_', '-')
+            val normalizedLower = normalized.lowercase(Locale.US)
+            val primary = normalizedLower.substringBefore("-")
+            audioNameById[normalizedLower]?.let { return it }
+            audioNameById[primary]?.let { return it }
+
+            val localeDisplayName = Locale.forLanguageTag(normalized)
+                .getDisplayName(Locale.getDefault())
+                .cleanTrackText()
+            localeDisplayName
+                ?.takeUnless { it.equals(normalized, ignoreCase = true) }
+                ?.let { return it }
+
+            return code.uppercase(Locale.US)
+        }
+
+        id?.let { return it }
+        return "Audio $fallbackIndex"
+    }
+
+    private fun List<AudioTrackOption>.withUniqueAudioDisplayNames(): List<AudioTrackOption> {
+        val totalByName = groupingBy { it.displayName }.eachCount()
+        val seenByName = mutableMapOf<String, Int>()
+
+        return map { option ->
+            if ((totalByName[option.displayName] ?: 0) <= 1) {
+                option
+            } else {
+                val next = (seenByName[option.displayName] ?: 0) + 1
+                seenByName[option.displayName] = next
+                option.copy(displayName = "${option.displayName} $next")
+            }
+        }
+    }
+
     private fun String?.toPreferredTextLanguageVariants(): List<String> {
         val language = cleanTrackText() ?: return emptyList()
         val normalized = language.replace('_', '-')
-        val lower = normalized.lowercase()
+        val lower = normalized.lowercase(Locale.US)
         return listOf(language, normalized, lower).distinct()
     }
 

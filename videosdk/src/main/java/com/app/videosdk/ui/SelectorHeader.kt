@@ -46,12 +46,12 @@ import com.app.videosdk.model.OptionItemModel
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.utils.PlayerUtils.calculatePitch
 import com.app.videosdk.utils.PlayerUtils.changeVideoResolution
+import com.app.videosdk.utils.PlayerUtils.getAudioTrackOptions
 import com.app.videosdk.utils.PlayerUtils.getTextTrackOptions
 import com.app.videosdk.utils.PlayerUtils.getVideoFormats
 import com.app.videosdk.utils.PlayerUtils.selectAudioTrack
 import com.app.videosdk.utils.PlayerUtils.selectTextTrack
 import com.app.videosdk.utils.PlayerUtils.setAutoVideoResolution
-import com.app.videosdk.utils.PlayerUtils.showAudioTrack
 import com.app.videosdk.viewmodel.VideoViewModel
 
 @Composable
@@ -61,15 +61,18 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
     val selectedItems = remember { mutableStateMapOf<Int, Int>() }
     val options by viewModel.options.collectAsState()
     var selectedOption by remember { mutableStateOf(options.firstOrNull()?.id) }
+    var audioOptions by remember(context, exoPlayer) { mutableStateOf(getAudioTrackOptions(context, exoPlayer)) }
     var captionOptions by remember(exoPlayer) { mutableStateOf(getTextTrackOptions(exoPlayer)) }
 
-    DisposableEffect(exoPlayer) {
+    DisposableEffect(context, exoPlayer) {
         val player = exoPlayer ?: return@DisposableEffect onDispose {}
 
+        audioOptions = getAudioTrackOptions(context, player)
         captionOptions = getTextTrackOptions(player)
 
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
+                audioOptions = getAudioTrackOptions(context, player)
                 captionOptions = getTextTrackOptions(player)
             }
         }
@@ -142,14 +145,19 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
             .padding(top = 16.dp)) {
             when (selectedOption) {
                 1 -> {
-                    val audioTrackList =
-                        remember(context, exoPlayer) { showAudioTrack(context, exoPlayer) }
+                    val selectedAudioIndex = selectedItems[selectedOption]?.takeIf {
+                        it in audioOptions.indices
+                    }
+                        ?: audioOptions.indexOfFirst { it.isSelected }.takeIf { it >= 0 }
+                        ?: -1
+
                     SelectionList(
-                        items = audioTrackList.map { it.name.toString() },
-                        selectedIndex = selectedItems[selectedOption] ?: -1
+                        items = audioOptions.map { it.displayName },
+                        selectedIndex = selectedAudioIndex,
+                        emptyText = "No audio tracks available"
                     ) { index ->
                         selectedItems[selectedOption!!] = index
-                        selectAudioTrack(audioTrackList[index].id.toString(), exoPlayer)
+                        selectAudioTrack(audioOptions[index], exoPlayer)
                     }
                 }
 
@@ -162,7 +170,8 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
 
                     SelectionList(
                         items = captionOptions.map { it.displayName },
-                        selectedIndex = selectedCaptionIndex
+                        selectedIndex = selectedCaptionIndex,
+                        emptyText = "No subtitle tracks available"
                     ) { index ->
                         selectedItems[selectedOption!!] = index
                         selectTextTrack(captionOptions[index], exoPlayer)
@@ -214,6 +223,7 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
 fun SelectionList(
     items: List<String>,
     selectedIndex: Int,
+    emptyText: String = "No options available",
     onItemClick: (Int) -> Unit
 ) {
     LazyColumn(
@@ -221,6 +231,18 @@ fun SelectionList(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
+        if (items.isEmpty()) {
+            item {
+                Text(
+                    text = emptyText,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+
         items(items.size) { index ->
             Row(
                 modifier = Modifier
