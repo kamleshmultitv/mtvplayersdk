@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -1159,9 +1160,11 @@ fun MtvVideoPlayerSdk(
 
                         // ⚙ Settings
                         if (isSettingsClick) {
+                            val selectedItems = remember { mutableStateMapOf<Int, Int>() }
                             SelectorHeader(
                                 playerModel = playerModel,
-                                exoPlayer = exoPlayer
+                                exoPlayer = exoPlayer,
+                                selectedItems = selectedItems
                             ) { isSettingsClick = it }
                         }
 

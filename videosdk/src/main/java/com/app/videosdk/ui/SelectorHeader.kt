@@ -55,10 +55,9 @@ import com.app.videosdk.utils.PlayerUtils.setAutoVideoResolution
 import com.app.videosdk.viewmodel.VideoViewModel
 
 @Composable
-fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {}) {
+fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, selectedItems: MutableMap<Int, Int>, closeOptionCard: (Boolean) -> Unit = {}) {
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
-    val selectedItems = remember { mutableStateMapOf<Int, Int>() }
     val options by viewModel.options.collectAsState()
     var selectedOption by remember { mutableStateOf(options.firstOrNull()?.id) }
     var audioOptions by remember(context, exoPlayer) { mutableStateOf(getAudioTrackOptions(context, exoPlayer)) }
@@ -162,15 +161,11 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
                 }
 
                 2 -> {
-                    val selectedCaptionIndex = selectedItems[selectedOption]?.takeIf {
-                        it in captionOptions.indices
-                    }
-                        ?: captionOptions.indexOfFirst { it.isSelected }.takeIf { it >= 0 }
-                        ?: 0
-
+                    val selectedIndex: Int = selectedItems[selectedOption] ?:
+                        captionOptions.indexOfFirst { it.isSelected }.takeIf { it >= 0 } ?: 0
                     SelectionList(
                         items = captionOptions.map { it.displayName },
-                        selectedIndex = selectedCaptionIndex,
+                        selectedIndex = selectedIndex,
                         emptyText = "No subtitle tracks available"
                     ) { index ->
                         selectedItems[selectedOption!!] = index
@@ -181,10 +176,13 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
                 3 -> {
                     viewModel.getSpeedData()
                     val speedData by viewModel.speedControlData.observeAsState(emptyList())
-
+                    val selectedIndex: Int = selectedItems[selectedOption] ?: run {
+                        val currentSpeed = exoPlayer?.playbackParameters?.speed ?: 1.0f
+                        speedData.indexOfFirst { it.speed == currentSpeed }.takeIf { it >= 0 } ?: -1
+                    }
                     SelectionList(
                         items = speedData.map { it.speedTitle },
-                        selectedIndex = selectedItems[selectedOption] ?: -1
+                        selectedIndex = selectedIndex
                     ) { index ->
                         selectedItems[selectedOption!!] = index
                         val param = PlaybackParameters(
@@ -197,10 +195,17 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, clos
 
                 4 -> {
                     val qualityList = remember(exoPlayer) { getVideoFormats(exoPlayer) }
-
+                    val selectedIndex: Int = selectedItems[selectedOption] ?: run {
+                        val trackParams = exoPlayer?.trackSelectionParameters
+                        val isAuto = trackParams?.maxVideoWidth == Int.MAX_VALUE && trackParams.maxVideoHeight == Int.MAX_VALUE
+                        if (isAuto) 0 else {
+                            val height = trackParams?.maxVideoHeight ?: -1
+                            qualityList.indexOfFirst { it.height == height }.takeIf { it >= 0 } ?: -1
+                        }
+                    }
                     SelectionList(
                         items = qualityList.map { if (it.id == "auto") it.title.toString() else "${it.title}p" },
-                        selectedIndex = selectedItems[selectedOption] ?: -1
+                        selectedIndex = selectedIndex
                     ) { index ->
                         selectedItems[selectedOption!!] = index
                         if (index == 0) {
