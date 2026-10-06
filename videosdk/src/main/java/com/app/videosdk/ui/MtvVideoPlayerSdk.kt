@@ -244,6 +244,15 @@ fun MtvVideoPlayerSdk(
     // remains orientation-aware and is used only to animate the player dimensions.
     val isFullScreen = currentMode == PlayerMode.FULL_SCREEN
 
+    var isSettingsClick by remember { mutableStateOf(false) }
+
+    // Close settings when orientation changes (e.g., player is rotated)
+    LaunchedEffect(configuration.orientation) {
+        if (isSettingsClick) {
+            isSettingsClick = false
+        }
+    }
+
     FullScreenHandler(isFullScreen)
     var isControllerVisible by remember { mutableStateOf(false) }
     LaunchedEffect(showControls) {
@@ -257,7 +266,6 @@ fun MtvVideoPlayerSdk(
     var isLockOverlayVisible by remember { mutableStateOf(true) }
     var pipEnabled by remember { mutableStateOf(isInPipMode) }
     var isLoading by remember { mutableStateOf(false) }
-    var isSettingsClick by remember { mutableStateOf(false) }
     var isAdsShowing by remember { mutableStateOf(false) }
     var showLShapeAd by remember { mutableStateOf(false) }
     val triggeredLBands = remember { mutableSetOf<String>() }
@@ -1158,8 +1166,8 @@ fun MtvVideoPlayerSdk(
                             }
                         }
 
-                        // ⚙ Settings
-                        if (isSettingsClick) {
+                        // ⚙ Settings — only visible in fullscreen mode
+                        if (isSettingsClick && isFullScreen) {
                             val selectedItems = remember { mutableStateMapOf<Int, Int>() }
                             SelectorHeader(
                                 playerModel = playerModel,

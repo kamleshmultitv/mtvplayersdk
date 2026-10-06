@@ -90,7 +90,7 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, sele
         modifier = Modifier
             .fillMaxSize()
             .padding(start = 24.dp, end = 24.dp)
-            .background(Color.Black.copy(alpha = 0.9f))
+            .background(Color.Black)
     ) {
         Row(
             modifier = Modifier
