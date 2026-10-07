@@ -62,6 +62,16 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, sele
     var selectedOption by remember { mutableStateOf(options.firstOrNull()?.id) }
     var audioOptions by remember(context, exoPlayer) { mutableStateOf(getAudioTrackOptions(context, exoPlayer)) }
     var captionOptions by remember(exoPlayer) { mutableStateOf(getTextTrackOptions(exoPlayer)) }
+    val isLive = playerModel?.isLive ?: false
+
+    // Filter options for live content (hide speed selector and closed caption)
+    val filteredOptions = remember(options, isLive) {
+        if (isLive) {
+            options.filter { it.id != 2 && it.id != 3 } // Hide Closed Caption (2) and Speed Selector (3)
+        } else {
+            options
+        }
+    }
 
     DisposableEffect(context, exoPlayer) {
         val player = exoPlayer ?: return@DisposableEffect onDispose {}
@@ -103,8 +113,8 @@ fun SelectorHeader(playerModel: PlayerModel? = null, exoPlayer: ExoPlayer?, sele
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(options.size) { index ->
-                    val option = options[index]
+                items(filteredOptions.size) { index ->
+                    val option = filteredOptions[index]
                     OptionItem(
                         option = option,
                         isSelected = selectedOption == option.id

@@ -40,6 +40,8 @@ fun CenterControls(
     onZoomChange: (Boolean) -> Unit,
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
+    val isLive = playerModel?.isLive ?: false
+
     val gestureModifier = Modifier
         .pointerInput(Unit) {
             detectTransformGestures { _, _, zoom, _ ->
@@ -51,6 +53,9 @@ fun CenterControls(
             detectTapGestures(
                 onTap = { onShowControls(false) },
                 onDoubleTap = { offset ->
+                    // Disable double-tap seek for live content
+                    if (isLive) return@detectTapGestures
+
                     val isLeft = offset.x < size.width / 2
                     val isSeekAllowed =
                         if (isLeft) controlsConfig.seekBack.enabled

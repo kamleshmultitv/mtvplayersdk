@@ -52,6 +52,7 @@ fun ForwardBackwardButtonsOverlay(
     val castUtils = remember { CastUtils(context, exoPlayer) }
     val isCasting = castUtils.isCasting()
     val customControls = playerModel?.customControls
+    val isLive = playerModel?.isLive ?: false
 
     /* ▶️ Player state */
     var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
@@ -87,6 +88,7 @@ fun ForwardBackwardButtonsOverlay(
     ForwardBackwardButtonsOverlayUi(
         isPlaying = isPlaying,
         isCasting = isCasting,
+        isLive = isLive,
         customControls = customControls,
         controlsConfig = controlsConfig,
         onRewind = {
@@ -160,6 +162,7 @@ fun ForwardBackwardButtonsOverlay(
 private fun ForwardBackwardButtonsOverlayUi(
     isPlaying: Boolean,
     isCasting: Boolean,
+    isLive: Boolean,
     customControls: PlayerCustomControls?,
     controlsConfig: PlayerControlsConfig,
     onRewind: () -> Unit,
@@ -191,7 +194,7 @@ private fun ForwardBackwardButtonsOverlayUi(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                if (controlsConfig.seekBack.enabled) {
+                if (controlsConfig.seekBack.enabled && !isLive) {
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -256,7 +259,7 @@ private fun ForwardBackwardButtonsOverlayUi(
                 modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
-                if (controlsConfig.seekForward.enabled) {
+                if (controlsConfig.seekForward.enabled && !isLive) {
                     Box(
                         modifier = Modifier
                             .size(56.dp)
@@ -300,6 +303,7 @@ fun ForwardBackwardButtonsOverlayPreview() {
     ForwardBackwardButtonsOverlayUi(
         isPlaying = isPlaying,
         isCasting = false, // Not casting for preview
+        isLive = false, // Not live for preview
         customControls = customControls,
         controlsConfig = PlayerControlsConfig(),
         onRewind = { /* mock seek back */ },
