@@ -32,7 +32,7 @@ data class PlayerModel(
     val playbackSpeed: Float = 1.0f,
     val selectedSubtitle: String? = null,
     val selectedVideoQuality: Int = 1080,
-    val isLive: Boolean = false,
+    val isLive: Boolean = true,
     val adsConfig: AdsConfig? = null,
     val gamAdsConfig: GAMAdsConfig? = null,
     val skipIntro: SkipIntro? = null,
