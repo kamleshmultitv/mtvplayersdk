@@ -183,7 +183,7 @@ object FileUtils {
             hlsUrl = hls,
             mpdUrl = mpd,
             liveUrl = null,
-            isLive = true,
+            isLive = false,
 
             drm = content.drm,
             drmToken = getDrmToken(context, content),
@@ -302,7 +302,7 @@ object FileUtils {
                 selectedVideoQuality = downloadedContentEntity.videoHeight ?: 1080,
 
                 // 📡 Downloaded content is NOT live
-                isLive = true,
+                isLive = false,
                 cacheFactory = cacheFactory,
                 downloadManager = downloadManager,
                 downloadCache = downloadCache,
