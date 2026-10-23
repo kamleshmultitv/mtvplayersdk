@@ -2,6 +2,7 @@ package com.app.videosdk.ui
 
 import android.content.res.Configuration
 import android.net.Uri
+import android.os.Build
 import android.view.LayoutInflater
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
@@ -109,7 +110,7 @@ fun MtvVideoPlayerSdk(
     playerMode: PlayerMode = PlayerMode.MINI,
     playerStateListener: PlayerStateListener? = null,
     controller: PlayerController? = null,
-    isMutedInitially: Boolean = true,
+    isMutedInitially: Boolean = false,
     onPlayerBack: (Boolean) -> Unit = {},
     setFullScreen: (Boolean) -> Unit = {},
     onIndexChanged: (Int) -> Unit = {},
@@ -321,6 +322,12 @@ fun MtvVideoPlayerSdk(
         pipEnabled = isInPipMode
     }
 
+    LaunchedEffect(isAdsShowing) {
+        if (isAdsShowing) {
+            isControllerVisible = false
+        }
+    }
+
     val playbackUrl = remember(playerModel) {
         val url = when {
             // Live content always uses liveUrl
@@ -463,6 +470,44 @@ fun MtvVideoPlayerSdk(
     val adsLoader = playerWithAds?.second
     val freePreview = playerConfig.freePreview
     val freePreviewEnd = playerConfig.freePreviewEnd
+
+    var isAudioOnly by remember(playerModel, activeIndex) { mutableStateOf(false) }
+
+    LaunchedEffect(isAudioOnly, exoPlayer) {
+        exoPlayer?.let { player ->
+            val currentParams = player.trackSelectionParameters
+            val newParams = currentParams
+                .buildUpon()
+                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, isAudioOnly)
+                .build()
+            player.trackSelectionParameters = newParams
+        }
+    }
+
+    LaunchedEffect(isAudioOnly) {
+        val intent = android.content.Intent(context, com.app.videosdk.service.VideosdkAudioService::class.java).apply {
+            putExtra(com.app.videosdk.service.VideosdkAudioService.EXTRA_FROM_APP, true)
+        }
+        if (isAudioOnly) {
+            com.app.videosdk.service.VideosdkAudioService.activePlayer = exoPlayer
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        } else {
+            com.app.videosdk.service.VideosdkAudioService.activePlayer = null
+            context.stopService(intent)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            val intent = android.content.Intent(context, com.app.videosdk.service.VideosdkAudioService::class.java)
+            context.stopService(intent)
+        }
+    }
+
     val castUtils = remember(context, exoPlayer, playerStateListener) {
         exoPlayer?.let { CastUtils(context, it, playerStateListener) }
     }
@@ -477,6 +522,42 @@ fun MtvVideoPlayerSdk(
 
     LaunchedEffect(isMutedInitially, exoPlayer) {
         exoPlayer?.volume = if (isMutedInitially) 0f else 1f
+    }
+
+    var isPlaying by remember { mutableStateOf(false) }
+
+    DisposableEffect(exoPlayer) {
+        val player = exoPlayer ?: return@DisposableEffect onDispose {}
+        isPlaying = player.isPlaying
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+        }
+    }
+
+    val activity = remember(context) {
+        var ctx = context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is android.app.Activity) return@remember ctx
+            ctx = ctx.baseContext
+        }
+        null
+    }
+
+    DisposableEffect(isPlaying) {
+        if (isPlaying) {
+            activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        onDispose {
+            activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     LaunchedEffect(exoPlayer, freePreview, freePreviewEnd, activeIndex, playRequestId) {
@@ -952,42 +1033,51 @@ fun MtvVideoPlayerSdk(
                         onCloseClick = { showLShapeAd = false }
                     ) {
 
-                        AndroidView(
-                            factory = { playerView },
-                            update = { view ->
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AndroidView(
+                                factory = { playerView },
+                                update = { view ->
 
-                                if (view.player !== exoPlayer) {
-                                    view.player = exoPlayer
-                                }
+                                    if (view.player !== exoPlayer) {
+                                        view.player = exoPlayer
+                                    }
 
-                                view.subtitleView?.apply {
+                                    view.subtitleView?.apply {
 
-                                    setApplyEmbeddedStyles(false)
-                                    setApplyEmbeddedFontSizes(false)
+                                        setApplyEmbeddedStyles(false)
+                                        setApplyEmbeddedFontSizes(false)
 
-                                    setStyle(
-                                        CaptionStyleCompat(
-                                            android.graphics.Color.WHITE,
-                                            "#80000000".toColorInt(),
-                                            android.graphics.Color.TRANSPARENT,
-                                            CaptionStyleCompat.EDGE_TYPE_NONE,
-                                            android.graphics.Color.TRANSPARENT,
-                                            android.graphics.Typeface.DEFAULT
+                                        setStyle(
+                                            CaptionStyleCompat(
+                                                android.graphics.Color.WHITE,
+                                                "#80000000".toColorInt(),
+                                                android.graphics.Color.TRANSPARENT,
+                                                CaptionStyleCompat.EDGE_TYPE_NONE,
+                                                android.graphics.Color.TRANSPARENT,
+                                                android.graphics.Typeface.DEFAULT
+                                            )
                                         )
-                                    )
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer {
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
 
-                                    val finalScale =
-                                        if (isFullScreen) zoomAccumulator else 1f
+                                        val finalScale =
+                                            if (isFullScreen) zoomAccumulator else 1f
 
-                                    scaleX = finalScale
-                                    scaleY = finalScale
-                                }
-                        )
+                                        scaleX = finalScale
+                                        scaleY = finalScale
+                                    }
+                            )
+
+                            AudioOnlyThumbnailOverlay(
+                                playerModel = playerModel,
+                                isAudioOnly = isAudioOnly,
+                                isFullScreen = isFullScreen,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
 
                         if (isLive && !hasRenderedFirstFrame) {
                             LiveImagePlaceholder(playerConfig.liveImageUrl)
@@ -1061,7 +1151,7 @@ fun MtvVideoPlayerSdk(
 
                         // 🎛 Controller
                         AnimatedVisibility(
-                            visible = showControls && isControllerVisible && !pipEnabled && !isLockScreen,
+                            visible = showControls && isControllerVisible && !pipEnabled && !isLockScreen && !isAdsShowing,
                             enter = fadeIn(),
                             exit = fadeOut()
                         ) {
@@ -1122,7 +1212,9 @@ fun MtvVideoPlayerSdk(
                                     },
                                     controlsConfig = playerConfig.controls,
                                     showPreviousControl = hasExplicitControlsConfig &&
-                                            playerConfig.controls.previous
+                                            playerConfig.controls.previous,
+                                    isAudioOnly = isAudioOnly,
+                                    onAudioModeToggle = { isAudioOnly = !isAudioOnly }
 
                                 )
                             }
@@ -1172,7 +1264,8 @@ fun MtvVideoPlayerSdk(
                             SelectorHeader(
                                 playerModel = playerModel,
                                 exoPlayer = exoPlayer,
-                                selectedItems = selectedItems
+                                selectedItems = selectedItems,
+                                isAudioOnly = isAudioOnly
                             ) { isSettingsClick = it }
                         }
 

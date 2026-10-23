@@ -98,7 +98,9 @@ fun CustomPlayerController(
     onChapterClick: () -> Unit = {},
     onCutClick: () -> Unit = {},
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
-    showPreviousControl: Boolean = false
+    showPreviousControl: Boolean = false,
+    isAudioOnly: Boolean = false,
+    onAudioModeToggle: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -131,6 +133,17 @@ fun CustomPlayerController(
     var onSeek by remember { mutableStateOf(false) }
     val currentPlayerModel = playerModelList?.getOrNull(index)
     var expandSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isAudioOnly, exoPlayer) {
+        exoPlayer.let { player ->
+            val currentParams = player.trackSelectionParameters
+            val newParams = currentParams
+                .buildUpon()
+                .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, isAudioOnly)
+                .build()
+            player.trackSelectionParameters = newParams
+        }
+    }
 
     fun dispatchSeekStarted(positionMs: Long) {
         playerStateListener?.onSeekStarted(positionMs)
@@ -440,6 +453,7 @@ fun CustomPlayerController(
                 pipListener = pipListener,
                 controlsConfig = controlsConfig,
                 showContentTitle = showContentTitle,
+                isAudioOnly = isAudioOnly,
                 isPipEnabled = isPipEnabled,
                 onBackPressed = onBackPressed,
                 onSettingsClick = {
@@ -458,7 +472,9 @@ fun CustomPlayerController(
                 },
                 onCutClick = {
                     onCutClick()
-
+                },
+                onAudioModeToggle = {
+                    onAudioModeToggle()
                 }
             )
         }

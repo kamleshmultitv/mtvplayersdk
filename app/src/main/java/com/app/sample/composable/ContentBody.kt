@@ -115,7 +115,8 @@ fun ContentBody(
                     index = selectedIndex.intValue,
                     playerConfig = PlayerConfig(
                         controls = PlayerControlsConfig(
-                            seekbar = false
+                            seekbar = true,
+                            audioOnlyToggle = true
                         )
                     ),
                     pipListener = pipListener,

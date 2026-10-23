@@ -67,27 +67,30 @@ fun SelectorHeader(
     analyticsEnabled: Boolean = false,
     diagnosticsEnabled: Boolean = false,
     playerStateListener: PlayerStateListener? = null,
+    isAudioOnly: Boolean = false,
     closeOptionCard: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
     val options by viewModel.options.collectAsState()
-    var selectedOption by remember { mutableStateOf(options.firstOrNull()?.id) }
-    var audioOptions by remember(context, exoPlayer) { mutableStateOf(getAudioTrackOptions(context, exoPlayer)) }
-    var captionOptions by remember(exoPlayer) { mutableStateOf(getTextTrackOptions(exoPlayer)) }
     val isLive = playerModel?.isLive ?: false
 
-    // Filter options for live content and feature flags
-    val filteredOptions = remember(options, isLive, subtitlesEnabled, playbackSpeedEnabled, qualitySelectionEnabled) {
+    // Filter options for live content, feature flags, and audio-only mode
+    val filteredOptions = remember(options, isLive, subtitlesEnabled, playbackSpeedEnabled, qualitySelectionEnabled, isAudioOnly) {
         options.filter { option ->
             when (option.id) {
-                2 -> subtitlesEnabled && !isLive // Closed Caption / Subtitles
+                1 -> true // Audio tracks
+                2 -> !isAudioOnly && subtitlesEnabled && !isLive // Closed Caption / Subtitles
                 3 -> playbackSpeedEnabled && !isLive // Speed Selector
-                4 -> qualitySelectionEnabled // Quality Selection
+                4 -> !isAudioOnly && qualitySelectionEnabled // Quality Selection
                 else -> true
             }
         }
     }
+
+    var selectedOption by remember(filteredOptions) { mutableStateOf(filteredOptions.firstOrNull()?.id) }
+    var audioOptions by remember(context, exoPlayer) { mutableStateOf(getAudioTrackOptions(context, exoPlayer)) }
+    var captionOptions by remember(exoPlayer) { mutableStateOf(getTextTrackOptions(exoPlayer)) }
 
 
     DisposableEffect(context, exoPlayer) {

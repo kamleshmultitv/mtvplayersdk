@@ -46,13 +46,15 @@ fun TopBar(
     pipListener: PipListener?,
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
     showContentTitle: Boolean = true,
+    isAudioOnly: Boolean = false,
     isPipEnabled: (Boolean) -> Unit,
     onBackPressed: () -> Unit,
     onSettingsClick: () -> Unit,
     onFullScreenToggle: () -> Unit,
     onLockScreenToggle: () -> Unit,
     onChapterClick: () -> Unit,
-    onCutClick: () -> Unit
+    onCutClick: () -> Unit,
+    onAudioModeToggle: () -> Unit = {}
 ) {
     val episodeTitle = playerModel?.episodeTitle?.takeIf { it.isNotBlank() }
     val seasonTitle = playerModel?.seasonTitle?.takeIf { it.isNotBlank() }
@@ -172,9 +174,18 @@ fun TopBar(
             )
         }
 
+        val showAudioOnlyToggle = playerModel?.enableAudioOnlyToggle ?: controlsConfig.audioOnlyToggle
+        if (isFullScreen && showAudioOnlyToggle) {
+            AudioVideoToggleSwitch(
+                isAudioOnly = isAudioOnly,
+                onToggle = onAudioModeToggle,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+        }
+
         // PIP and Settings remain visible only in FullScreen (VOD context)
         if (isFullScreen) {
-            if (controlsConfig.pip) {
+            if (controlsConfig.pip && !isAudioOnly) {
                 PipButton(
                     playerModel,
                     pipListener = pipListener,
