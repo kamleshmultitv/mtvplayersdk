@@ -1,12 +1,11 @@
 package com.app.sample.download
 
 import android.content.Context
-import com.app.mtvdownloader.model.DownloadModel
-import com.app.mtvdownloader.model.DownloadMonetizationGate
+import com.app.mtvdownloader.entity.DownloadEntity
 
-object SampleDownloadMonetization : DownloadMonetizationGate {
-    override suspend fun canStartDownload(
+object SampleDownloadMonetization {
+    suspend fun canStartDownload(
         context: Context,
-        contentItem: DownloadModel
+        contentItem: DownloadEntity
     ): Boolean = true
 }

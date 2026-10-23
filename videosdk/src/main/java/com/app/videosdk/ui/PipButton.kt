@@ -26,9 +26,12 @@ fun PipButton(
         }
     ) {
         CustomIcon(resId = playerModel?.customControls?.pipIconRes,
+            iconUrl = playerModel?.customControls?.pipIconUrl,
             defaultIcon = Icons.Default.PictureInPicture,
             contentDescription = "Toggle Picture In Picture",
             modifier = Modifier.size(24.dp),
-            tint = playerModel?.customControls?.iconTintRes)
+            tint = playerModel?.customControls?.iconTintRes,
+            tintColorInt = playerModel?.customControls?.iconTintColorInt,
+            tintHex = playerModel?.customControls?.iconTintHex)
     }
 }

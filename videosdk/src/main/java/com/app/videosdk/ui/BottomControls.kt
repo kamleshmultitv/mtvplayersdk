@@ -28,6 +28,7 @@ import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
 import com.app.videosdk.ui.sprite.SpriteThumbnail
+import com.app.videosdk.ui.sprite.SpriteUtils
 import com.app.videosdk.utils.CastUtils
 
 @Composable
@@ -45,10 +46,10 @@ fun BottomControls(
     cuePoints: List<CuePoint> = emptyList(),
     onDragStateChange: (Boolean) -> Unit = {},
     expandSheet: (Boolean) -> Unit = {},
-    onSeekStarted: (Long) -> Unit = {},
-    onSeekCompleted: (Long) -> Unit = {},
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
     showPreviousControl: Boolean = false,
+    onSeekStarted: (Long) -> Unit = {},
+    onSeekCompleted: (Long) -> Unit = {},
     castUtils: CastUtils? = null,
     isCasting: Boolean = false
 ) {
@@ -75,48 +76,59 @@ fun BottomControls(
             val width = 120.dp
             val height = width * (16f / 9f)
 
-            model?.spriteUrl?.takeIf { it.isNotBlank() }?.let { spriteSource ->
-                SpriteThumbnail(
-                    spriteUrl = spriteSource,
-                    positionMs = posToShow,
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
-                        .size(width, height)
-                )
-            }
+            val spriteUrl =
+                model?.spriteUrl?.takeIf { it.isNotBlank() }
+                    ?: SpriteUtils.spriteUrlForVideo(model?.spriteUrl.orEmpty())
+
+            SpriteThumbnail(
+                spriteUrl = spriteUrl,
+                positionMs = posToShow,
+                modifier = Modifier
+                    .padding(bottom = 8.dp)
+                    .size(width, height)
+            )
         }
 
         /* ---------- CHAPTER LABEL ---------- */
 
         /* ---------- SEEK BAR ---------- */
 
-        CustomSlider(
-            playerModel = model,
-            currentPosition = currentPosition,
-            duration = duration,
-            cuePoints = cuePoints,
-            isLive = isLive,
-            exoPlayer = exoPlayer,
-            showControls = {},
+        if (controlsConfig.seekbar || isLive) {
+            CustomSlider(
+                playerModel = model,
+                currentPosition = currentPosition,
+                duration = duration,
+                cuePoints = cuePoints,
+                isLive = isLive,
+                showSeekbar = controlsConfig.seekbar,
+                exoPlayer = exoPlayer,
+                showControls = {},
 
-            onDragStateChange = { dragging ->
-                isDragging = dragging
-                onDragStateChange(dragging)
+                onDragStateChange = { dragging ->
+                    isDragging = dragging
+                    onDragStateChange(dragging)
 
-                if (!dragging) {
-                    previewMs = 0L
-                }
-            },
+                    if (!dragging && previewMs > 0) {
+                        onSeekStarted(currentPosition)
+                        if (isCasting && castUtils != null) {
+                            castUtils.seekOnCast(previewMs)
+                        } else {
+                            onSeek(previewMs)
+                        }
+                        onSeekCompleted(previewMs)
+                    }
+                },
 
-            onPreviewChange = { targetMs ->
-                previewMs = targetMs
-            },
+                onPreviewChange = { targetMs ->
+                    previewMs = targetMs
+                },
 
-            onSeek = onSeek,
-            onSeekStarted = onSeekStarted,
-            onSeekCompleted = onSeekCompleted,
-            chapters = model?.chapters ?: emptyList()
-        )
+                onSeek = onSeek,
+                onSeekStarted = onSeekStarted,
+                onSeekCompleted = onSeekCompleted,
+                chapters = model?.chapters ?: emptyList()
+            )
+        }
 
         /* ---------- BOTTOM ACTION BAR (FULLSCREEN ONLY) ---------- */
 
@@ -150,10 +162,13 @@ fun BottomControls(
                             ) {
                                 CustomIcon(
                                     resId = model?.customControls?.nextEpisodeIconRes,
+                                    iconUrl = model?.customControls?.nextEpisodeIconUrl,
                                     defaultIcon = Icons.Default.SkipNext,
                                     contentDescription = "Next Episode",
                                     modifier = Modifier.size(16.dp),
-                                    tint = model?.customControls?.iconTintRes
+                                    tint = model?.customControls?.iconTintRes,
+                                    tintColorInt = model?.customControls?.iconTintColorInt,
+                                    tintHex = model?.customControls?.iconTintHex
                                 )
 
                                 Text(
@@ -172,8 +187,6 @@ fun BottomControls(
                             SeasonSelector(
                                 playerModel = model,
                                 exoPlayer = exoPlayer,
-                                castUtils = castUtils,
-                                isCasting = isCasting,
                                 onShowControls = {},
                                 pausePlayer = {},
                                 expandSheet = { expandSheet(it) }
@@ -203,11 +216,14 @@ fun BottomControls(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             CustomIcon(
-                                resId = null,
+                                resId = model?.customControls?.previousEpisodeIconRes,
+                                iconUrl = model?.customControls?.previousEpisodeIconUrl,
                                 defaultIcon = Icons.Default.SkipPrevious,
                                 contentDescription = "Previous Episode",
                                 modifier = Modifier.size(16.dp),
-                                tint = model?.customControls?.iconTintRes
+                                tint = model?.customControls?.iconTintRes,
+                                tintColorInt = model?.customControls?.iconTintColorInt,
+                                tintHex = model?.customControls?.iconTintHex
                             )
 
                             Text(

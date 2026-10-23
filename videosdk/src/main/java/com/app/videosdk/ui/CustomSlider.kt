@@ -64,6 +64,7 @@ fun CustomSlider(
     onSeek: (Long) -> Unit,
     showControls: (Boolean) -> Unit,
     isLive: Boolean = false,
+    showSeekbar: Boolean = true,
     exoPlayer: ExoPlayer? = null,
     onDragStateChange: (Boolean) -> Unit = {},
     onPreviewChange: (Long) -> Unit = {},
@@ -92,12 +93,6 @@ fun CustomSlider(
         targetValue = if (isSeeking && !isLive && duration > 0) 56.dp else animatedContainerHeight,
         animationSpec = androidx.compose.animation.core.spring(),
         label = "scrubContainerHeight"
-    )
-    val durationLabelVerticalOffset =
-        (animatedScrubContainerHeight - animatedContainerHeight) / 2
-    val progressColor = customControlTintColor(
-        tintRes = playerModel?.customControls?.iconTintRes,
-        fallback = Color.Red
     )
 
     /* ---------- LIVE EDGE ---------- */
@@ -136,205 +131,202 @@ fun CustomSlider(
 
         /* ---------- CURRENT TIME ---------- */
 
-        if (!isLive) {
+        if (showSeekbar && !isLive) {
             Text(
                 text = formatTime(currentPosition),
                 color = Color.White,
                 fontSize = 12.sp,
-                modifier = Modifier
-                    .padding(end = 8.dp)
-                    .offset(y = durationLabelVerticalOffset)
+                modifier = Modifier.padding(end = 8.dp)
             )
         }
 
         /* ---------- SEEK BAR ---------- */
 
-        BoxWithConstraints(
-            modifier = Modifier
-                .weight(1f)
-                .height(animatedScrubContainerHeight),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            if (isSeeking && !isLive && duration > 0) {
-                val previewBubbleWidth = 64.dp
-                val maxPreviewBubbleOffset = (maxWidth - previewBubbleWidth).coerceAtLeast(0.dp)
-                val previewBubbleOffset =
-                    ((maxWidth * sliderPosition) - (previewBubbleWidth / 2))
-                        .coerceIn(0.dp, maxPreviewBubbleOffset)
-                val previewTimeMs =
-                    ((playerModel?.seekTo ?: 0L) + (sliderPosition * duration).toLong())
-                        .coerceAtLeast(0L)
+        if (showSeekbar) {
+            BoxWithConstraints(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(animatedScrubContainerHeight),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                if (isSeeking && !isLive && duration > 0) {
+                    val previewBubbleWidth = 64.dp
+                    val maxPreviewBubbleOffset = (maxWidth - previewBubbleWidth).coerceAtLeast(0.dp)
+                    val previewBubbleOffset =
+                        ((maxWidth * sliderPosition) - (previewBubbleWidth / 2))
+                            .coerceIn(0.dp, maxPreviewBubbleOffset)
+                    val previewTimeMs =
+                        ((playerModel?.seekTo ?: 0L) + (sliderPosition * duration).toLong())
+                            .coerceAtLeast(0L)
 
-                Text(
-                    text = formatTime(previewTimeMs),
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = previewBubbleOffset)
-                        .width(previewBubbleWidth)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Black.copy(alpha = 0.72f))
-                        .padding(horizontal = 6.dp, vertical = 3.dp)
-                )
-            }
+                    Text(
+                        text = formatTime(previewTimeMs),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .offset(x = previewBubbleOffset)
+                            .width(previewBubbleWidth)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.72f))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    )
+                }
 
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                Slider(
-                    value = sliderPosition,
-                    valueRange = 0f..1f,
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                    Slider(
+                        value = sliderPosition,
+                        valueRange = 0f..1f,
 
-                    onValueChange = { value ->
-                        sliderPosition = value
+                        onValueChange = { value ->
+                            sliderPosition = value
 
-                        if (!isSeeking) {
-                            isSeeking = true
-                            onDragStateChange(true)
-                            onSeekStarted(currentPosition)
-                        }
+                            if (!isSeeking) {
+                                isSeeking = true
+                                onDragStateChange(true)
+                                onSeekStarted(currentPosition)
+                            }
 
-                        showControls(true) // ✅ ALWAYS keep controls visible
+                            showControls(true) // ✅ ALWAYS keep controls visible
 
-                        if (duration > 0) {
-                            onPreviewChange((value * duration).toLong())
-                        }
-                    },
+                            if (duration > 0) {
+                                onPreviewChange((value * duration).toLong())
+                            }
+                        },
 
-                    onValueChangeFinished = {
+                        onValueChangeFinished = {
 
-                        val baseOffset = playerModel?.seekTo ?: 0L
-                        val seekPosition = baseOffset + (sliderPosition * duration).toLong()
+                            val baseOffset = playerModel?.seekTo ?: 0L
+                            val seekPosition = baseOffset + (sliderPosition * duration).toLong()
 
-                        val nearestChapter = chapters.minByOrNull {
-                            kotlin.math.abs(it.startMs - seekPosition)
-                        }
+                            val nearestChapter = chapters.minByOrNull {
+                                kotlin.math.abs(it.startMs - seekPosition)
+                            }
 
-                        if (nearestChapter != null &&
-                            kotlin.math.abs(nearestChapter.startMs - seekPosition) < 3000
-                        ) {
-                            onSeek(nearestChapter.startMs)
-                            onSeekCompleted(nearestChapter.startMs)
-                        } else {
-                            onSeek(seekPosition)
-                            onSeekCompleted(seekPosition)
-                        }
+                            val targetPos = if (nearestChapter != null &&
+                                kotlin.math.abs(nearestChapter.startMs - seekPosition) < 3000
+                            ) {
+                                nearestChapter.startMs
+                            } else {
+                                seekPosition
+                            }
 
-                        isSeeking = false
-                        onDragStateChange(false)
-                        showControls(true)
-                    },
+                            onSeek(targetPos)
+                            onSeekCompleted(targetPos)
 
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.Transparent,
-                        activeTrackColor = Color.Transparent,
-                        inactiveTrackColor = Color.Transparent
-                    ),
+                            isSeeking = false
+                            onDragStateChange(false)
+                            showControls(true)
+                        },
 
-                    thumb = {
-                        Box(modifier = Modifier.size(0.dp))
-                    },
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.Transparent,
+                            activeTrackColor = Color.Transparent,
+                            inactiveTrackColor = Color.Transparent
+                        ),
 
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(animatedContainerHeight)
-                        .drawBehind {
+                        thumb = {
+                            Box(modifier = Modifier.size(0.dp))
+                        },
 
-                        val trackHeightPx = animatedTrackHeight.toPx()
-                        val trackY = size.height / 2 - trackHeightPx / 2
-
-                        drawRoundRect(
-                            color = Color.Gray.copy(alpha = 0.5f),
-                            topLeft = Offset(0f, trackY),
-                            size = Size(size.width, trackHeightPx),
-                            cornerRadius = CornerRadius(trackHeightPx / 2)
-                        )
-
-                        drawRoundRect(
-                            color = if (isLive && isAtLiveEdge)
-                                progressColor
-                            else
-                                progressColor.copy(alpha = 0.7f),
-                            topLeft = Offset(0f, trackY),
-                            size = Size(size.width * sliderPosition, trackHeightPx),
-                            cornerRadius = CornerRadius(trackHeightPx / 2)
-                        )
-
-                        if (duration > 0) {
-                            cuePoints.forEach { cue ->
-                                val x = (cue.positionMs.toFloat() / duration) * size.width
-                                val markerSize =
-                                    if (isSeeking) 6.dp.toPx() else 4.dp.toPx()
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(animatedContainerHeight)
+                            .drawBehind {
+                                val trackHeightPx = animatedTrackHeight.toPx()
+                                val trackY = size.height / 2 - trackHeightPx / 2
 
                                 drawRoundRect(
-                                    color = when (cue.type) {
-                                        CueType.AD -> Color.Yellow
-                                        CueType.L_BAND -> Color.Green
-                                    },
-                                    topLeft = Offset(
-                                        x - markerSize / 2,
-                                        size.height / 2 - markerSize / 2
-                                    ),
-                                    size = Size(markerSize, markerSize),
-                                    cornerRadius = CornerRadius(markerSize / 2)
+                                    color = Color.Gray.copy(alpha = 0.5f),
+                                    topLeft = Offset(0f, trackY),
+                                    size = Size(size.width, trackHeightPx),
+                                    cornerRadius = CornerRadius(trackHeightPx / 2)
                                 )
-                            }
-                        }
-
-                        if (duration > 0 && chapters.isNotEmpty()) {
-
-                            chapters.forEach { chapter ->
-
-                                val x = (chapter.startMs.toFloat() / duration) * size.width
-                                val markerSize = if (isSeeking) 8.dp.toPx() else 6.dp.toPx()
 
                                 drawRoundRect(
-                                    color = if (playerModel?.isChapterEnabled == true) Color.Cyan else Color.Transparent ,
-                                    topLeft = Offset(
-                                        x - markerSize / 2,
-                                        size.height / 2 - markerSize / 2
-                                    ),
-                                    size = Size(markerSize, markerSize),
-                                    cornerRadius = CornerRadius(markerSize / 2)
+                                    color = if (isLive && isAtLiveEdge)
+                                        Color.Red
+                                    else
+                                        Color.Red.copy(alpha = 0.7f),
+                                    topLeft = Offset(0f, trackY),
+                                    size = Size(size.width * sliderPosition, trackHeightPx),
+                                    cornerRadius = CornerRadius(trackHeightPx / 2)
                                 )
+
+                                if (duration > 0) {
+                                    cuePoints.forEach { cue ->
+                                        val x = (cue.positionMs.toFloat() / duration) * size.width
+                                        val markerSize =
+                                            if (isSeeking) 6.dp.toPx() else 4.dp.toPx()
+
+                                        drawRoundRect(
+                                            color = when (cue.type) {
+                                                CueType.AD -> Color.Yellow
+                                                CueType.L_BAND -> Color.Green
+                                            },
+                                            topLeft = Offset(
+                                                x - markerSize / 2,
+                                                size.height / 2 - markerSize / 2
+                                            ),
+                                            size = Size(markerSize, markerSize),
+                                            cornerRadius = CornerRadius(markerSize / 2)
+                                        )
+                                    }
+                                }
+
+                                if (duration > 0 && chapters.isNotEmpty()) {
+                                    chapters.forEach { chapter ->
+                                        val x = (chapter.startMs.toFloat() / duration) * size.width
+                                        val markerSize = if (isSeeking) 8.dp.toPx() else 6.dp.toPx()
+
+                                        drawRoundRect(
+                                            color = if (playerModel?.isChapterEnabled == true) Color.Cyan else Color.Transparent,
+                                            topLeft = Offset(
+                                                x - markerSize / 2,
+                                                size.height / 2 - markerSize / 2
+                                            ),
+                                            size = Size(markerSize, markerSize),
+                                            cornerRadius = CornerRadius(markerSize / 2)
+                                        )
+                                    }
+                                }
+
+                                if (duration > 0) {
+                                    val pointerWidthPx =
+                                        if (isSeeking) 3.dp.toPx() else trackHeightPx
+                                    val maxPointerLeft = (size.width - pointerWidthPx).coerceAtLeast(0f)
+                                    val pointerLeft =
+                                        (size.width * sliderPosition - pointerWidthPx / 2)
+                                            .coerceIn(0f, maxPointerLeft)
+
+                                    drawRoundRect(
+                                        color = Color.Red,
+                                        topLeft = Offset(pointerLeft, trackY),
+                                        size = Size(pointerWidthPx, trackHeightPx),
+                                        cornerRadius = CornerRadius(trackHeightPx / 2)
+                                    )
+                                }
                             }
-                        }
-
-                        if (duration > 0) {
-                            val pointerWidthPx =
-                                if (isSeeking) 3.dp.toPx() else trackHeightPx
-                            val maxPointerLeft = (size.width - pointerWidthPx).coerceAtLeast(0f)
-                            val pointerLeft =
-                                (size.width * sliderPosition - pointerWidthPx / 2)
-                                    .coerceIn(0f, maxPointerLeft)
-
-                            drawRoundRect(
-                                color = progressColor,
-                                topLeft = Offset(pointerLeft, trackY),
-                                size = Size(pointerWidthPx, trackHeightPx),
-                                cornerRadius = CornerRadius(trackHeightPx / 2)
-                            )
-                        }
-
-                        }
-                )
+                    )
+                }
             }
+        } else if (isLive) {
+            Spacer(modifier = Modifier.weight(1f))
         }
 
         /* ---------- DURATION / LIVE ---------- */
 
-        if (!isLive) {
+        if (showSeekbar && !isLive) {
             Text(
                 text = formatTime(duration),
                 color = Color.White,
                 fontSize = 12.sp,
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .offset(y = durationLabelVerticalOffset)
+                modifier = Modifier.padding(start = 8.dp)
             )
-        } else {
+        } else if (isLive) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -355,12 +347,12 @@ fun CustomSlider(
                         .size(8.dp)
                         .alpha(if (isAtLiveEdge) blinkAlpha else 1f)
                         .clip(CircleShape)
-                        .background(if (isAtLiveEdge) progressColor else Color.Gray)
+                        .background(if (isAtLiveEdge) Color.Red else Color.Gray)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = if (isAtLiveEdge) "LIVE" else "Go Live",
-                    color = if (isAtLiveEdge) progressColor else Color.White,
+                    color = if (isAtLiveEdge) Color.Red else Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )

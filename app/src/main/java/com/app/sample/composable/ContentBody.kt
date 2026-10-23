@@ -29,8 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
-import com.app.mtvdownloader.local.entity.DownloadedContentEntity
-import com.app.sample.BuildConfig
+import com.app.mtvdownloader.entity.DownloadEntity
 import com.app.sample.R
 import com.app.sample.composable.download.DownloadPlayer
 import com.app.sample.composable.download.DownloadedContentList
@@ -42,8 +41,7 @@ import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.model.PlayerConfig
-import com.app.videosdk.model.SdkLogLevel
-import com.app.videosdk.model.SdkLoggingConfig
+import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.ui.MtvVideoPlayerSdk
 import com.app.videosdk.utils.PlayerMode
 
@@ -79,11 +77,11 @@ fun ContentBody(
     }
 
     val downloadedContentList = remember {
-        mutableStateListOf<DownloadedContentEntity>()
+        mutableStateListOf<DownloadEntity>()
     }
 
     var showDownloadedList by remember { mutableStateOf(false) }
-    var selectedItem by remember { mutableStateOf<DownloadedContentEntity?>(null) }
+    var selectedItem by remember { mutableStateOf<DownloadEntity?>(null) }
     var showSdkEdgeCases by remember { mutableStateOf(false) }
     var isSdkEdgeCaseFullScreen by remember { mutableStateOf(false) }
     var isSdkEdgeCaseStatusBarSafe by remember { mutableStateOf(true) }
@@ -115,6 +113,11 @@ fun ContentBody(
                 MtvVideoPlayerSdk(
                     contentList = contentList,
                     index = selectedIndex.intValue,
+                    playerConfig = PlayerConfig(
+                        controls = PlayerControlsConfig(
+                            seekbar = false
+                        )
+                    ),
                     pipListener = pipListener,
                     isInPipMode = isInPipMode,
                     isDeepLink = isDeepLink,
@@ -143,15 +146,6 @@ fun ContentBody(
                     setFullScreen = { isFull ->
                         onFullScreenChange(isFull)
                     },
-                    playerConfig = PlayerConfig(
-                        logging = SdkLoggingConfig(
-                            level = if (BuildConfig.DEBUG) {
-                                SdkLogLevel.DEBUG
-                            } else {
-                                SdkLogLevel.OFF
-                            }
-                        )
-                    ),
 
                     playerStateListener = object : PlayerStateListener {
 

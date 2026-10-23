@@ -212,12 +212,15 @@ private fun ForwardBackwardButtonsOverlayUi(
 
                         CustomIcon(
                             resId = customControls?.rewindIconRes,
+                            iconUrl = customControls?.rewindIconUrl,
                             defaultIcon = Icons.Default.Replay10,
                             contentDescription = "Rewind ${controlsConfig.seekBack.safeSeconds}s",
                             modifier = Modifier
                                 .size(seekIconSize)
                                 .graphicsLayer(rotationZ = rewindRotation),
-                            tint = customControls?.iconTintRes
+                            tint = customControls?.iconTintRes,
+                            tintColorInt = customControls?.iconTintColorInt,
+                            tintHex = customControls?.iconTintHex
                         )
                     }
                 }
@@ -243,10 +246,13 @@ private fun ForwardBackwardButtonsOverlayUi(
 
                         CustomIcon(
                             resId = if (isPlaying) customControls?.pauseIconRes else customControls?.playIconRes,
+                            iconUrl = if (isPlaying) customControls?.pauseIconUrl else customControls?.playIconUrl,
                             defaultIcon = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = "Play/Pause",
                             modifier = Modifier.size(playPauseIconSize),
-                            tint = customControls?.iconTintRes
+                            tint = customControls?.iconTintRes,
+                            tintColorInt = customControls?.iconTintColorInt,
+                            tintHex = customControls?.iconTintHex
                         )
                     }
                 }
@@ -271,12 +277,15 @@ private fun ForwardBackwardButtonsOverlayUi(
 
                         CustomIcon(
                             resId = customControls?.forwardIconRes,
+                            iconUrl = customControls?.forwardIconUrl,
                             defaultIcon = Icons.Default.Forward10,
                             contentDescription = "Forward ${controlsConfig.seekForward.safeSeconds}s",
                             modifier = Modifier
                                 .size(seekIconSize)
                                 .graphicsLayer(rotationZ = forwardRotation),
-                            tint = customControls?.iconTintRes
+                            tint = customControls?.iconTintRes,
+                            tintColorInt = customControls?.iconTintColorInt,
+                            tintHex = customControls?.iconTintHex
                         )
                     }
                 }

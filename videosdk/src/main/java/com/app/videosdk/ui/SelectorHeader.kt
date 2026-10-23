@@ -26,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,35 +38,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.listener.PlayerStateListener
 import com.app.videosdk.model.OptionItemModel
-import com.app.videosdk.model.PlayerAnalyticsEventType
-import com.app.videosdk.model.PlayerDiagnosticSeverity
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.model.SpeedControlModel
-import com.app.videosdk.model.SubTitleModel
-import com.app.videosdk.model.VideoQualityModel
-import com.app.videosdk.player.TrackSelectionUtils.calculatePitch
-import com.app.videosdk.player.TrackSelectionUtils.changeVideoResolution
-import com.app.videosdk.player.TrackSelectionUtils.getTextTrackOptions
-import com.app.videosdk.player.TrackSelectionUtils.getVideoFormats
-import com.app.videosdk.player.TrackSelectionUtils.selectAudioTrack
-import com.app.videosdk.player.TrackSelectionUtils.selectTextTrack
-import com.app.videosdk.player.TrackSelectionUtils.setAutoVideoResolution
-import com.app.videosdk.player.TrackSelectionUtils.showAudioTrack
-import com.app.videosdk.utils.emitAnalytics
-import com.app.videosdk.utils.emitDiagnostic
+import com.app.videosdk.utils.PlayerUtils.calculatePitch
+import com.app.videosdk.utils.PlayerUtils.changeVideoResolution
+import com.app.videosdk.utils.PlayerUtils.getAudioTrackOptions
+import com.app.videosdk.utils.PlayerUtils.getTextTrackOptions
+import com.app.videosdk.utils.PlayerUtils.getVideoFormats
+import com.app.videosdk.utils.PlayerUtils.selectAudioTrack
+import com.app.videosdk.utils.PlayerUtils.selectTextTrack
+import com.app.videosdk.utils.PlayerUtils.setAutoVideoResolution
 import com.app.videosdk.viewmodel.VideoViewModel
 
 @Composable
 fun SelectorHeader(
     playerModel: PlayerModel? = null,
     exoPlayer: ExoPlayer?,
+    selectedItems: MutableMap<Int, Int>,
     subtitlesEnabled: Boolean = true,
     playbackSpeedEnabled: Boolean = true,
     qualitySelectionEnabled: Boolean = true,
@@ -73,39 +67,38 @@ fun SelectorHeader(
     analyticsEnabled: Boolean = false,
     diagnosticsEnabled: Boolean = false,
     playerStateListener: PlayerStateListener? = null,
-    selectedItems: MutableMap<Int, Int>,
     closeOptionCard: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
     val options by viewModel.options.collectAsState()
-    val availableOptions = remember(
-        options,
-        subtitlesEnabled,
-        playbackSpeedEnabled,
-        qualitySelectionEnabled
-    ) {
+    var selectedOption by remember { mutableStateOf(options.firstOrNull()?.id) }
+    var audioOptions by remember(context, exoPlayer) { mutableStateOf(getAudioTrackOptions(context, exoPlayer)) }
+    var captionOptions by remember(exoPlayer) { mutableStateOf(getTextTrackOptions(exoPlayer)) }
+    val isLive = playerModel?.isLive ?: false
+
+    // Filter options for live content and feature flags
+    val filteredOptions = remember(options, isLive, subtitlesEnabled, playbackSpeedEnabled, qualitySelectionEnabled) {
         options.filter { option ->
             when (option.id) {
-                2 -> subtitlesEnabled
-                3 -> playbackSpeedEnabled
-                4 -> qualitySelectionEnabled
+                2 -> subtitlesEnabled && !isLive // Closed Caption / Subtitles
+                3 -> playbackSpeedEnabled && !isLive // Speed Selector
+                4 -> qualitySelectionEnabled // Quality Selection
                 else -> true
             }
         }
     }
-    var selectedOption by remember(availableOptions) {
-        mutableStateOf(availableOptions.firstOrNull()?.id)
-    }
-    var captionOptions by remember(exoPlayer) { mutableStateOf(getTextTrackOptions(exoPlayer)) }
 
-    DisposableEffect(exoPlayer) {
+
+    DisposableEffect(context, exoPlayer) {
         val player = exoPlayer ?: return@DisposableEffect onDispose {}
 
+        audioOptions = getAudioTrackOptions(context, player)
         captionOptions = getTextTrackOptions(player)
 
         val listener = object : Player.Listener {
             override fun onTracksChanged(tracks: Tracks) {
+                audioOptions = getAudioTrackOptions(context, player)
                 captionOptions = getTextTrackOptions(player)
             }
         }
@@ -124,7 +117,7 @@ fun SelectorHeader(
         modifier = Modifier
             .fillMaxSize()
             .padding(start = 24.dp, end = 24.dp)
-            .background(Color.Black.copy(alpha = 0.9f))
+            .background(Color.Black)
     ) {
         Row(
             modifier = Modifier
@@ -137,8 +130,8 @@ fun SelectorHeader(
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(availableOptions.size) { index ->
-                    val option = availableOptions[index]
+                items(filteredOptions.size) { index ->
+                    val option = filteredOptions[index]
                     OptionItem(
                         option = option,
                         isSelected = selectedOption == option.id
@@ -156,10 +149,13 @@ fun SelectorHeader(
             ) {
                 CustomIcon(
                     resId = playerModel?.customControls?.crossFadeIconRes,
+                    iconUrl = playerModel?.customControls?.crossFadeIconUrl,
                     defaultIcon = Icons.Default.Close,
                     contentDescription = "Close",
                     modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes
+                    tint = playerModel?.customControls?.iconTintRes,
+                    tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                    tintHex = playerModel?.customControls?.iconTintHex
                 )
             }
         }
@@ -173,212 +169,93 @@ fun SelectorHeader(
         Box(modifier = Modifier
             .fillMaxSize()
             .padding(top = 16.dp)) {
-            val activeOption = selectedOption
-            when (activeOption) {
+            when (selectedOption) {
                 1 -> {
-                    val audioTrackList =
-                        remember(context, exoPlayer) { showAudioTrack(context, exoPlayer) }
+                    val selectedAudioIndex = selectedItems[selectedOption]?.takeIf {
+                        it in audioOptions.indices
+                    }
+                        ?: audioOptions.indexOfFirst { it.isSelected }.takeIf { it >= 0 }
+                        ?: -1
+
                     SelectionList(
-                        items = audioTrackList.map { it.name.toString() },
-                        selectedIndex = selectedItems[activeOption]
-                            ?: selectedAudioTrackIndex(audioTrackList, exoPlayer)
+                        items = audioOptions.map { it.displayName },
+                        selectedIndex = selectedAudioIndex,
+                        emptyText = "No audio tracks available"
                     ) { index ->
-                        selectedItems[activeOption] = index
-                        selectAudioTrack(audioTrackList[index].id.toString(), exoPlayer)
+                        selectedItems[selectedOption!!] = index
+                        selectAudioTrack(audioOptions[index], exoPlayer)
                     }
                 }
 
                 2 -> {
-                    val selectedCaptionIndex = selectedItems[activeOption]?.takeIf {
-                        it in captionOptions.indices
-                    }
-                        ?: captionOptions.indexOfFirst { it.isSelected }.takeIf { it >= 0 }
-                        ?: 0
-
+                    val selectedIndex: Int = selectedItems[selectedOption] ?:
+                        captionOptions.indexOfFirst { it.isSelected }.takeIf { it >= 0 } ?: 0
                     SelectionList(
                         items = captionOptions.map { it.displayName },
-                        selectedIndex = selectedCaptionIndex
+                        selectedIndex = selectedIndex,
+                        emptyText = "No subtitle tracks available"
                     ) { index ->
-                        selectedItems[activeOption] = index
+                        selectedItems[selectedOption!!] = index
                         selectTextTrack(captionOptions[index], exoPlayer)
-                        val selectedCaption = captionOptions[index]
-                        playerStateListener?.onSubtitleChanged(
-                            selectedCaption.language,
-                            selectedCaption.displayName,
-                            enabled = !selectedCaption.isOff
-                        )
-                        playerStateListener.emitAnalytics(
-                            enabled = analyticsEnabled,
-                            type = PlayerAnalyticsEventType.SUBTITLE_CHANGED,
-                            contentId = contentId,
-                            positionMs = exoPlayer?.currentPosition ?: 0L,
-                            durationMs = exoPlayer?.duration ?: 0L,
-                            attributes = mapOf(
-                                "language" to selectedCaption.language.orEmpty(),
-                                "label" to selectedCaption.displayName,
-                                "enabled" to (!selectedCaption.isOff).toString()
-                            )
-                        )
                     }
                 }
 
                 3 -> {
                     viewModel.getSpeedData()
                     val speedData by viewModel.speedControlData.observeAsState(emptyList())
-
+                    val selectedIndex: Int = selectedItems[selectedOption] ?: run {
+                        val currentSpeed = exoPlayer?.playbackParameters?.speed ?: 1.0f
+                        speedData.indexOfFirst { it.speed == currentSpeed }.takeIf { it >= 0 } ?: -1
+                    }
                     SelectionList(
                         items = speedData.map { it.speedTitle },
-                        selectedIndex = selectedItems[activeOption]
-                            ?: selectedSpeedIndex(speedData, exoPlayer)
+                        selectedIndex = selectedIndex
                     ) { index ->
-                        selectedItems[activeOption] = index
+                        selectedItems[selectedOption!!] = index
                         val param = PlaybackParameters(
                             speedData[index].speed,
                             calculatePitch(speedData[index].speed)
                         )
                         exoPlayer?.playbackParameters = param
-                        playerStateListener?.onPlaybackSpeedChanged(speedData[index].speed)
-                        playerStateListener.emitAnalytics(
-                            enabled = analyticsEnabled,
-                            type = PlayerAnalyticsEventType.PLAYBACK_SPEED_CHANGED,
-                            contentId = contentId,
-                            positionMs = exoPlayer?.currentPosition ?: 0L,
-                            durationMs = exoPlayer?.duration ?: 0L,
-                            attributes = mapOf("speed" to speedData[index].speed.toString())
-                        )
                     }
                 }
 
                 4 -> {
                     val qualityList = remember(exoPlayer) { getVideoFormats(exoPlayer) }
-
+                    val selectedIndex: Int = selectedItems[selectedOption] ?: run {
+                        val trackParams = exoPlayer?.trackSelectionParameters
+                        val isAuto = trackParams?.maxVideoWidth == Int.MAX_VALUE && trackParams.maxVideoHeight == Int.MAX_VALUE
+                        if (isAuto) 0 else {
+                            val height = trackParams?.maxVideoHeight ?: -1
+                            qualityList.indexOfFirst { it.height == height }.takeIf { it >= 0 } ?: -1
+                        }
+                    }
                     SelectionList(
                         items = qualityList.map { if (it.id == "auto") it.title.toString() else "${it.title}p" },
-                        selectedIndex = selectedItems[activeOption]
-                            ?: selectedQualityIndex(qualityList, exoPlayer)
+                        selectedIndex = selectedIndex
                     ) { index ->
-                        selectedItems[activeOption] = index
-                        if (qualityList[index].id == "auto") {
+                        selectedItems[selectedOption!!] = index
+                        if (index == 0) {
                             setAutoVideoResolution(exoPlayer)
-                            playerStateListener?.onQualityChanged(0, 0, "Auto")
-                            playerStateListener.emitAnalytics(
-                                enabled = analyticsEnabled,
-                                type = PlayerAnalyticsEventType.QUALITY_CHANGED,
-                                contentId = contentId,
-                                positionMs = exoPlayer?.currentPosition ?: 0L,
-                                durationMs = exoPlayer?.duration ?: 0L,
-                                attributes = mapOf("label" to "Auto")
-                            )
                         } else {
                             changeVideoResolution(
                                 exoPlayer,
                                 qualityList[index].width,
                                 qualityList[index].height
                             )
-                            playerStateListener?.onQualityChanged(
-                                qualityList[index].width,
-                                qualityList[index].height,
-                                qualityList[index].title.toString()
-                            )
-                            playerStateListener.emitAnalytics(
-                                enabled = analyticsEnabled,
-                                type = PlayerAnalyticsEventType.QUALITY_CHANGED,
-                                contentId = contentId,
-                                positionMs = exoPlayer?.currentPosition ?: 0L,
-                                durationMs = exoPlayer?.duration ?: 0L,
-                                attributes = mapOf(
-                                    "width" to qualityList[index].width.toString(),
-                                    "height" to qualityList[index].height.toString(),
-                                    "label" to qualityList[index].title.toString()
-                                )
-                            )
                         }
                     }
-                }
-
-                null -> {
-                    playerStateListener.emitDiagnostic(
-                        enabled = diagnosticsEnabled,
-                        severity = PlayerDiagnosticSeverity.WARNING,
-                        code = "settings_no_options",
-                        message = "No settings options are available for the active feature gates.",
-                        contentId = contentId
-                    )
                 }
             }
         }
     }
 }
 
-private fun selectedAudioTrackIndex(
-    audioTrackList: List<SubTitleModel>,
-    exoPlayer: ExoPlayer?
-): Int {
-    val selectedAudioValues = exoPlayer?.currentTracks?.groups.orEmpty()
-        .filter { it.type == C.TRACK_TYPE_AUDIO }
-        .flatMap { group ->
-            (0 until group.length)
-                .filter { trackIndex -> group.isTrackSelected(trackIndex) }
-                .flatMap { trackIndex ->
-                    val format = group.getTrackFormat(trackIndex)
-                    listOfNotNull(
-                        format.language.cleanTrackText(),
-                        format.label.cleanTrackText(),
-                        format.id.cleanTrackText()
-                    )
-                }
-        }
-
-    if (selectedAudioValues.isEmpty()) return -1
-
-    return audioTrackList.indexOfFirst { option ->
-        selectedAudioValues.any { selected ->
-            selected.equals(option.id, ignoreCase = true) ||
-                selected.equals(option.name, ignoreCase = true)
-        }
-    }
-}
-
-private fun selectedSpeedIndex(
-    speedData: List<SpeedControlModel>,
-    exoPlayer: ExoPlayer?
-): Int {
-    val currentSpeed = exoPlayer?.playbackParameters?.speed ?: return -1
-    return speedData.indexOfFirst { speed ->
-        kotlin.math.abs(speed.speed - currentSpeed) < 0.01f
-    }
-}
-
-private fun selectedQualityIndex(
-    qualityList: List<VideoQualityModel>,
-    exoPlayer: ExoPlayer?
-): Int {
-    val parameters = exoPlayer?.trackSelectionParameters ?: return -1
-    val autoIndex = qualityList.indexOfFirst { it.id == "auto" }
-    val usesAutoQuality =
-        parameters.maxVideoWidth == Int.MAX_VALUE &&
-            parameters.maxVideoHeight == Int.MAX_VALUE
-
-    if (usesAutoQuality) return autoIndex
-
-    return qualityList.indexOfFirst { quality ->
-        quality.id != "auto" &&
-            quality.width == parameters.maxVideoWidth &&
-            quality.height == parameters.maxVideoHeight
-    }.takeIf { it >= 0 }
-        ?: qualityList.indexOfFirst { quality ->
-            quality.id != "auto" && quality.height == parameters.maxVideoHeight
-        }.takeIf { it >= 0 }
-        ?: autoIndex
-}
-
-private fun String?.cleanTrackText(): String? =
-    this?.trim()?.takeIf { it.isNotEmpty() && !it.equals("und", ignoreCase = true) }
-
 @Composable
 fun SelectionList(
     items: List<String>,
     selectedIndex: Int,
+    emptyText: String = "No options available",
     onItemClick: (Int) -> Unit
 ) {
     LazyColumn(
@@ -386,6 +263,18 @@ fun SelectionList(
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
+        if (items.isEmpty()) {
+            item {
+                Text(
+                    text = emptyText,
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+
         items(items.size) { index ->
             Row(
                 modifier = Modifier

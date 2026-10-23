@@ -68,7 +68,7 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "videosdk"
-                version = "mobile-2.0.36"
+                version = "mobile-2.0.46"
             }
         }
     }
@@ -114,6 +114,7 @@ dependencies {
     implementation(libs.google.gson)
     implementation(libs.google.accompanist.systemuicontroller)
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
 
     implementation(libs.androidx.media3.exoplayer.ima)
     implementation(libs.interactivemedia)
