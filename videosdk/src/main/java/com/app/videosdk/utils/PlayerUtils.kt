@@ -239,86 +239,79 @@ object PlayerUtils {
 
         /* ================= MEDIA ITEM ================= */
 
-        val mediaItem: MediaItem =
-            if (isOffline) {
-                Log.d("PlayerUtils", "Using OFFLINE MediaItem")
+        val mediaItems = if (!contentList.isNullOrEmpty()) {
+            contentList.indices.map { i ->
+                val model = contentList[i]
+                val contentId = model.id
+                val itemDownload = model.downloadManager?.downloadIndex?.getDownload(contentId.toString())
+                val itemIsOffline = itemDownload?.state == Download.STATE_COMPLETED
+                val itemResolvedUri = if (itemIsOffline) Uri.EMPTY else resolveToPlayableUri(contentList, i)
 
-                val isDashOffline =
-                    download.request.uri.toString()
-                        .substringBefore("?")
-                        .endsWith(".mpd", ignoreCase = true)
-
-                if (isDashOffline) {
-                    // Try offline DRM → fallback to online
-                    buildOfflineDrmMediaItemOrNull(download)
-                        ?: run {
-                            Log.w(
-                                "PlayerUtils",
-                                "Offline DASH without license → fallback to online"
-                            )
-                            MediaItem.fromUri(resolvedUri)
-                        }
-                } else {
-                    // HLS or non-DRM offline
-                    download.request.toMediaItem()
-                }
-            } else {
-                Log.d("PlayerUtils", "Using ONLINE MediaItem: $resolvedUri")
-
-                val deepStart = content?.seekTo ?: 0L
-                val deepEnd = content?.deepLinkEndMs
-
-                MediaItem.Builder()
-                    .setUri(resolvedUri)
-                    .apply {
-
-                        // ✅ THIS MAKES SEEK BAR = CLIP DURATION
-                        if (deepEnd != null && deepEnd > deepStart) {
-                            setClippingConfiguration(
-                                MediaItem.ClippingConfiguration.Builder()
-                                    .setStartPositionMs(deepStart)
-                                    .setEndPositionMs(deepEnd)
-                                    .build()
-                            )
-                        }
-
-                        if (!drmToken.isNullOrBlank()) {
-                            setDrmConfiguration(
-                                MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
-                                    .setLicenseUri(drmToken)
-                                    .setMultiSession(true)
-                                    .build()
-                            )
-                        }
-
-                        if (!srt.isNullOrBlank()) {
-                            setSubtitleConfigurations(
-                                ImmutableList.of(initializeSubTitleTracker(srt))
-                            )
-                        }
-
-                        if (
-                            adsLoader != null &&
-                            adsConfig?.enableAds == true &&
-                            !adsConfig.adTagUrl.isNullOrBlank()
-                        ) {
-                            setAdsConfiguration(
-                                MediaItem.AdsConfiguration.Builder(
-                                    adsConfig.adTagUrl.trim().toUri()
-                                ).build()
-                            )
-                            adsLoader.setPlayer(exoPlayer)
-                        }
-                    }
+                val metadata = androidx.media3.common.MediaMetadata.Builder()
+                    .setTitle(model.episodeTitle ?: model.title)
+                    .setArtist(model.seasonTitle ?: model.description)
+                    .setArtworkUri(model.imageUrl?.toUri())
                     .build()
+
+                if (itemIsOffline) {
+                    val isDashOffline = itemDownload.request.uri.toString().substringBefore("?").endsWith(".mpd", ignoreCase = true)
+                    val baseItem = if (isDashOffline) {
+                        buildOfflineDrmMediaItemOrNull(itemDownload) ?: MediaItem.fromUri(itemResolvedUri)
+                    } else {
+                        itemDownload.request.toMediaItem()
+                    }
+                    baseItem.buildUpon()
+                        .setMediaId(model.id ?: i.toString())
+                        .setMediaMetadata(metadata)
+                        .build()
+                } else {
+                    val deepStart = model.seekTo ?: 0L
+                    val deepEnd = model.deepLinkEndMs
+
+                    MediaItem.Builder()
+                        .setUri(itemResolvedUri)
+                        .setMediaId(model.id ?: i.toString())
+                        .setMediaMetadata(metadata)
+                        .apply {
+                            if (deepEnd != null && deepEnd > deepStart) {
+                                setClippingConfiguration(
+                                    MediaItem.ClippingConfiguration.Builder()
+                                        .setStartPositionMs(deepStart)
+                                        .setEndPositionMs(deepEnd)
+                                        .build()
+                                )
+                            }
+                            if (!drmToken.isNullOrBlank()) {
+                                setDrmConfiguration(
+                                    MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
+                                        .setLicenseUri(drmToken)
+                                        .setMultiSession(true)
+                                        .build()
+                                )
+                            }
+                            if (!srt.isNullOrBlank()) {
+                                setSubtitleConfigurations(
+                                    ImmutableList.of(initializeSubTitleTracker(srt))
+                                )
+                            }
+                            if (i == 0 && adsLoader != null && adsConfig?.enableAds == true && !adsConfig.adTagUrl.isNullOrBlank()) {
+                                setAdsConfiguration(
+                                    MediaItem.AdsConfiguration.Builder(
+                                        adsConfig.adTagUrl.trim().toUri()
+                                    ).build()
+                                )
+                                adsLoader.setPlayer(exoPlayer)
+                            }
+                        }
+                        .build()
+                }
             }
-
-
-        exoPlayer.setMediaItem(mediaItem)
-        exoPlayer.prepare()
-        contentList?.get(selectedIndex)?.seekTo?.let { position ->
-            exoPlayer.seekTo(position)
+        } else {
+            listOf(MediaItem.fromUri(resolveToPlayableUri(contentList, selectedIndex)))
         }
+
+        exoPlayer.setMediaItems(mediaItems, selectedIndex, contentList?.get(selectedIndex)?.seekTo ?: 0L)
+        exoPlayer.prepare()
         exoPlayer.playWhenReady = playWhenReady
 
         return exoPlayer to adsLoader

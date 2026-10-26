@@ -471,7 +471,7 @@ fun MtvVideoPlayerSdk(
     val freePreview = playerConfig.freePreview
     val freePreviewEnd = playerConfig.freePreviewEnd
 
-    var isAudioOnly by remember(playerModel, activeIndex) { mutableStateOf(false) }
+    var isAudioOnly by remember { mutableStateOf(false) }
 
     LaunchedEffect(isAudioOnly, exoPlayer) {
         exoPlayer?.let { player ->
@@ -482,20 +482,18 @@ fun MtvVideoPlayerSdk(
                 .build()
             player.trackSelectionParameters = newParams
         }
-    }
 
-    LaunchedEffect(isAudioOnly) {
         val intent = android.content.Intent(context, com.app.videosdk.service.VideosdkAudioService::class.java).apply {
             putExtra(com.app.videosdk.service.VideosdkAudioService.EXTRA_FROM_APP, true)
         }
-        if (isAudioOnly) {
+        if (isAudioOnly && exoPlayer != null) {
             com.app.videosdk.service.VideosdkAudioService.activePlayer = exoPlayer
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
                 context.startService(intent)
             }
-        } else {
+        } else if (!isAudioOnly) {
             com.app.videosdk.service.VideosdkAudioService.activePlayer = null
             context.stopService(intent)
         }
@@ -764,6 +762,10 @@ fun MtvVideoPlayerSdk(
             }
 
             override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+                val newIndex = exoPlayer.currentMediaItemIndex
+                if (newIndex >= 0 && newIndex != selectedIndex.intValue) {
+                    changeSelectedIndex(newIndex)
+                }
                 if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
                     restartArmed = true
                     presentAgeRatingIfNeeded()
