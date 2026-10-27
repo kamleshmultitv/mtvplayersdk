@@ -175,7 +175,7 @@ fun SelectorHeader(exoPlayer: ExoPlayer?, closeOptionCard: (Boolean) -> Unit = {
 
                     SelectionList(
                         items = qualityList.map { if (it.id == "auto") it.title.toString() else "${it.title}p" },
-                        selectedIndex = selectedItems[selectedOption] ?: -1
+                        selectedIndex = selectedItems[selectedOption] ?: 0
                     ) { index ->
                         selectedItems[selectedOption!!] = index
                         if (index == 0) {

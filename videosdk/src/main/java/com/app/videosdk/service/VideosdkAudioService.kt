@@ -111,42 +111,47 @@ class VideosdkAudioService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+                manager.createNotificationChannel(
+                    NotificationChannel(CHANNEL_ID, "Audio playback", NotificationManager.IMPORTANCE_LOW)
+                )
+            }
+            val session = mediaSession
+            val notification = if (session != null) {
+                try {
+                    buildNotification(session)
+                } catch (_: Exception) {
+                    NotificationCompat.Builder(this, CHANNEL_ID)
+                        .setContentTitle("Playing audio")
+                        .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_play)
+                        .setOngoing(true)
+                        .build()
+                }
+            } else {
+                NotificationCompat.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Playing audio")
+                    .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_play)
+                    .setOngoing(true)
+                    .build()
+            }
+            startForeground(NOTIFICATION_ID, notification)
+        }
+
         val action = intent?.action
         when (action) {
             ACTION_PLAY_PAUSE -> {
                 mediaSession?.player?.let { p ->
                     if (p.isPlaying) p.pause() else p.play()
                 }
-                triggerNotificationUpdate()
+                mediaSession?.let { session -> onUpdateNotification(session, true) }
             }
             ACTION_MUTE -> {
                 mediaSession?.player?.let { p ->
                     p.volume = if (p.volume == 0f) 1f else 0f
                 }
-                triggerNotificationUpdate()
-            }
-        }
-
-        val fromApp = intent?.getBooleanExtra(EXTRA_FROM_APP, false) == true
-        if (fromApp) {
-            val session = mediaSession
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-                    manager.createNotificationChannel(
-                        NotificationChannel(CHANNEL_ID, "Audio playback", NotificationManager.IMPORTANCE_LOW)
-                    )
-                }
-                if (session != null) {
-                    startForeground(NOTIFICATION_ID, buildNotification(session))
-                } else {
-                    val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setContentTitle("Playing audio")
-            .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_play)
-                        .setOngoing(true)
-                        .build()
-                    startForeground(NOTIFICATION_ID, notification)
-                }
+                mediaSession?.let { session -> onUpdateNotification(session, true) }
             }
         }
 

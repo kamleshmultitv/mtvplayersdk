@@ -811,7 +811,8 @@ fun CustomPlayerController(
                 controlsConfig = controlsConfig,
                 showPreviousControl = showPreviousControl,
                 castUtils = castUtils,
-                isCasting = isCasting
+                isCasting = isCasting,
+                onShowControls = showControlsState.value
             )
         }
 

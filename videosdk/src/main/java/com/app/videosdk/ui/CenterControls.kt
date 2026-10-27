@@ -1,7 +1,6 @@
 package com.app.videosdk.ui
 
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,12 +41,6 @@ fun CenterControls(
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
     val gestureModifier = Modifier
-        .pointerInput(Unit) {
-            detectTransformGestures { _, _, zoom, _ ->
-                if (zoom > 1f && !isZoomed) onZoomChange(true)
-                else if (zoom < 1f && isZoomed) onZoomChange(false)
-            }
-        }
         .pointerInput(Unit) {
             detectTapGestures(
                 onTap = { onShowControls(false) },

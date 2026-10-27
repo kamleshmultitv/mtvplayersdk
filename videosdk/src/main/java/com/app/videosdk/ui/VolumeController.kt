@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.ExoPlayer
 import com.app.videosdk.model.PlayerControlsConfig
 import com.app.videosdk.model.PlayerModel
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -42,11 +41,11 @@ fun CustomVolumeController(
     val context = LocalContext.current
     val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
 
-    val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
+    val maxVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
     var systemVolume by remember { mutableFloatStateOf(audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()) }
     var isMuted by rememberSaveable { mutableStateOf(exoPlayer.volume == 0f) }
 
-    val volumePercentage = (systemVolume * 100 / maxVolume).toInt()
+    val volumePercentage = (systemVolume * 100 / maxVolume).toInt().coerceIn(0, 100)
     val isDragging = remember { mutableStateOf(false) }
 
     // Ensure ExoPlayer respects the mute state
@@ -75,7 +74,7 @@ fun CustomVolumeController(
     }
 
     // Gesture detection for vertical drag (volume control)
-    val dragGesture = Modifier.pointerInput(Unit) {
+    val dragGesture = Modifier.pointerInput(maxVolume) {
         detectVerticalDragGestures(
             onDragStart = {
                 isDragging.value = true
@@ -83,19 +82,28 @@ fun CustomVolumeController(
             },
             onDragEnd = {
                 isDragging.value = false
-                onShowControls(false)
+                onShowControls(true)
+            },
+            onDragCancel = {
+                isDragging.value = false
+                onShowControls(true)
             },
             onVerticalDrag = { _, dragAmount ->
-                val scaleFactor = 0.02f // Sensitivity of drag
-                val adjustedDrag = dragAmount * scaleFactor
-                val stepSize = if (abs(dragAmount) > 10) 1.5f else 1.0f
+                // Dragging up (negative dragAmount) increases volume.
+                // Full vertical bar height (~150dp / ~300px) maps to full maxVolume range.
+                val delta = (dragAmount / 150f) * maxVolume
+                val newVolume = (systemVolume - delta).coerceIn(0f, maxVolume.toFloat())
 
-                val newVolume =
-                    (systemVolume - (adjustedDrag * stepSize)).coerceIn(0f, maxVolume.toFloat())
-
-                systemVolume = newVolume
-                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume.roundToInt(), 0)
-                if (newVolume > 0) isMuted = false // Unmute when volume is increased
+                if (newVolume != systemVolume) {
+                    systemVolume = newVolume
+                    val targetStreamVolume = newVolume.roundToInt()
+                    val currentStreamVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    if (targetStreamVolume != currentStreamVolume) {
+                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetStreamVolume, 0)
+                    }
+                    if (newVolume > 0f) isMuted = false
+                }
+                onShowControls(true)
             }
         )
     }

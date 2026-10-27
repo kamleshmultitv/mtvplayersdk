@@ -54,6 +54,8 @@ androidx-media3-exoplayer-dash = { module = "androidx.media3:media3-exoplayer-da
 androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3Exoplayer" }
 androidx-media3-session = { module = "androidx.media3:media3-session", version.ref = "media3Exoplayer" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3Exoplayer" }
+androidx-media3-uicompose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3Exoplayer" }
+androidx-media3-uicompose-material3 = { module = "androidx.media3:media3-ui-compose-material3", version.ref = "media3Exoplayer" }
 androidx-mediarouter = { module = "androidx.mediarouter:mediarouter", version.ref = "mediarouterVersion" }
 androidx-runtime = { module = "androidx.compose.runtime:runtime", version.ref = "runtime" }
 androidx-runtime-livedata = { module = "androidx.compose.runtime:runtime-livedata" }

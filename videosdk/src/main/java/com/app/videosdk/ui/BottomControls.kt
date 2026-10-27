@@ -51,7 +51,8 @@ fun BottomControls(
     onSeekStarted: (Long) -> Unit = {},
     onSeekCompleted: (Long) -> Unit = {},
     castUtils: CastUtils? = null,
-    isCasting: Boolean = false
+    isCasting: Boolean = false,
+    onShowControls: (Boolean) -> Unit = {}
 ) {
     val model = playerModelList?.getOrNull(index)
     val isLive = model?.isLive ?: false
@@ -102,7 +103,7 @@ fun BottomControls(
                 isLive = isLive,
                 showSeekbar = controlsConfig.seekbar,
                 exoPlayer = exoPlayer,
-                showControls = {},
+                showControls = onShowControls,
 
                 onDragStateChange = { dragging ->
                     isDragging = dragging

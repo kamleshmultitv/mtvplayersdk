@@ -331,10 +331,13 @@ object PlayerUtils {
         val trackGroups = trackSelector.currentMappedTrackInfo?.getTrackGroups(1) ?: run {
             return emptyList()
         }
+        // Prefer language code; fall back to NAME (label) from manifest.
+        // NAME is returned as-is so callers can select the track by name.
         val audioTracks = (0 until trackGroups.length).mapNotNull { index ->
             val format = trackGroups.get(index).getFormat(0)
-            val label = format.language ?: format.label
-            label.takeIf { it != null && it != "und" }
+            val language = format.language?.takeIf { it.isNotBlank() && it != "und" }
+            val name = format.label?.takeIf { it.isNotBlank() }
+            (language ?: name)
         }.distinct()
 
         return if (audioTracks.isNotEmpty()) {
@@ -348,33 +351,13 @@ object PlayerUtils {
         context: Context,
         audioTracks: List<String>
     ): List<SubTitleModel> {
-
-        val json = context.assets
-            .open("hls.json")
-            .bufferedReader()
-            .use { it.readText() }
-
-        val gson = Gson()
-
-        // ✅ RELEASE-SAFE: no generics, no reflection
-        val subtitleArray =
-            gson.fromJson(json, Array<SubTitleModel>::class.java)
-                ?: emptyArray()
-
-        val subtitleDataList = subtitleArray.toList()
-
-        val result = mutableListOf<SubTitleModel>()
-
-        for (audioTrack in audioTracks) {
-            for (subtitleData in subtitleDataList) {
-                if (audioTrack == subtitleData.id) {
-                    result.add(subtitleData)
-                    break
-                }
-            }
+        return audioTracks.mapNotNull { code ->
+            val clean = code.trim().takeIf { it.isNotEmpty() && !it.equals("und", ignoreCase = true) } ?: return@mapNotNull null
+            val locale = if (clean.length == 3) Locale(clean) else Locale.forLanguageTag(clean)
+            val displayName = locale.getDisplayLanguage(Locale.getDefault()).takeIf { it.isNotBlank() && !it.equals(clean, ignoreCase = true) }
+                ?: clean.uppercase(Locale.US)
+            SubTitleModel(id = clean, name = displayName)
         }
-
-        return result
     }
 
 
@@ -385,6 +368,46 @@ object PlayerUtils {
             .setPreferredAudioLanguage(language)
             .build()
         trackSelector.setParameters(parameters)
+    }
+
+    /**
+     * Select an audio track by its NAME attribute from the HLS manifest
+     * (`#EXT-X-MEDIA:NAME="Hindi"`). Falls back to language-code matching
+     * when NAME is absent.
+     */
+    @OptIn(UnstableApi::class)
+    fun selectAudioTrackByName(name: String, exoPlayer: ExoPlayer?) {
+        val exoPlayerInstance = exoPlayer ?: return
+        val trackSelector = exoPlayerInstance.trackSelector as? DefaultTrackSelector ?: return
+        val trackGroups = trackSelector.currentMappedTrackInfo?.getTrackGroups(1) ?: return
+
+        for (groupIndex in 0 until trackGroups.length) {
+            val group = trackGroups.get(groupIndex)
+            val format = group.getFormat(0)
+            // Match against NAME (label) first, then language code
+            val manifestName = format.label
+            val languageCode = format.language
+            if (manifestName.equals(name, ignoreCase = true) ||
+                languageCode.equals(name, ignoreCase = true)
+            ) {
+                val mediaTrackGroup = exoPlayerInstance.currentTracks.groups
+                    .filter { it.type == C.TRACK_TYPE_AUDIO }
+                    .getOrNull(groupIndex)?.mediaTrackGroup ?: run {
+                    // fallback: use language-based selection
+                    selectAudioTrack(name, exoPlayerInstance)
+                    return
+                }
+                exoPlayerInstance.trackSelectionParameters =
+                    exoPlayerInstance.trackSelectionParameters.buildUpon()
+                        .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                        .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, false)
+                        .setOverrideForType(TrackSelectionOverride(mediaTrackGroup, 0))
+                        .build()
+                return
+            }
+        }
+        // If no exact match, fall back to language-based preference
+        selectAudioTrack(name, exoPlayerInstance)
     }
 
     @OptIn(UnstableApi::class)
@@ -444,7 +467,7 @@ object PlayerUtils {
         val trackSelector = exoPlayer?.trackSelector as? DefaultTrackSelector
         val mappedTrackInfo = trackSelector?.currentMappedTrackInfo ?: return emptyList()
 
-        val videoQualityList = mutableListOf(VideoQualityModel("auto", 0, 0, 0, "Auto"))
+        val videoQualityList = mutableListOf<VideoQualityModel>()
 
         for (index in 0 until mappedTrackInfo.rendererCount) {
             if (videoRendererInfo(mappedTrackInfo, index, false)) {
@@ -463,7 +486,8 @@ object PlayerUtils {
             }
         }
 
-        return videoQualityList.sortedByDescending { it.height }
+        return listOf(VideoQualityModel("auto", 0, 0, 0, "Auto")) +
+            videoQualityList.sortedByDescending { it.height }
     }
 
     @OptIn(UnstableApi::class)

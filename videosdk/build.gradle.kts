@@ -68,7 +68,7 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "videosdk"
-                version = "mobile-monetization-1.0.1"
+                version = "mobile-monetization-1.0.2"
             }
         }
     }
@@ -101,6 +101,8 @@ dependencies {
     api(libs.androidx.media3.datasource)
     api(libs.androidx.media3.exoplayer)
     api(libs.androidx.media3.ui)
+    api(libs.androidx.media3.uicompose)
+    api(libs.androidx.media3.uicompose.material3)
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.cast)

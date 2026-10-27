@@ -12,7 +12,7 @@ import com.app.videosdk.model.SdkLoggingConfig
 
 object SdkLogger {
     @Volatile
-    private var level: SdkLogLevel = SdkLogLevel.OFF
+    private var level: SdkLogLevel = SdkLogLevel.INFO
 
     @Volatile
     private var tag: String = "MtvVideoPlayerSdk"

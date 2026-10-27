@@ -1,7 +1,6 @@
 package com.app.videosdk.ui
 
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Build
 import android.view.LayoutInflater
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -13,22 +12,22 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -40,8 +39,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -50,15 +49,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.graphics.toColorInt
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -67,25 +68,20 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.R
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
 import com.app.videosdk.listener.PlayerController
 import com.app.videosdk.listener.PlayerStateListener
+import com.app.videosdk.model.AgeRatingResolver
 import com.app.videosdk.model.Chapter
 import com.app.videosdk.model.CuePoint
 import com.app.videosdk.model.CueType
 import com.app.videosdk.model.EpisodeNowPlayingStyle
-import com.app.videosdk.model.AgeRatingResolver
-import com.app.videosdk.model.FreePreviewConfig
-import com.app.videosdk.model.FreePreviewEndConfig
 import com.app.videosdk.model.PlayerAdsConfig
 import com.app.videosdk.model.PlayerConfig
 import com.app.videosdk.model.PlayerModel
-import com.app.videosdk.model.WatermarkConfig
-import com.app.videosdk.model.WatermarkPosition
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
 import com.app.videosdk.ui.cut.CutBottomSheet
@@ -94,7 +90,6 @@ import com.app.videosdk.utils.PlayerMode
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.PlayerUtils.parseDurationToMillis
 import com.google.android.gms.cast.framework.CastContext
-import coil.compose.rememberAsyncImagePainter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -246,6 +241,7 @@ fun MtvVideoPlayerSdk(
     val isFullScreen = currentMode == PlayerMode.FULL_SCREEN
 
     var isSettingsClick by remember { mutableStateOf(false) }
+    val selectedItems = remember { mutableStateMapOf<Int, Int>() }
 
     // Close settings when orientation changes (e.g., player is rotated)
     LaunchedEffect(configuration.orientation) {
@@ -279,6 +275,8 @@ fun MtvVideoPlayerSdk(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     var hasActivatedFill by remember { mutableStateOf(false) }
     var showCutSheet by remember { mutableStateOf(false) }
+    var isLongPress2xSpeedActive by remember { mutableStateOf(false) }
+    val previousPlaybackSpeed = remember { mutableFloatStateOf(1.0f) }
 
     var isSkipIntroClicked by remember(selectedIndex.intValue) { mutableStateOf(false) }
     var hasPreviewLimitTriggered by remember(playerModel, activeIndex, playRequestId) {
@@ -471,6 +469,17 @@ fun MtvVideoPlayerSdk(
     val freePreview = playerConfig.freePreview
     val freePreviewEnd = playerConfig.freePreviewEnd
 
+    val hapticFeedback = LocalHapticFeedback.current
+
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            if (isLongPress2xSpeedActive) {
+                isLongPress2xSpeedActive = false
+                exoPlayer?.setPlaybackSpeed(previousPlaybackSpeed.floatValue)
+            }
+        }
+    }
+
     var isAudioOnly by remember { mutableStateOf(false) }
 
     LaunchedEffect(isAudioOnly, exoPlayer) {
@@ -533,8 +542,14 @@ fun MtvVideoPlayerSdk(
             }
         }
         player.addListener(listener)
+
+        val bandwidthMonitor = com.app.videosdk.utils.LowBandwidthFallbackMonitor(player) { fallback ->
+            isAudioOnly = fallback
+        }
+
         onDispose {
             player.removeListener(listener)
+            bandwidthMonitor.release()
         }
     }
 
@@ -1036,42 +1051,28 @@ fun MtvVideoPlayerSdk(
                     ) {
 
                         Box(modifier = Modifier.fillMaxSize()) {
-                            AndroidView(
-                                factory = { playerView },
-                                update = { view ->
-
-                                    if (view.player !== exoPlayer) {
-                                        view.player = exoPlayer
-                                    }
-
-                                    view.subtitleView?.apply {
-
-                                        setApplyEmbeddedStyles(false)
-                                        setApplyEmbeddedFontSizes(false)
-
-                                        setStyle(
-                                            CaptionStyleCompat(
-                                                android.graphics.Color.WHITE,
-                                                "#80000000".toColorInt(),
-                                                android.graphics.Color.TRANSPARENT,
-                                                CaptionStyleCompat.EDGE_TYPE_NONE,
-                                                android.graphics.Color.TRANSPARENT,
-                                                android.graphics.Typeface.DEFAULT
-                                            )
-                                        )
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-
-                                        val finalScale =
-                                            if (isFullScreen) zoomAccumulator else 1f
-
-                                        scaleX = finalScale
-                                        scaleY = finalScale
-                                    }
-                            )
+                            if (exoPlayer != null) {
+                                androidx.media3.ui.compose.ContentFrame(
+                                    player = exoPlayer,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer {
+                                            val finalScale = if (isFullScreen) zoomAccumulator else 1f
+                                            scaleX = finalScale
+                                            scaleY = finalScale
+                                        }
+                                )
+                            } else {
+                                AndroidView(
+                                    factory = { playerView },
+                                    update = { view ->
+                                        if (view.player !== exoPlayer) {
+                                            view.player = exoPlayer
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
 
                             AudioOnlyThumbnailOverlay(
                                 playerModel = playerModel,
@@ -1090,58 +1091,80 @@ fun MtvVideoPlayerSdk(
                         // Keep gesture handling on a Compose layer above PlayerView.
                         // AndroidView can otherwise consume the first multi-touch gesture
                         // after the controller overlay has disappeared.
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                // 🔥 PINCH ZOOM
-                                .pointerInput(
-                                    isFullScreen,
-                                    pipEnabled,
-                                    isAdsShowing,
-                                    isLockScreen
-                                ) {
-                                    detectTransformGestures { _, _, zoom, _ ->
-                                        if (!pipEnabled && !isAdsShowing && !isLockScreen && isFullScreen) {
-                                            if (!hasActivatedFill) {
-                                                isFilled = true
-                                                hasActivatedFill = true
-                                                zoomAccumulator = fillScale
-                                            }
-
-                                            zoomAccumulator *= zoom
-
-                                            // Allow zoom from normal (1x) to 3x
-                                            zoomAccumulator = zoomAccumulator.coerceIn(1f, 3f)
-                                        }
+                        PlayerGestureLayer(
+                            isFullScreen = isFullScreen,
+                            pipEnabled = pipEnabled,
+                            isAdsShowing = isAdsShowing,
+                            isLockScreen = isLockScreen,
+                            isSettingsClick = isSettingsClick,
+                            showControls = showControls,
+                            fillScale = fillScale,
+                            zoomAccumulator = zoomAccumulator,
+                            hasActivatedFill = hasActivatedFill,
+                            onActivatedFillChanged = { hasActivatedFill = it },
+                            onFilledChanged = { isFilled = it },
+                            onZoomAccumulatorChanged = { zoomAccumulator = it },
+                            onLockOverlayVisibleChanged = { isLockOverlayVisible = it },
+                            onToggleControllerVisibility = { isControllerVisible = !isControllerVisible },
+                            onLongPress2xSpeedStart = {
+                                val player = exoPlayer
+                                if (player != null && !isLockScreen && !pipEnabled && !isAdsShowing && !isLive) {
+                                    if (player.isPlaying || player.playWhenReady) {
+                                        previousPlaybackSpeed.floatValue = player.playbackParameters.speed
+                                        isLongPress2xSpeedActive = true
+                                        isControllerVisible = false
+                                        player.setPlaybackSpeed(2.0f)
+                                        playerStateListener?.onPlaybackSpeedChanged(2.0f)
+                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
                                     }
                                 }
+                            },
+                            onLongPress2xSpeedEnd = {
+                                if (isLongPress2xSpeedActive) {
+                                    isLongPress2xSpeedActive = false
+                                    val player = exoPlayer
+                                    if (player != null) {
+                                        val restoreSpeed = previousPlaybackSpeed.floatValue
+                                        player.setPlaybackSpeed(restoreSpeed)
+                                        playerStateListener?.onPlaybackSpeedChanged(restoreSpeed)
+                                    }
+                                }
+                            }
+                        )
 
-                                // 🔥 SINGLE TAP
-                                .pointerInput(pipEnabled, isSettingsClick, isLockScreen, showControls) {
-                                    detectTapGestures(
-                                        onDoubleTap = {
-                                            hasActivatedFill = false
-                                            isFilled = false
-                                            zoomAccumulator = 1f
-                                            // Reset zoom on double tap
-                                            if (zoomAccumulator > 1f) {
-                                                zoomAccumulator = 1f
-                                            }
-                                        },
-                                        onTap = {
-                                            when {
-                                                isLockScreen -> {
-                                                    isLockOverlayVisible = true
-                                                }
-
-                                                showControls && !pipEnabled && !isSettingsClick -> {
-                                                    isControllerVisible = !isControllerVisible
-                                                }
-                                            }
-                                        }
+                        // ⚡ 2X Speed Indicator Overlay on Long Press
+                        AnimatedVisibility(
+                            visible = isLongPress2xSpeedActive,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = 20.dp)
+                        ) {
+                            Surface(
+                                color = Color.Black.copy(alpha = 0.75f),
+                                shape = RoundedCornerShape(20.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = "2X Speed",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Icon(
+                                        imageVector = androidx.compose.material.icons.Icons.Default.FastForward,
+                                        contentDescription = "2X Speed",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
-                        )
+                            }
+                        }
 
                         // 🔄 Loading
                         if (!isControllerVisible && isLoading) {
@@ -1262,7 +1285,6 @@ fun MtvVideoPlayerSdk(
 
                         // ⚙ Settings — only visible in fullscreen mode
                         if (isSettingsClick && isFullScreen) {
-                            val selectedItems = remember { mutableStateMapOf<Int, Int>() }
                             SelectorHeader(
                                 playerModel = playerModel,
                                 exoPlayer = exoPlayer,

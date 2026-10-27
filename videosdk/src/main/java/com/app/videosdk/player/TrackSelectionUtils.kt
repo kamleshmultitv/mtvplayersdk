@@ -14,58 +14,24 @@ import com.app.videosdk.model.SubTitleModel
 import com.app.videosdk.model.VideoQualityModel
 import com.app.videosdk.utils.PlayerUtils
 import com.app.videosdk.utils.SdkLogger
-import com.google.gson.Gson
 import kotlin.math.pow
 
 object TrackSelectionUtils {
 
     @OptIn(UnstableApi::class)
     fun showAudioTrack(context: Context, exoPlayer: ExoPlayer?): List<SubTitleModel> {
-        val exoPlayerInstance = exoPlayer ?: return emptyList()
-        val trackSelector =
-            exoPlayerInstance.trackSelector as? DefaultTrackSelector ?: return emptyList()
-        val trackGroups = trackSelector.currentMappedTrackInfo?.getTrackGroups(1) ?: run {
-            return emptyList()
-        }
-        val audioTracks = (0 until trackGroups.length).mapNotNull { index ->
-            val format = trackGroups.get(index).getFormat(0)
-            val label = format.language ?: format.label
-            label.takeIf { it != null && it != "und" }
-        }.distinct()
-
-        return if (audioTracks.isNotEmpty()) {
-            getAudioTrack(context, audioTracks)
-        } else {
-            emptyList()
-        }
+        return PlayerUtils.showAudioTrack(exoPlayer)
     }
 
     fun getAudioTrack(
         context: Context,
         audioTracks: List<String>
     ): List<SubTitleModel> {
-        val json = context.assets
-            .open("hls.json")
-            .bufferedReader()
-            .use { it.readText() }
+        return PlayerUtils.getAudioTrack(audioTracks)
+    }
 
-        val subtitleArray =
-            Gson().fromJson(json, Array<SubTitleModel>::class.java)
-                ?: emptyArray()
-
-        val subtitleDataList = subtitleArray.toList()
-        val result = mutableListOf<SubTitleModel>()
-
-        for (audioTrack in audioTracks) {
-            for (subtitleData in subtitleDataList) {
-                if (audioTrack == subtitleData.id) {
-                    result.add(subtitleData)
-                    break
-                }
-            }
-        }
-
-        return result
+    fun getAudioTrack(audioTracks: List<String>): List<SubTitleModel> {
+        return PlayerUtils.getAudioTrack(audioTracks)
     }
 
     @OptIn(UnstableApi::class)
@@ -77,57 +43,8 @@ object TrackSelectionUtils {
         trackSelector.setParameters(parameters)
     }
 
-    fun getTextTrackOptions(exoPlayer: ExoPlayer?): List<PlayerUtils.TextTrackOption> {
-        val trackOptions = mutableListOf<PlayerUtils.TextTrackOption>()
-        val trackGroups = exoPlayer?.currentTracks?.groups.orEmpty()
-        var hasSelectedTextTrack = false
-
-        trackGroups
-            .filter { it.type == C.TRACK_TYPE_TEXT }
-            .forEachIndexed { groupIndex, group ->
-                val mediaTrackGroup = group.mediaTrackGroup
-                for (trackIndex in 0 until group.length) {
-                    val format = group.getTrackFormat(trackIndex)
-                    val language = format.language.cleanTrackText()
-                    val label = format.label.cleanTrackText()
-                    val displayName = label
-                        ?: language
-                        ?: format.id.cleanTrackText()
-                        ?: "Subtitle ${trackOptions.size + 1}"
-                    val isSelected = group.isTrackSelected(trackIndex)
-
-                    if (isSelected) {
-                        hasSelectedTextTrack = true
-                    }
-
-                    trackOptions.add(
-                        PlayerUtils.TextTrackOption(
-                            id = language
-                                ?: label
-                                ?: format.id.cleanTrackText()
-                                ?: "text_${groupIndex}_$trackIndex",
-                            displayName = displayName,
-                            language = language,
-                            mediaTrackGroup = mediaTrackGroup,
-                            trackIndex = trackIndex,
-                            isSelected = isSelected
-                        )
-                    )
-                }
-            }
-
-        return listOf(
-            PlayerUtils.TextTrackOption(
-                id = "off",
-                displayName = "Off",
-                language = null,
-                mediaTrackGroup = null,
-                trackIndex = C.INDEX_UNSET,
-                isOff = true,
-                isSelected = !hasSelectedTextTrack
-            )
-        ) + trackOptions
-    }
+    fun getTextTrackOptions(exoPlayer: ExoPlayer?): List<PlayerUtils.TextTrackOption> =
+        PlayerUtils.getTextTrackOptions(exoPlayer)
 
     fun selectTextTrack(option: PlayerUtils.TextTrackOption, exoPlayer: ExoPlayer?) {
         val player = exoPlayer ?: return

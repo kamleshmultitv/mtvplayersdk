@@ -225,14 +225,7 @@ fun SelectorHeader(
 
                 4 -> {
                     val qualityList = remember(exoPlayer) { getVideoFormats(exoPlayer) }
-                    val selectedIndex: Int = selectedItems[selectedOption] ?: run {
-                        val trackParams = exoPlayer?.trackSelectionParameters
-                        val isAuto = trackParams?.maxVideoWidth == Int.MAX_VALUE && trackParams.maxVideoHeight == Int.MAX_VALUE
-                        if (isAuto) 0 else {
-                            val height = trackParams?.maxVideoHeight ?: -1
-                            qualityList.indexOfFirst { it.height == height }.takeIf { it >= 0 } ?: -1
-                        }
-                    }
+                    val selectedIndex: Int = selectedItems[selectedOption] ?: 0
                     SelectionList(
                         items = qualityList.map { if (it.id == "auto") it.title.toString() else "${it.title}p" },
                         selectedIndex = selectedIndex
