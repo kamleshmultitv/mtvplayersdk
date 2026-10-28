@@ -68,7 +68,7 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "videosdk"
-                version = "mobile-monetization-1.0.3"
+                version = "mobile-monetization-1.0.4"
             }
         }
     }
