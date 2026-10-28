@@ -100,6 +100,7 @@ fun CustomPlayerController(
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
     showPreviousControl: Boolean = false,
     isAudioOnly: Boolean = false,
+    showLowBandwidthHint: Boolean = false,
     onAudioModeToggle: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -353,10 +354,12 @@ fun CustomPlayerController(
     }
 
 
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, isAudioOnly) {
         val observer = object : DefaultLifecycleObserver {
             override fun onStop(owner: LifecycleOwner) {
-                exoPlayer.pause()
+                if (!isAudioOnly) {
+                    exoPlayer.pause()
+                }
                 showControlsState.value(false)
             }
         }
@@ -454,6 +457,7 @@ fun CustomPlayerController(
                 controlsConfig = controlsConfig,
                 showContentTitle = showContentTitle,
                 isAudioOnly = isAudioOnly,
+                showLowBandwidthHint = showLowBandwidthHint,
                 isPipEnabled = isPipEnabled,
                 onBackPressed = onBackPressed,
                 onSettingsClick = {
@@ -657,7 +661,7 @@ fun CustomPlayerController(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = if (isCurrentlyFullScreen) 56.dp else 32.dp, start = 8.dp)
+                .padding(bottom = if (isCurrentlyFullScreen) 64.dp else 44.dp, end = 84.dp)
         ) {
             val skipIntroButtonShape = RoundedCornerShape(8.dp)
 
@@ -693,7 +697,7 @@ fun CustomPlayerController(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = if (isCurrentlyFullScreen) 56.dp else 32.dp)
+                .padding(bottom = if (isCurrentlyFullScreen) 64.dp else 44.dp, end = 84.dp)
         ) {
             if (playerModelList != null && playerModelList.size > 1) {
                 val isLastItem = index >= playerModelList.lastIndex
@@ -744,7 +748,7 @@ fun CustomPlayerController(
         /* ---------- BOTTOM CONTROLS ---------- */
 
         AnimatedVisibility(
-            visible = isControlsVisible && !expandSheet,
+            visible = (isControlsVisible || isDraggingSeekbar) && !expandSheet,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .offset(y = if (isCurrentlyFullScreen) 0.dp else 8.dp),

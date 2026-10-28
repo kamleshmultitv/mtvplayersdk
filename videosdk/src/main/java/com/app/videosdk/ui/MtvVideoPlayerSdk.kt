@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.FastForward
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalNavigationDrawer
@@ -50,7 +49,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -369,7 +367,7 @@ fun MtvVideoPlayerSdk(
         )
     }
     val shouldAutoPlay = remember(playbackUrl, currentMode, isDefaultPlayerConfig, playerConfig) {
-        if (playbackUrl.isNullOrBlank()) {
+        if (playbackUrl.isBlank()) {
             false
         } else if (isDefaultPlayerConfig) {
             true
@@ -417,7 +415,7 @@ fun MtvVideoPlayerSdk(
                 showLShapeAd = true
 
                 coroutineScope.launch {
-                    delay(200000)
+                    delay(200_000L)
                     showLShapeAd = false
                 }
             }
@@ -440,21 +438,20 @@ fun MtvVideoPlayerSdk(
         subtitleUri
     ) {
         val model = playerModel ?: return@remember null
-        val urlString = playbackUrl
         val isPrerollConsumed = prerollKey != null && consumedPrerollKeys.contains(prerollKey)
         val adsConfigForNewPlayer =
             effectiveAdsConfig?.copy(enableAds = effectiveVmapAdsEnabled && !isPrerollConsumed)
 
         android.util.Log.d(
             "MtvVideoPlayerSdk",
-            "Creating player with url: ${urlString.redactUrlForLog()}, drmToken: ${if (model.drmToken.isNullOrBlank()) "null" else "present"}"
+            "Creating player with url: ${playbackUrl.redactUrlForLog()}, drmToken: ${if (model.drmToken.isNullOrBlank()) "null" else "present"}"
         )
 
         PlayerUtils.createPlayer(
             context = context,
             activeContentList,
             activeIndex,
-            videoUrl = urlString,
+            videoUrl = playbackUrl,
             drmToken = model.drmToken,
             srt = subtitleUri,
             playerView = playerView,
@@ -481,6 +478,21 @@ fun MtvVideoPlayerSdk(
     }
 
     var isAudioOnly by remember { mutableStateOf(false) }
+    var isLowBandwidthTriggered by remember { mutableStateOf(false) }
+    var showLowBandwidthHint by remember { mutableStateOf(false) }
+
+    LaunchedEffect(activeIndex, playerModel) {
+        isLoading = true
+    }
+
+    LaunchedEffect(isLowBandwidthTriggered) {
+        if (isLowBandwidthTriggered && com.app.videosdk.utils.LowBandwidthHintManager.canShowHint(context)) {
+            com.app.videosdk.utils.LowBandwidthHintManager.recordHintShown(context)
+            showLowBandwidthHint = true
+            delay(8_000L)
+            showLowBandwidthHint = false
+        }
+    }
 
     LaunchedEffect(isAudioOnly, exoPlayer) {
         exoPlayer?.let { player ->
@@ -519,7 +531,8 @@ fun MtvVideoPlayerSdk(
         exoPlayer?.let { CastUtils(context, it, playerStateListener) }
     }
 
-    LaunchedEffect(castUtils, playerModel) {
+    LaunchedEffect(castUtils, playerModel, isAudioOnly) {
+        castUtils?.isAudioOnly = isAudioOnly
         castUtils?.setupCastSession(playerModel)
     }
 
@@ -544,6 +557,7 @@ fun MtvVideoPlayerSdk(
         player.addListener(listener)
 
         val bandwidthMonitor = com.app.videosdk.utils.LowBandwidthFallbackMonitor(player) { fallback ->
+            isLowBandwidthTriggered = fallback
             isAudioOnly = fallback
         }
 
@@ -1077,6 +1091,7 @@ fun MtvVideoPlayerSdk(
                             AudioOnlyThumbnailOverlay(
                                 playerModel = playerModel,
                                 isAudioOnly = isAudioOnly,
+                                isLowBandwidthTriggered = isLowBandwidthTriggered,
                                 isFullScreen = isFullScreen,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -1166,14 +1181,6 @@ fun MtvVideoPlayerSdk(
                             }
                         }
 
-                        // 🔄 Loading
-                        if (!isControllerVisible && isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.align(Alignment.Center),
-                                color = Color.White
-                            )
-                        }
-
                         // 🎛 Controller
                         AnimatedVisibility(
                             visible = showControls && isControllerVisible && !pipEnabled && !isLockScreen && !isAdsShowing,
@@ -1209,7 +1216,7 @@ fun MtvVideoPlayerSdk(
                                         }
                                     },
                                     onSettingsButtonClick = { isSettingsClick = it },
-                                    isLoading = isLoading,
+                                    isLoading = if (hasRenderedFirstFrame) isLoading else false,
                                     onBackPressed = {
                                         if (currentMode == PlayerMode.FULL_SCREEN) {
                                             currentMode = PlayerMode.MINI
@@ -1239,7 +1246,11 @@ fun MtvVideoPlayerSdk(
                                     showPreviousControl = hasExplicitControlsConfig &&
                                             playerConfig.controls.previous,
                                     isAudioOnly = isAudioOnly,
-                                    onAudioModeToggle = { isAudioOnly = !isAudioOnly }
+                                    showLowBandwidthHint = showLowBandwidthHint,
+                                    onAudioModeToggle = {
+                                        isAudioOnly = !isAudioOnly
+                                        showLowBandwidthHint = false
+                                    }
 
                                 )
                             }

@@ -69,7 +69,7 @@ fun BottomControls(
 
         /* ---------- SPRITE PREVIEW ---------- */
 
-        if (!isLive && isDragging && duration > 0) {
+        if (isFullScreen && !isLive && isDragging && duration > 0) {
 
             val posToShow =
                 if (previewMs > 0) previewMs else exoPlayer.currentPosition.coerceAtLeast(0L)

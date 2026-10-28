@@ -17,11 +17,17 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider
 import androidx.media3.exoplayer.hls.SampleQueueMappingException
 import androidx.media3.exoplayer.ima.ImaAdsLoader
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.ui.PlayerView
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.model.AdsConfig
@@ -31,6 +37,40 @@ import com.google.ads.interactivemedia.v3.api.AdEvent
 import com.google.common.collect.ImmutableList
 
 internal object PlayerFactory {
+
+    @OptIn(UnstableApi::class)
+    internal fun buildLoadControl(isLive: Boolean, isAudioOnly: Boolean): DefaultLoadControl {
+        val builder = DefaultLoadControl.Builder()
+            .setPrioritizeTimeOverSizeThresholds(true)
+
+        when {
+            isLive -> {
+                builder.setBufferDurationsMs(
+                    /* minBufferMs = */ 10_000,
+                    /* maxBufferMs = */ 25_000,
+                    /* bufferForPlaybackMs = */ 1_500,
+                    /* bufferForPlaybackAfterRebufferMs = */ 3_000
+                )
+            }
+            isAudioOnly -> {
+                builder.setBufferDurationsMs(
+                    /* minBufferMs = */ 15_000,
+                    /* maxBufferMs = */ 30_000,
+                    /* bufferForPlaybackMs = */ 2_000,
+                    /* bufferForPlaybackAfterRebufferMs = */ 3_000
+                )
+            }
+            else -> { // VOD Video
+                builder.setBufferDurationsMs(
+                    /* minBufferMs = */ 15_000,
+                    /* maxBufferMs = */ 50_000,
+                    /* bufferForPlaybackMs = */ 2_500,
+                    /* bufferForPlaybackAfterRebufferMs = */ 5_000
+                )
+            }
+        }
+        return builder.build()
+    }
 
     @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     @OptIn(UnstableApi::class)
@@ -108,14 +148,28 @@ internal object PlayerFactory {
 
         val dataSourceFactory = buildDataSourceFactory(content, isOffline)
 
+        val loadErrorHandlingPolicy = object : DefaultLoadErrorHandlingPolicy(3) {
+            override fun getRetryDelayMsFor(loadErrorInfo: LoadErrorHandlingPolicy.LoadErrorInfo): Long {
+                val delayMs = super.getRetryDelayMsFor(loadErrorInfo)
+                SdkLogger.debug("Network retry delay ${delayMs}ms for error: ${loadErrorInfo.exception.message}")
+                return delayMs
+            }
+        }
+
         val mediaSourceFactory =
             DefaultMediaSourceFactory(context)
                 .setDataSourceFactory(dataSourceFactory)
+                .setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
                 .apply {
                     if (!drmToken.isNullOrBlank()) {
                         setDrmSessionManagerProvider(
                             DefaultDrmSessionManagerProvider().apply {
-                                setDrmHttpDataSourceFactory(DefaultHttpDataSource.Factory())
+                                setDrmHttpDataSourceFactory(
+                                    DefaultHttpDataSource.Factory()
+                                        .setConnectTimeoutMs(8_000)
+                                        .setReadTimeoutMs(8_000)
+                                        .setAllowCrossProtocolRedirects(true)
+                                )
                             }
                         )
                     }
@@ -128,9 +182,31 @@ internal object PlayerFactory {
                     }
                 }
 
+        val isLive = content?.isLive == true
+        val isAudioOnly = content?.enableAudioOnlyToggle == true
+
+        val loadControl = buildLoadControl(isLive = isLive, isAudioOnly = isAudioOnly)
+
+        val bandwidthMeter = DefaultBandwidthMeter.Builder(context).build()
+
+        val trackSelector = DefaultTrackSelector(
+            context,
+            AdaptiveTrackSelection.Factory()
+        ).apply {
+            parameters = buildUponParameters()
+                .setAllowVideoNonSeamlessAdaptiveness(true)
+                .setAllowVideoMixedMimeTypeAdaptiveness(true)
+                .setAllowAudioMixedMimeTypeAdaptiveness(true)
+                .setForceHighestSupportedBitrate(false)
+                .build()
+        }
+
         val exoPlayer =
             ExoPlayer.Builder(context)
                 .setMediaSourceFactory(mediaSourceFactory)
+                .setLoadControl(loadControl)
+                .setTrackSelector(trackSelector)
+                .setBandwidthMeter(bandwidthMeter)
                 .build()
 
         var audioFallbackAttempted = false

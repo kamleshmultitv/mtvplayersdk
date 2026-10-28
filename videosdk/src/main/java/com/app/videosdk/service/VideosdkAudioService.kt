@@ -35,7 +35,19 @@ class VideosdkAudioService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         currentInstance = this
+        ensureNotificationChannel()
         activePlayer?.let { updatePlayer(it) }
+    }
+
+    private fun ensureNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+                manager.createNotificationChannel(
+                    NotificationChannel(CHANNEL_ID, "Audio playback", NotificationManager.IMPORTANCE_LOW)
+                )
+            }
+        }
     }
 
     private fun updatePlayer(player: Player?) {
@@ -54,9 +66,14 @@ class VideosdkAudioService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        ensureNotificationChannel()
         val notification = buildNotification(session)
         if (startInForegroundRequired) {
-            startForeground(NOTIFICATION_ID, notification)
+            try {
+                startForeground(NOTIFICATION_ID, notification)
+            } catch (e: Exception) {
+                android.util.Log.e("VideosdkAudioService", "Failed to start foreground in onUpdateNotification", e)
+            }
         } else {
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.notify(NOTIFICATION_ID, notification)
@@ -84,12 +101,12 @@ class VideosdkAudioService : MediaSessionService() {
         )
 
         val playPauseAction = NotificationCompat.Action(
-            if (isPlaying) androidx.media3.session.R.drawable.media3_icon_pause else androidx.media3.session.R.drawable.media3_icon_play,
+            if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
             if (isPlaying) "Pause" else "Play",
             playPausePending
         )
         val muteAction = NotificationCompat.Action(
-            if (isMuted) androidx.media3.session.R.drawable.media3_icon_volume_off else androidx.media3.session.R.drawable.media3_icon_volume_up,
+            if (isMuted) android.R.drawable.ic_lock_silent_mode else android.R.drawable.ic_lock_silent_mode_off,
             if (isMuted) "Unmute" else "Mute",
             mutePending
         )
@@ -98,7 +115,7 @@ class VideosdkAudioService : MediaSessionService() {
             .setShowActionsInCompactView(0, 1)
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-                        .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_play)
+            .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentTitle(player.mediaMetadata.title ?: "Playing audio")
             .setContentText(player.mediaMetadata.artist)
             .setStyle(style)
@@ -111,13 +128,8 @@ class VideosdkAudioService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        ensureNotificationChannel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-                manager.createNotificationChannel(
-                    NotificationChannel(CHANNEL_ID, "Audio playback", NotificationManager.IMPORTANCE_LOW)
-                )
-            }
             val session = mediaSession
             val notification = if (session != null) {
                 try {
@@ -125,18 +137,22 @@ class VideosdkAudioService : MediaSessionService() {
                 } catch (_: Exception) {
                     NotificationCompat.Builder(this, CHANNEL_ID)
                         .setContentTitle("Playing audio")
-                        .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_play)
+                        .setSmallIcon(android.R.drawable.ic_media_play)
                         .setOngoing(true)
                         .build()
                 }
             } else {
                 NotificationCompat.Builder(this, CHANNEL_ID)
                     .setContentTitle("Playing audio")
-                    .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_play)
+                    .setSmallIcon(android.R.drawable.ic_media_play)
                     .setOngoing(true)
                     .build()
             }
-            startForeground(NOTIFICATION_ID, notification)
+            try {
+                startForeground(NOTIFICATION_ID, notification)
+            } catch (e: Exception) {
+                android.util.Log.e("VideosdkAudioService", "Failed to start foreground in onStartCommand", e)
+            }
         }
 
         val action = intent?.action

@@ -1,13 +1,18 @@
 package com.app.videosdk.ui
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Forward10
@@ -24,6 +29,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -48,6 +58,7 @@ fun ForwardBackwardButtonsOverlay(
     onSeekCompleted: (Long) -> Unit = {},
     isControllerVisible: Boolean,
     isFullScreen: Boolean,
+    isLoading: Boolean = false,
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig()
 ) {
     val customControls = playerModel?.customControls
@@ -88,6 +99,7 @@ fun ForwardBackwardButtonsOverlay(
         isCasting = isCasting,
         customControls = customControls,
         controlsConfig = controlsConfig,
+        isLoading = isLoading,
         onRewind = {
             if (controlsConfig.seekBack.enabled) {
                 rewindAnimTrigger++
@@ -169,6 +181,7 @@ private fun ForwardBackwardButtonsOverlayUi(
     isCasting: Boolean,
     customControls: PlayerCustomControls?,
     controlsConfig: PlayerControlsConfig,
+    isLoading: Boolean,
     onRewind: () -> Unit,
     onForward: () -> Unit,
     onPlayPause: () -> Unit,
@@ -228,14 +241,14 @@ private fun ForwardBackwardButtonsOverlayUi(
 
             /* ▶️ Play / Pause */
             Box(
-                modifier = Modifier.weight(1f)
-                    .height(48.dp),
+                modifier = Modifier.weight(1f),
                 contentAlignment = Alignment.Center
             ) {
                 if (isControllerVisible && ((isPlaying && controlsConfig.pause) || (!isPlaying && controlsConfig.play))) {
+                    val containerSize = playPauseIconSize + 16.dp
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(containerSize)
                             .clickable(
                                 interactionSource = playPauseInteractionSource,
                                 indication = null,
@@ -243,6 +256,13 @@ private fun ForwardBackwardButtonsOverlayUi(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
+                        if (isLoading) {
+                            CircularLoader(
+                                modifier = Modifier.size(playPauseIconSize + 10.dp),
+                                color = Color.White,
+                                strokeWidth = 3.dp
+                            )
+                        }
 
                         CustomIcon(
                             resId = if (isPlaying) customControls?.pauseIconRes else customControls?.playIconRes,
@@ -309,6 +329,7 @@ fun ForwardBackwardButtonsOverlayPreview() {
         isCasting = false, // Not casting for preview
         customControls = customControls,
         controlsConfig = PlayerControlsConfig(),
+        isLoading = false,
         onRewind = { /* mock seek back */ },
         onForward = { /* mock seek forward */ },
         onPlayPause = { isPlaying = !isPlaying },
@@ -320,4 +341,52 @@ fun ForwardBackwardButtonsOverlayPreview() {
         rewindRotation = rewindRotation,
         forwardRotation = forwardRotation
     )
+}
+
+@Composable
+private fun CircularLoader(
+    modifier: Modifier = Modifier,
+    color: Color = Color.White,
+    strokeWidth: Dp = 3.dp
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "circularLoader")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "loaderRotation"
+    )
+
+    val strokeWidthPx = with(androidx.compose.ui.platform.LocalDensity.current) { strokeWidth.toPx() }
+
+    Box(
+        modifier = modifier.graphicsLayer(rotationZ = rotation),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val diameter = size.minDimension - strokeWidthPx
+            val topLeft = Offset(
+                (size.width - diameter) / 2f,
+                (size.height - diameter) / 2f
+            )
+            val arcSize = Size(diameter, diameter)
+
+            // Draw 75% arc (270 degrees sweep angle out of 360 = 75% cover)
+            drawArc(
+                color = color,
+                startAngle = 0f,
+                sweepAngle = 270f,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(
+                    width = strokeWidthPx,
+                    cap = StrokeCap.Round
+                )
+            )
+        }
+    }
 }

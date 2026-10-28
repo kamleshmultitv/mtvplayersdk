@@ -2,17 +2,23 @@ package com.app.videosdk.ui
 
 import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoStories
@@ -21,6 +27,8 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +55,7 @@ fun TopBar(
     controlsConfig: PlayerControlsConfig = PlayerControlsConfig(),
     showContentTitle: Boolean = true,
     isAudioOnly: Boolean = false,
+    showLowBandwidthHint: Boolean = false,
     isPipEnabled: (Boolean) -> Unit,
     onBackPressed: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -82,7 +91,6 @@ fun TopBar(
                 }
             )
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-            .then(if (isFullScreen) Modifier.statusBarsPadding() else Modifier)
             .padding(horizontal = 4.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -99,7 +107,7 @@ fun TopBar(
             )
         }
 
-        androidx.compose.foundation.layout.Box(
+        Box(
             modifier = Modifier
                 .weight(1f)
                 .padding(start = 2.dp, end = 8.dp),
@@ -176,11 +184,46 @@ fun TopBar(
 
         val showAudioOnlyToggle = playerModel?.enableAudioOnlyToggle ?: controlsConfig.audioOnlyToggle
         if (isFullScreen && showAudioOnlyToggle) {
-            AudioVideoToggleSwitch(
-                isAudioOnly = isAudioOnly,
-                onToggle = onAudioModeToggle,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+            Box(
+                modifier = Modifier.wrapContentSize()
+            ) {
+                AudioVideoToggleSwitch(
+                    isAudioOnly = isAudioOnly,
+                    onToggle = onAudioModeToggle,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+
+                if (showLowBandwidthHint) {
+                    Card(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(y = 52.dp, x = 16.dp)
+                            .width(230.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Black.copy(alpha = 0.92f)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp)
+                        ) {
+                            Text(
+                                text = "Switch to audio mode (Low network)",
+                                color = Color.Yellow,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "You can manually toggle between audio and video anytime using this switch.",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // PIP and Settings remain visible only in FullScreen (VOD context)

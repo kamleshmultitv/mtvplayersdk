@@ -5,7 +5,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,13 +78,6 @@ internal fun BoxScope.PlayerChrome(
     onChapterClick: () -> Unit
 ) {
     var showCutSheet by remember { mutableStateOf(false) }
-
-    if (!isControllerVisible && isLoading) {
-        CircularProgressIndicator(
-            modifier = Modifier.align(Alignment.Center),
-            color = Color.White
-        )
-    }
 
     AnimatedVisibility(
         visible = showControls && isControllerVisible && !pipEnabled && !isLockScreen,

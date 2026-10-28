@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -83,11 +84,7 @@ fun CustomSlider(
         label = "trackHeight"
     )
 
-    val animatedContainerHeight by androidx.compose.animation.core.animateDpAsState(
-        targetValue = if (isSeeking) 24.dp else 8.dp,
-        animationSpec = androidx.compose.animation.core.spring(),
-        label = "containerHeight"
-    )
+    val animatedContainerHeight = 24.dp
 
     val animatedScrubContainerHeight by androidx.compose.animation.core.animateDpAsState(
         targetValue = if (isSeeking && !isLive && duration > 0) 56.dp else animatedContainerHeight,
@@ -101,11 +98,16 @@ fun CustomSlider(
         isLive && (duration - currentPosition) < 10_000L
     }
 
-    /* ---------- SYNC POSITION ---------- */
+    /* ---------- SYNC POSITION & BUFFER ---------- */
 
-    LaunchedEffect(currentPosition, duration) {
+    var bufferedPosition by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+
+    LaunchedEffect(currentPosition, duration, exoPlayer) {
         if (!isSeeking && duration > 0) {
             sliderPosition = currentPosition.toFloat() / duration
+        }
+        if (exoPlayer != null && duration > 0) {
+            bufferedPosition = exoPlayer.bufferedPosition.coerceAtLeast(0L)
         }
     }
 
@@ -122,21 +124,36 @@ fun CustomSlider(
         label = "blinkAlpha"
     )
 
+    val hasHours = remember(duration) { duration >= 3_600_000L }
+    val timeTextWidth = if (hasHours) 68.dp else 48.dp
+
+    val displayedPosition = if (isSeeking && duration > 0) {
+        ((playerModel?.seekTo ?: 0L) + (sliderPosition * duration).toLong()).coerceAtLeast(0L)
+    } else {
+        currentPosition
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Bottom
     ) {
 
         /* ---------- CURRENT TIME ---------- */
 
         if (showSeekbar && !isLive) {
             Text(
-                text = formatTime(currentPosition),
+                text = formatTime(displayedPosition, hasHours),
                 color = Color.White,
                 fontSize = 12.sp,
-                modifier = Modifier.padding(end = 8.dp)
+                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+                textAlign = TextAlign.Start,
+                modifier = Modifier
+                    .width(timeTextWidth)
+                    .height(24.dp)
+                    .wrapContentHeight(Alignment.CenterVertically)
+                    .padding(end = 8.dp)
             )
         }
 
@@ -239,18 +256,34 @@ fun CustomSlider(
                                 val trackHeightPx = animatedTrackHeight.toPx()
                                 val trackY = size.height / 2 - trackHeightPx / 2
 
+                                // Background track (total duration)
                                 drawRoundRect(
-                                    color = Color.Gray.copy(alpha = 0.5f),
+                                    color = Color.Gray.copy(alpha = 0.3f),
                                     topLeft = Offset(0f, trackY),
                                     size = Size(size.width, trackHeightPx),
                                     cornerRadius = CornerRadius(trackHeightPx / 2)
                                 )
 
+                                // Buffered track (extra chunks loaded in memory ahead of current position)
+                                val bufferedProgress = if (duration > 0) {
+                                    (bufferedPosition.toFloat() / duration).coerceIn(0f, 1f)
+                                } else 0f
+
+                                if (bufferedProgress > 0f) {
+                                    drawRoundRect(
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        topLeft = Offset(0f, trackY),
+                                        size = Size(size.width * bufferedProgress, trackHeightPx),
+                                        cornerRadius = CornerRadius(trackHeightPx / 2)
+                                    )
+                                }
+
+                                // Played progress track (current position)
                                 drawRoundRect(
                                     color = if (isLive && isAtLiveEdge)
                                         Color.Red
                                     else
-                                        Color.Red.copy(alpha = 0.7f),
+                                        Color.Red.copy(alpha = 0.9f),
                                     topLeft = Offset(0f, trackY),
                                     size = Size(size.width * sliderPosition, trackHeightPx),
                                     cornerRadius = CornerRadius(trackHeightPx / 2)
@@ -321,10 +354,16 @@ fun CustomSlider(
 
         if (showSeekbar && !isLive) {
             Text(
-                text = formatTime(duration),
+                text = formatTime(duration, hasHours),
                 color = Color.White,
                 fontSize = 12.sp,
-                modifier = Modifier.padding(start = 8.dp)
+                style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+                textAlign = TextAlign.End,
+                modifier = Modifier
+                    .width(timeTextWidth)
+                    .height(24.dp)
+                    .wrapContentHeight(Alignment.CenterVertically)
+                    .padding(start = 8.dp)
             )
         } else if (isLive) {
             Row(

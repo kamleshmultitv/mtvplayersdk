@@ -8,7 +8,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresPermission
-import androidx.compose.runtime.Composition
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.media3.common.C
@@ -91,234 +90,19 @@ object PlayerUtils {
         existingAdsLoader: ImaAdsLoader? = null,
         playWhenReady: Boolean = true
     ): Pair<ExoPlayer, ImaAdsLoader?> {
-
-        val content = contentList?.get(selectedIndex)
-        val contentId = content?.id
-
-        val download =
-            content?.downloadManager
-                ?.downloadIndex
-                ?.getDownload(contentId.toString())
-
-        val isOffline = download?.state == Download.STATE_COMPLETED
-
-        Log.d(
-            "PlayerUtils",
-            "isOffline=$isOffline, contentId=$contentId, downloadExists=${download != null}"
+        return com.app.videosdk.player.PlayerFactory.createPlayer(
+            context = context,
+            contentList = contentList,
+            selectedIndex = selectedIndex,
+            videoUrl = videoUrl,
+            drmToken = drmToken,
+            srt = srt,
+            playerView = playerView,
+            adsConfig = adsConfig,
+            adsListener = adsListener,
+            existingAdsLoader = existingAdsLoader,
+            playWhenReady = playWhenReady
         )
-
-        val resolvedUri =
-            if (isOffline) Uri.EMPTY
-            else resolveToPlayableUri(contentList, selectedIndex)
-
-        /* ================= ADS ================= */
-
-        val adsLoader =
-            existingAdsLoader
-                ?: if (
-                    adsConfig?.enableAds == true &&
-                    !adsConfig.adTagUrl.isNullOrBlank()
-                ) {
-
-                    ImaAdsLoader.Builder(context)
-                        .setAdEventListener { event ->
-
-                            when (event.type) {
-
-                                AdEvent.AdEventType.LOADED -> {
-                                    adsListener?.onAdsLoaded()
-                                }
-
-                                AdEvent.AdEventType.STARTED ->
-                                    adsListener?.onAdStarted()
-
-                                AdEvent.AdEventType.COMPLETED ->
-                                    adsListener?.onAdCompleted()
-
-                                AdEvent.AdEventType.ALL_ADS_COMPLETED ->
-                                    adsListener?.onAllAdsCompleted()
-
-                                else -> Unit
-                            }
-                        }
-                        .setAdErrorListener { error ->
-                            adsListener?.onAdError(error.error.message)
-                            Log.e("IMA", "Ad error", error.error)
-                        }
-                        .build()
-
-                } else null
-
-
-        /* ================= DATASOURCE ================= */
-
-        val cache = content?.downloadCache
-
-        val dataSourceFactory: DataSource.Factory =
-            if (cache != null) {
-                CacheDataSource.Factory()
-                    .setCache(cache)
-                    .setUpstreamDataSourceFactory(DefaultHttpDataSource.Factory())
-                    .setCacheWriteDataSinkFactory(null)
-                    .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-            } else {
-                DefaultHttpDataSource.Factory()
-            }
-
-        /* ================= MEDIA SOURCE ================= */
-
-        val mediaSourceFactory =
-            DefaultMediaSourceFactory(context)
-                .setDataSourceFactory(dataSourceFactory)
-                .apply {
-                    if (!drmToken.isNullOrBlank()) {
-                        setDrmSessionManagerProvider(
-                            DefaultDrmSessionManagerProvider().apply {
-                                setDrmHttpDataSourceFactory(
-                                    DefaultHttpDataSource.Factory()
-                                )
-                            }
-                        )
-                    }
-
-                    adsLoader?.let { loader ->
-                        setAdsLoaderProvider { loader }
-                        playerView?.let { view ->
-                            setAdViewProvider { view }
-                        }
-                    }
-                }
-
-        /* ================= PLAYER ================= */
-
-        val exoPlayer =
-            ExoPlayer.Builder(context)
-                .setMediaSourceFactory(mediaSourceFactory)
-                .build()
-
-        setAutoVideoResolution(exoPlayer)
-
-        /* ================= ERROR LOGGING ================= */
-
-        exoPlayer.addListener(object : Player.Listener {
-
-            override fun onPlayerError(error: PlaybackException) {
-                Log.e("PlayerUtils", "Playback error", error)
-
-                Log.e("DRM_DEBUG", "errorCode=${error.errorCodeName}")
-                Log.e("DRM_DEBUG", "message=${error.message}")
-                Log.e("DRM_DEBUG", "cause=${error.cause?.javaClass?.simpleName}")
-
-                when (error.errorCode) {
-                    PlaybackException.ERROR_CODE_DRM_CONTENT_ERROR ->
-                        Log.e("DRM_DEBUG", "❌ Offline DRM license NOT FOUND")
-
-                    PlaybackException.ERROR_CODE_DRM_LICENSE_EXPIRED ->
-                        Log.e("DRM_DEBUG", "❌ Offline DRM license EXPIRED")
-
-                    PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED ->
-                        Log.e("DRM_DEBUG", "❌ Widevine provisioning failed")
-
-                    else -> Unit
-                }
-
-                // Existing audio fallback (unchanged)
-                if (
-                    error.cause is SampleQueueMappingException ||
-                    error.message?.contains("audio/mp4a-latm") == true
-                ) {
-                    Log.w("PlayerUtils", "Audio broken → falling back to video-only")
-
-                    exoPlayer.trackSelectionParameters =
-                        exoPlayer.trackSelectionParameters
-                            .buildUpon()
-                            .setDisabledTrackTypes(setOf(C.TRACK_TYPE_AUDIO))
-                            .build()
-
-                    exoPlayer.prepare()
-                    exoPlayer.playWhenReady = true
-                }
-            }
-        })
-
-        /* ================= MEDIA ITEM ================= */
-
-        val mediaItems = if (!contentList.isNullOrEmpty()) {
-            contentList.indices.map { i ->
-                val model = contentList[i]
-                val contentId = model.id
-                val itemDownload = model.downloadManager?.downloadIndex?.getDownload(contentId.toString())
-                val itemIsOffline = itemDownload?.state == Download.STATE_COMPLETED
-                val itemResolvedUri = if (itemIsOffline) Uri.EMPTY else resolveToPlayableUri(contentList, i)
-
-                val metadata = androidx.media3.common.MediaMetadata.Builder()
-                    .setTitle(model.episodeTitle ?: model.title)
-                    .setArtist(model.seasonTitle ?: model.description)
-                    .setArtworkUri(model.imageUrl?.toUri())
-                    .build()
-
-                if (itemIsOffline) {
-                    val isDashOffline = itemDownload.request.uri.toString().substringBefore("?").endsWith(".mpd", ignoreCase = true)
-                    val baseItem = if (isDashOffline) {
-                        buildOfflineDrmMediaItemOrNull(itemDownload) ?: MediaItem.fromUri(itemResolvedUri)
-                    } else {
-                        itemDownload.request.toMediaItem()
-                    }
-                    baseItem.buildUpon()
-                        .setMediaId(model.id ?: i.toString())
-                        .setMediaMetadata(metadata)
-                        .build()
-                } else {
-                    val deepStart = model.seekTo ?: 0L
-                    val deepEnd = model.deepLinkEndMs
-
-                    MediaItem.Builder()
-                        .setUri(itemResolvedUri)
-                        .setMediaId(model.id ?: i.toString())
-                        .setMediaMetadata(metadata)
-                        .apply {
-                            if (deepEnd != null && deepEnd > deepStart) {
-                                setClippingConfiguration(
-                                    MediaItem.ClippingConfiguration.Builder()
-                                        .setStartPositionMs(deepStart)
-                                        .setEndPositionMs(deepEnd)
-                                        .build()
-                                )
-                            }
-                            if (!drmToken.isNullOrBlank()) {
-                                setDrmConfiguration(
-                                    MediaItem.DrmConfiguration.Builder(C.WIDEVINE_UUID)
-                                        .setLicenseUri(drmToken)
-                                        .setMultiSession(true)
-                                        .build()
-                                )
-                            }
-                            if (!srt.isNullOrBlank()) {
-                                setSubtitleConfigurations(
-                                    ImmutableList.of(initializeSubTitleTracker(srt))
-                                )
-                            }
-                            if (i == 0 && adsLoader != null && adsConfig?.enableAds == true && !adsConfig.adTagUrl.isNullOrBlank()) {
-                                setAdsConfiguration(
-                                    MediaItem.AdsConfiguration.Builder(
-                                        adsConfig.adTagUrl.trim().toUri()
-                                    ).build()
-                                )
-                                adsLoader.setPlayer(exoPlayer)
-                            }
-                        }
-                        .build()
-                }
-            }
-        } else {
-            listOf(MediaItem.fromUri(resolveToPlayableUri(contentList, selectedIndex)))
-        }
-
-        exoPlayer.setMediaItems(mediaItems, selectedIndex, contentList?.get(selectedIndex)?.seekTo ?: 0L)
-        exoPlayer.prepare()
-        exoPlayer.playWhenReady = playWhenReady
-
-        return exoPlayer to adsLoader
     }
 
     @OptIn(UnstableApi::class)
@@ -475,7 +259,7 @@ object PlayerUtils {
         return audioTracks.mapNotNull { code ->
             val clean = code.cleanTrackText() ?: return@mapNotNull null
             val displayName = resolveLanguageDisplayName(clean)
-            SubTitleModel(id = clean, name = if (displayName.isNotEmpty()) displayName else clean)
+            SubTitleModel(id = clean, name = displayName.ifEmpty { clean })
         }
     }
 
@@ -866,16 +650,21 @@ object PlayerUtils {
         val trackSelector = exoPlayer?.trackSelector as? DefaultTrackSelector
         trackSelector?.buildUponParameters()?.setMaxVideoSize(width, height)?.let {
             trackSelector.setParameters(it)
-            Log.d("Utils", "Changed video resolution to ${width}x${height}")
+            Log.d("Utils", "Changed video resolution to ${width}x$height")
         }
     }
 
     @SuppressLint("DefaultLocale")
-    fun formatTime(milliseconds: Long): String {
-        val totalSeconds = (milliseconds / 1000).toInt()
-        val minutes = totalSeconds / 60
+    fun formatTime(milliseconds: Long, forceHours: Boolean = false): String {
+        val totalSeconds = (milliseconds / 1000).toInt().coerceAtLeast(0)
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
         val seconds = totalSeconds % 60
-        return String.format("%02d:%02d", minutes, seconds)
+        return if (hours > 0 || forceHours) {
+            String.format("%02d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format("%02d:%02d", minutes, seconds)
+        }
     }
 
     fun timeToMillis(

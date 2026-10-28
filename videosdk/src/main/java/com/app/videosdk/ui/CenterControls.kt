@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,11 +22,11 @@ import com.app.videosdk.utils.CastUtils
 @Composable
 fun CenterControls(
     playerModel: PlayerModel? = null,
-    isLoading: Boolean,
     exoPlayer: ExoPlayer,
     castUtils: CastUtils?,
     isCasting: Boolean,
     isFullScreen: Boolean,
+    isLoading: Boolean = false,
     verticalOffset: Dp = 0.dp,
     onShowControls: (Boolean) -> Unit,
     onForward: () -> Unit,
@@ -97,17 +96,9 @@ fun CenterControls(
                 onSeekCompleted = onSeekCompleted,
                 isControllerVisible = true,
                 isFullScreen = isFullScreen,
+                isLoading = isLoading,
                 controlsConfig = controlsConfig
             )
-
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(55.dp),
-                    color = Color.White
-                )
-            }
         }
     }
 }

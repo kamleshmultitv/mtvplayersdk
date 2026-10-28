@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import androidx.core.net.toUri
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter
@@ -35,6 +36,17 @@ class CastUtils(
     private val analyticsEnabled: Boolean = false,
     private val diagnosticsEnabled: Boolean = false
 ) {
+
+    var isAudioOnly: Boolean = false
+        set(value) {
+            val changed = field != value
+            field = value
+            if (changed && sessionManager.currentCastSession?.isConnected == true) {
+                playerModel?.let { model ->
+                    startOrRestartCastSession(model, reset = false)
+                }
+            }
+        }
 
     private val sessionManager = CastContext.getSharedInstance(context).sessionManager
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -225,7 +237,8 @@ class CastUtils(
     }
 
     private fun buildMediaMetadata(model: PlayerModel): MediaMetadata {
-        return MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE).apply {
+        val mediaType = if (isAudioOnly) MediaMetadata.MEDIA_TYPE_MUSIC_TRACK else MediaMetadata.MEDIA_TYPE_MOVIE
+        return MediaMetadata(mediaType).apply {
             putString(
                 MediaMetadata.KEY_TITLE,
                 model.episodeTitle
@@ -240,37 +253,40 @@ class CastUtils(
 
             val imageUrl = model.imageUrl ?: model.thumbnail
             if (!imageUrl.isNullOrBlank()) {
-                addImage(WebImage(Uri.parse(imageUrl)))
+                addImage(WebImage(imageUrl.toUri()))
             }
         }
     }
 
-    private fun buildCastCustomData(model: PlayerModel): JSONObject? {
-        if (model.drm != "1") return null
-
+    private fun buildCastCustomData(model: PlayerModel): JSONObject {
         val customData = JSONObject().apply {
-            put("drmScheme", WIDEVINE_SCHEME)
-            put("drmType", WIDEVINE_SCHEME)
-            put("protectionSystem", WIDEVINE_PROTECTION_SYSTEM)
+            put("isAudioOnly", isAudioOnly)
+            put("audioOnly", isAudioOnly)
         }
 
-        model.drmToken
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?.let { licenseUrl ->
-                customData.put("licenseUrl", licenseUrl)
-                customData.put("drmLicenseUrl", licenseUrl)
-                customData.put("widevineLicenseUrl", licenseUrl)
-                customData.put("drmToken", licenseUrl)
-                customData.put(
-                    "drm",
-                    JSONObject().apply {
-                        put("scheme", WIDEVINE_SCHEME)
-                        put("protectionSystem", WIDEVINE_PROTECTION_SYSTEM)
-                        put("licenseUrl", licenseUrl)
-                    }
-                )
-            }
+        if (model.drm == "1") {
+            customData.put("drmScheme", WIDEVINE_SCHEME)
+            customData.put("drmType", WIDEVINE_SCHEME)
+            customData.put("protectionSystem", WIDEVINE_PROTECTION_SYSTEM)
+
+            model.drmToken
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { licenseUrl ->
+                    customData.put("licenseUrl", licenseUrl)
+                    customData.put("drmLicenseUrl", licenseUrl)
+                    customData.put("widevineLicenseUrl", licenseUrl)
+                    customData.put("drmToken", licenseUrl)
+                    customData.put(
+                        "drm",
+                        JSONObject().apply {
+                            put("scheme", WIDEVINE_SCHEME)
+                            put("protectionSystem", WIDEVINE_PROTECTION_SYSTEM)
+                            put("licenseUrl", licenseUrl)
+                        }
+                    )
+                }
+        }
 
         return customData
     }
