@@ -225,6 +225,44 @@ also public for custom player layouts.
 
 ---
 
+## 🚨 Player Diagnostics & Issue Reporting
+
+The SDK automatically monitors playback health, detects issues (Playback, Buffering, Network, DRM, Decoder, Track selection), and generates sanitized structured diagnostic reports (`MtvPlayerIssueReport`).
+
+### 1. Registering the Issue Listener
+
+Enable diagnostics in `PlayerConfig` and supply an `MtvPlayerIssueListener`:
+
+```kotlin
+MtvVideoPlayerSdk(
+    contentList = contentList,
+    index = selectedIndex.intValue,
+    playerConfig = PlayerConfig(diagnosticsEnabled = true),
+    issueListener = MtvPlayerIssueListener { report ->
+        // Forward the structured report to your client-side reporting manager
+        clientIssueReporter.onIssueDetected(report)
+    },
+    onPlayerBack = {},
+    setFullScreen = {}
+)
+```
+
+### 2. Manual Report Generation on Demand
+
+You can request a diagnostic report at any time (e.g. user feedback, support requests) using `PlayerController`:
+
+```kotlin
+playerController.generateDiagnosticReport(customMessage = "User reported playback lag") { report ->
+    clientIssueReporter.onIssueDetected(report)
+}
+```
+
+### 3. Client App Responsibilities
+- The SDK makes **no network requests** and has **no Firebase dependency**.
+- The client app owns the reporting network layer (Retrofit/OkHttp), auth headers (`Bearer <token>`), retry policies, and offline queueing.
+
+---
+
 ## 🪟 Picture‑in‑Picture
 
 ```kotlin

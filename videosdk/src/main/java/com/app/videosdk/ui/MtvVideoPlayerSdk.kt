@@ -110,11 +110,13 @@ fun MtvVideoPlayerSdk(
     episodeNowPlayingStyle: EpisodeNowPlayingStyle = EpisodeNowPlayingStyle(),
     showControls: Boolean = true,
     playerConfig: PlayerConfig = PlayerConfig(),
+    issueListener: com.app.videosdk.listener.MtvPlayerIssueListener? = null,
     onCurrentIndexChanged: (Int) -> Unit = {},
     onPreviewPrimaryAction: () -> Unit = {},
     onPreviewSecondaryAction: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val effectiveController = remember(controller) { controller ?: PlayerController() }
     val configuration = LocalConfiguration.current
 
     var contentDuration by remember { mutableLongStateOf(0L) }
@@ -177,13 +179,13 @@ fun MtvVideoPlayerSdk(
     var requestedVideo by remember { mutableStateOf<PlayerModel?>(null) }
     var playRequestId by remember { mutableLongStateOf(0L) }
 
-    DisposableEffect(controller) {
+    DisposableEffect(effectiveController) {
         val listener: (PlayerModel, Long) -> Unit = { video, requestId ->
             requestedVideo = video
             playRequestId = requestId
         }
-        controller?.attachPlayRequestListener(listener)
-        onDispose { controller?.detachPlayRequestListener(listener) }
+        effectiveController.attachPlayRequestListener(listener)
+        onDispose { effectiveController.detachPlayRequestListener(listener) }
     }
 
     val playerModel = requestedVideo ?: contentList?.getOrNull(selectedIndex.intValue)
@@ -457,7 +459,10 @@ fun MtvVideoPlayerSdk(
             playerView = playerView,
             adsConfig = adsConfigForNewPlayer,
             adsListener = adsListener,
-            playWhenReady = shouldAutoPlay
+            playWhenReady = shouldAutoPlay,
+            issueListener = issueListener,
+            diagnosticsEnabled = playerConfig.diagnosticsEnabled,
+            controller = effectiveController
         )
     }
 
@@ -617,7 +622,7 @@ fun MtvVideoPlayerSdk(
     }
 
     LaunchedEffect(exoPlayer) {
-        controller?.exoPlayer = exoPlayer
+        effectiveController.exoPlayer = exoPlayer
     }
 
     LaunchedEffect(exoPlayer, currentMode) {
@@ -1300,7 +1305,13 @@ fun MtvVideoPlayerSdk(
                                 playerModel = playerModel,
                                 exoPlayer = exoPlayer,
                                 selectedItems = selectedItems,
-                                isAudioOnly = isAudioOnly
+                                isAudioOnly = isAudioOnly,
+                                reportIssueEnabled = playerConfig.controls.reportIssue,
+                                onReportIssue = { comment ->
+                                    effectiveController.generateDiagnosticReport(customMessage = comment) { report ->
+                                        issueListener?.onIssueDetected(report)
+                                    }
+                                }
                             ) { isSettingsClick = it }
                         }
 

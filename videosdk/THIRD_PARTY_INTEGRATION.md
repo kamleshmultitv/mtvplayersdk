@@ -392,7 +392,129 @@ PlayerConfig(
 
 SDK logs are default-off and redact sensitive media/ad/DRM values.
 
-## 12. Programmatic Control
+## 12. Player Diagnostics & Issue Reporting
+
+The SDK automatically detects playback issues (Playback, Buffering, Network, DRM, Decoder) and exposes them through `MtvPlayerIssueListener`. 
+
+Because the SDK is backend-independent, **the host application owns the networking layer and uploads reports to its own backend API**.
+
+### Step 1: Implement the Client Reporting Manager in Your App
+
+Create a reporting manager in your host app (similar to `ClientPlayerIssueReporter.kt` in the SDK sample) to queue, retry, and upload reports:
+
+```kotlin
+import android.content.Context
+import android.util.Log
+import com.app.videosdk.diagnostics.model.MtvPlayerIssueReport
+import com.app.videosdk.listener.MtvPlayerIssueListener
+import kotlinx.coroutines.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+
+data class ClientIssueReportDto(
+    val reportId: String,
+    val sessionId: String,
+    val timestamp: Long,
+    val sdkVersion: String,
+    val issueType: String,
+    val severity: String,
+    val message: String,
+    val errorCode: String?,
+    val reportPayloadJson: String
+)
+
+interface PlayerIssueApi {
+    @POST("api/v1/player/issues")
+    suspend fun submitReport(
+        @Header("Authorization") token: String,
+        @Body report: ClientIssueReportDto
+    ): Response<Unit>
+}
+
+class ClientPlayerIssueReporter(
+    private val api: PlayerIssueApi,
+    private val authToken: String
+) : MtvPlayerIssueListener {
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val pendingQueue = ConcurrentLinkedQueue<ClientIssueReportDto>()
+    private val submittedIds = ConcurrentHashMap.newKeySet<String>()
+
+    override fun onIssueDetected(report: MtvPlayerIssueReport) {
+        if (submittedIds.contains(report.reportId)) return
+
+        val dto = ClientIssueReportDto(
+            reportId = report.reportId,
+            sessionId = report.sessionId,
+            timestamp = report.timestamp,
+            sdkVersion = report.sdkVersion,
+            issueType = report.issueType,
+            severity = report.severity,
+            message = report.message,
+            errorCode = report.errorCode,
+            reportPayloadJson = report.toJson()
+        )
+
+        pendingQueue.add(dto)
+        processQueue()
+    }
+
+    private fun processQueue() {
+        scope.launch {
+            while (pendingQueue.isNotEmpty()) {
+                val dto = pendingQueue.poll() ?: break
+                if (submittedIds.contains(dto.reportId)) continue
+
+                var attempts = 0
+                var success = false
+                while (attempts < 3 && !success) {
+                    attempts++
+                    try {
+                        val response = api.submitReport(authToken, dto)
+                        if (response.isSuccessful) {
+                            submittedIds.add(dto.reportId)
+                            success = true
+                        }
+                    } catch (e: Exception) {
+                        delay(1000L * attempts) // Exponential backoff
+                    }
+                }
+                if (!success) {
+                    pendingQueue.add(dto) // Re-queue for later retry
+                    break
+                }
+            }
+        }
+    }
+}
+```
+
+### Step 2: Wire the Reporter into `MtvVideoPlayerSdk`
+
+```kotlin
+val issueReporter = remember(context) { 
+    ClientPlayerIssueReporter(retrofitApi, "Bearer your_auth_token") 
+}
+
+MtvVideoPlayerSdk(
+    contentList = contentList,
+    index = selectedIndex.intValue,
+    playerConfig = PlayerConfig(diagnosticsEnabled = true),
+    issueListener = issueReporter,
+    onPlayerBack = {},
+    setFullScreen = {}
+)
+```
+
+### Step 3: Manual Report Generation on Demand
+
+```kotlin
+playerController.generateDiagnosticReport("User requested support log") { report ->
+    issueReporter.onIssueDetected(report)
+}
+```
+
+## 13. Programmatic Control
 
 Create a stable `PlayerController` with `remember` and pass it to the SDK:
 

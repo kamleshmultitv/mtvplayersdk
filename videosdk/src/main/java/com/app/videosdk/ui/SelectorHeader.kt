@@ -68,12 +68,16 @@ fun SelectorHeader(
     diagnosticsEnabled: Boolean = false,
     playerStateListener: PlayerStateListener? = null,
     isAudioOnly: Boolean = false,
+    reportIssueEnabled: Boolean = true,
+    onReportIssue: (String) -> Unit = {},
     closeOptionCard: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val viewModel: VideoViewModel = viewModel()
     val options by viewModel.options.collectAsState()
     val isLive = playerModel?.isLive ?: false
+
+    var showReportDialog by remember { mutableStateOf(false) }
 
     // Filter options for live content, feature flags, and audio-only mode
     val filteredOptions = remember(options, isLive, subtitlesEnabled, playbackSpeedEnabled, qualitySelectionEnabled, isAudioOnly) {
@@ -144,22 +148,35 @@ fun SelectorHeader(
                 }
             }
 
-            IconButton(
-                onClick = {
-                    exoPlayer?.play()
-                    closeOptionCard(false)
-                }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                CustomIcon(
-                    resId = playerModel?.customControls?.crossFadeIconRes,
-                    iconUrl = playerModel?.customControls?.crossFadeIconUrl,
-                    defaultIcon = Icons.Default.Close,
-                    contentDescription = "Close",
-                    modifier = Modifier.size(24.dp),
-                    tint = playerModel?.customControls?.iconTintRes,
-                    tintColorInt = playerModel?.customControls?.iconTintColorInt,
-                    tintHex = playerModel?.customControls?.iconTintHex
-                )
+                if (reportIssueEnabled) {
+                    androidx.compose.material3.TextButton(
+                        onClick = { showReportDialog = true }
+                    ) {
+                        Text(text = "Report Issue", color = Color.Yellow, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                IconButton(
+                    onClick = {
+                        exoPlayer?.play()
+                        closeOptionCard(false)
+                    }
+                ) {
+                    CustomIcon(
+                        resId = playerModel?.customControls?.crossFadeIconRes,
+                        iconUrl = playerModel?.customControls?.crossFadeIconUrl,
+                        defaultIcon = Icons.Default.Close,
+                        contentDescription = "Close",
+                        modifier = Modifier.size(24.dp),
+                        tint = playerModel?.customControls?.iconTintRes,
+                        tintColorInt = playerModel?.customControls?.iconTintColorInt,
+                        tintHex = playerModel?.customControls?.iconTintHex
+                    )
+                }
             }
         }
 
@@ -244,6 +261,17 @@ fun SelectorHeader(
                 }
             }
         }
+    }
+
+    if (showReportDialog) {
+        ReportIssueSideSheet(
+            onDismiss = { showReportDialog = false },
+            onReportSubmitted = { comment ->
+                onReportIssue(comment)
+                showReportDialog = false
+                android.widget.Toast.makeText(context, "Issue reported successfully. Thank you!", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 }
 

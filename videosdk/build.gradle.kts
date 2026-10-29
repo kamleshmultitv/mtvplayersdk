@@ -48,6 +48,10 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     // ✅ REQUIRED for AGP 8+ + JitPack
     publishing {
         singleVariant("release") {
@@ -76,6 +80,7 @@ afterEvaluate {
 
 dependencies {
     testImplementation(libs.junit)
+    testImplementation("org.mockito:mockito-core:5.11.0")
 
     // Core
     api(libs.androidx.core.ktx)

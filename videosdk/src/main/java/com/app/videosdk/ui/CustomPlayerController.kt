@@ -661,7 +661,10 @@ fun CustomPlayerController(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = if (isCurrentlyFullScreen) 64.dp else 44.dp, end = 84.dp)
+                .padding(
+                    bottom = if (isCurrentlyFullScreen) 64.dp else 30.dp,
+                    end = if (isCurrentlyFullScreen) 84.dp else 16.dp
+                )
         ) {
             val skipIntroButtonShape = RoundedCornerShape(8.dp)
 
@@ -697,7 +700,10 @@ fun CustomPlayerController(
             exit = fadeOut(),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = if (isCurrentlyFullScreen) 64.dp else 44.dp, end = 84.dp)
+                .padding(
+                    bottom = if (isCurrentlyFullScreen) 64.dp else 30.dp,
+                    end = if (isCurrentlyFullScreen) 84.dp else 16.dp
+                )
         ) {
             if (playerModelList != null && playerModelList.size > 1) {
                 val isLastItem = index >= playerModelList.lastIndex

@@ -110,15 +110,19 @@ fun ContentBody(
                     PlayerMode.MINI
                 }
 
+                val issueReporter = remember(context) { com.app.sample.diagnostics.ClientPlayerIssueReporter(context) }
+
                 MtvVideoPlayerSdk(
                     contentList = contentList,
                     index = selectedIndex.intValue,
                     playerConfig = PlayerConfig(
+                        diagnosticsEnabled = true,
                         controls = PlayerControlsConfig(
                             seekbar = true,
                             audioOnlyToggle = true
                         )
                     ),
+                    issueListener = issueReporter,
                     pipListener = pipListener,
                     isInPipMode = isInPipMode,
                     isDeepLink = isDeepLink,

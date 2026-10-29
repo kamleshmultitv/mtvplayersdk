@@ -45,4 +45,20 @@ class PlayerController {
     fun isPlaying(): Boolean = exoPlayer?.isPlaying ?: false
 
     fun isMuted(): Boolean = (exoPlayer?.volume ?: 1f) == 0f
+
+    var diagnosticsManager: com.app.videosdk.diagnostics.manager.MtvPlayerDiagnosticsManager? = null
+
+    /**
+     * Manually generates a diagnostic report for the current playback session and passes it to [callback].
+     */
+    fun generateDiagnosticReport(
+        customMessage: String? = null,
+        callback: (com.app.videosdk.diagnostics.model.MtvPlayerIssueReport) -> Unit
+    ) {
+        val manager = diagnosticsManager
+        if (manager != null) {
+            val report = manager.generateDiagnosticReport(customMessage = customMessage)
+            callback(report)
+        }
+    }
 }

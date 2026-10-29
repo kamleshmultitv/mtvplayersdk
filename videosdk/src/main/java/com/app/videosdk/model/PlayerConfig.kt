@@ -35,7 +35,8 @@ data class PlayerControlsConfig(
     val pip: Boolean = true,
     val fullscreen: Boolean = true,
     val exitFullscreen: Boolean = true,
-    val audioOnlyToggle: Boolean = false
+    val audioOnlyToggle: Boolean = false,
+    val reportIssue: Boolean = true
 )
 
 enum class PlayerFeatureTier {

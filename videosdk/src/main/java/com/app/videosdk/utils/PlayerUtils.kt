@@ -88,7 +88,10 @@ object PlayerUtils {
         adsConfig: AdsConfig? = null,
         adsListener: AdsListener? = null,
         existingAdsLoader: ImaAdsLoader? = null,
-        playWhenReady: Boolean = true
+        playWhenReady: Boolean = true,
+        issueListener: com.app.videosdk.listener.MtvPlayerIssueListener? = null,
+        diagnosticsEnabled: Boolean = true,
+        controller: com.app.videosdk.listener.PlayerController? = null
     ): Pair<ExoPlayer, ImaAdsLoader?> {
         return com.app.videosdk.player.PlayerFactory.createPlayer(
             context = context,
@@ -101,7 +104,10 @@ object PlayerUtils {
             adsConfig = adsConfig,
             adsListener = adsListener,
             existingAdsLoader = existingAdsLoader,
-            playWhenReady = playWhenReady
+            playWhenReady = playWhenReady,
+            issueListener = issueListener,
+            diagnosticsEnabled = diagnosticsEnabled,
+            controller = controller
         )
     }
 

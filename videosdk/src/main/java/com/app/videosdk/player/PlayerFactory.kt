@@ -86,10 +86,20 @@ internal object PlayerFactory {
         adsListener: AdsListener? = null,
         existingAdsLoader: ImaAdsLoader? = null,
         playWhenReady: Boolean = true,
+        issueListener: com.app.videosdk.listener.MtvPlayerIssueListener? = null,
+        diagnosticsEnabled: Boolean = true,
+        controller: com.app.videosdk.listener.PlayerController? = null,
         onRecoveryStateChanged: (PlaybackRecoveryState) -> Unit = {}
     ): Pair<ExoPlayer, ImaAdsLoader?> {
         val content = contentList?.getOrNull(selectedIndex)
         val contentId = content?.id
+
+        val diagnosticsManager = com.app.videosdk.diagnostics.manager.MtvPlayerDiagnosticsManager(
+            context = context.applicationContext,
+            issueListener = issueListener,
+            diagnosticsEnabled = diagnosticsEnabled
+        )
+        controller?.diagnosticsManager = diagnosticsManager
 
         val download =
             content?.downloadManager
@@ -208,6 +218,8 @@ internal object PlayerFactory {
                 .setTrackSelector(trackSelector)
                 .setBandwidthMeter(bandwidthMeter)
                 .build()
+
+        exoPlayer.addAnalyticsListener(diagnosticsManager.analyticsListener)
 
         var audioFallbackAttempted = false
         var onlineFallbackAttempted = false

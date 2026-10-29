@@ -1,6 +1,6 @@
 # Mtv Video Player SDK
 
-Mtv Video Player SDK is an Android Media3 and Jetpack Compose player for HLS, DASH/MPD, MP4, Widevine DRM, Cast, PiP, ads, subtitles, offline playback, and reels-style playback.
+Mtv Video Player SDK is an Android Media3 and Jetpack Compose player for HLS, DASH/MPD, MP4, Widevine DRM, Cast, PiP, ads, subtitles, offline playback, reels-style playback, and automatic/manual Player Issue Diagnostics & Reporting (`MtvPlayerIssueListener`).
 
 ## Start Here
 
