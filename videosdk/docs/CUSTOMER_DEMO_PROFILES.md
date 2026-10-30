@@ -37,6 +37,8 @@ These are the controls the SDK keeps available after feature-tier gating. The ho
 | Episode selector | Yes | No | Yes | Yes |
 | Cast button | Yes | No | Yes | Yes |
 | PiP button | Yes | No | Yes | Yes |
+| Audio/video toggle | Yes | No | Yes | Yes |
+| Screen lock button | Yes | No | Yes | Yes |
 
 Control count summary:
 
@@ -49,7 +51,7 @@ Settings menu availability by tier:
 | Settings option | `LEGACY_COMPAT` | `BASIC_PLAYER` | `PREMIUM_UX` | `ENTERPRISE_PLAYBACK` |
 | --- | --- | --- | --- | --- |
 | Audio Track | Yes | Yes | Yes | Yes |
-| Closed Caption | Yes | Yes | Yes | Yes |
+| Closed Caption | Yes | No | Yes | Yes |
 | Speed Selector | Yes | Yes | Yes | Yes |
 | Video Quality | Yes | Yes | Yes | Yes |
 
@@ -63,7 +65,7 @@ Settings selected rows are SDK-owned state. Audio track, caption/off, playback s
 | DASH playback | Yes | Yes | Yes | Yes |
 | MP4/direct playback | Yes | Yes | Yes | Yes |
 | Live playback | Yes | Yes | Yes | Yes |
-| Subtitles/captions | Yes | Yes | Yes | Yes |
+| Subtitles/captions | Yes | No | Yes | Yes |
 | Playback speed | Yes | Yes | Yes | Yes |
 | Quality selection | Yes | Yes | Yes | Yes |
 | Cast | Yes | No | Yes | Yes |
@@ -103,6 +105,8 @@ When a feature is not included in the selected tier, the SDK ignores the related
 | `ageRating`, `contentRating` | Age rating |
 | `PlayerConfig.watermark` | Watermark |
 | `PlayerConfig.freePreview`, `freePreviewEnd` | Free preview |
+| `PlayerControlsConfig.audioOnlyToggle` | Audio/video toggle switch |
+| `PlayerControlsConfig.lockScreen` | Screen lock button & overlay |
 
 ### Monetization Add-On
 

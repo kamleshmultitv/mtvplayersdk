@@ -252,7 +252,7 @@ fun TopBar(
             }
         }
 
-        if (isFullScreen) {
+        if (isFullScreen && controlsConfig.lockScreen) {
             IconButton(onClick = onLockScreenToggle) {
                 CustomIcon(
                     resId = playerModel?.customControls?.lockIconRes,

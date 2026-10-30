@@ -26,12 +26,12 @@ Includes:
 
 - HLS, DASH, MP4, and live playback when supplied by `PlayerModel`.
 - Fullscreen controls.
-- Subtitle, playback-speed, and quality-selection settings.
+- Playback-speed and quality-selection settings.
 - Basic playback callbacks through `PlayerStateListener`.
 
 Disabled by default:
 
-- Cast, PiP, skip intro, next episode, episode selector, chapters, sprite thumbnails, custom controls, DRM, offline playback, clip/deep-link trimming, watermark, age rating, free preview, and ads.
+- Subtitles/captions, Cast, PiP, skip intro, audio-only toggle, screen lock, next episode, episode selector, chapters, sprite thumbnails, custom controls, DRM, offline playback, clip/deep-link trimming, watermark, age rating, free preview, and ads.
 
 ## Premium UX
 

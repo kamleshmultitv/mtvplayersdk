@@ -80,6 +80,8 @@ import com.app.videosdk.model.EpisodeNowPlayingStyle
 import com.app.videosdk.model.PlayerAdsConfig
 import com.app.videosdk.model.PlayerConfig
 import com.app.videosdk.model.PlayerModel
+import com.app.videosdk.model.resolveFeatureSet
+import com.app.videosdk.model.withResolvedFeatures
 import com.app.videosdk.ui.ads.LShapeAdContainer
 import com.app.videosdk.ui.chapter.ChapterDrawer
 import com.app.videosdk.ui.cut.CutBottomSheet
@@ -188,10 +190,19 @@ fun MtvVideoPlayerSdk(
         onDispose { effectiveController.detachPlayRequestListener(listener) }
     }
 
-    val playerModel = requestedVideo ?: contentList?.getOrNull(selectedIndex.intValue)
+    val effectivePlayerConfig = remember(playerConfig) {
+        playerConfig.withResolvedFeatures(playerConfig.resolveFeatureSet())
+    }
+    val resolvedContentList = remember(contentList, effectivePlayerConfig) {
+        contentList?.map { it.withResolvedFeatures(effectivePlayerConfig.resolveFeatureSet()) }
+    }
+    val rawRequestedVideo = requestedVideo?.withResolvedFeatures(effectivePlayerConfig.resolveFeatureSet())
+    val playerModel = remember(rawRequestedVideo, resolvedContentList, selectedIndex.intValue, effectivePlayerConfig) {
+        rawRequestedVideo ?: resolvedContentList?.getOrNull(selectedIndex.intValue)
+    }
     val ageRating = remember(playerModel) { AgeRatingResolver.resolve(playerModel) }
-    val activeContentList = remember(requestedVideo, contentList, playerModel) {
-        if (requestedVideo != null && playerModel != null) listOf(playerModel) else contentList
+    val activeContentList = remember(rawRequestedVideo, resolvedContentList, playerModel) {
+        if (rawRequestedVideo != null && playerModel != null) listOf(playerModel) else resolvedContentList
     }
     val activeIndex = if (requestedVideo != null) 0 else selectedIndex.intValue
 
@@ -461,15 +472,15 @@ fun MtvVideoPlayerSdk(
             adsListener = adsListener,
             playWhenReady = shouldAutoPlay,
             issueListener = issueListener,
-            diagnosticsEnabled = playerConfig.diagnosticsEnabled,
+            diagnosticsEnabled = effectivePlayerConfig.diagnosticsEnabled,
             controller = effectiveController
         )
     }
 
     val exoPlayer = playerWithAds?.first
     val adsLoader = playerWithAds?.second
-    val freePreview = playerConfig.freePreview
-    val freePreviewEnd = playerConfig.freePreviewEnd
+    val freePreview = effectivePlayerConfig.freePreview
+    val freePreviewEnd = effectivePlayerConfig.freePreviewEnd
 
     val hapticFeedback = LocalHapticFeedback.current
 
@@ -1103,10 +1114,10 @@ fun MtvVideoPlayerSdk(
                         }
 
                         if (isLive && !hasRenderedFirstFrame) {
-                            LiveImagePlaceholder(playerConfig.liveImageUrl)
+                            LiveImagePlaceholder(effectivePlayerConfig.liveImageUrl)
                         }
 
-                        PlayerWatermarkOverlay(playerConfig.watermark)
+                        PlayerWatermarkOverlay(effectivePlayerConfig.watermark)
 
                         // Keep gesture handling on a Compose layer above PlayerView.
                         // AndroidView can otherwise consume the first multi-touch gesture
@@ -1247,7 +1258,7 @@ fun MtvVideoPlayerSdk(
                                     onCutClick = {
                                         showCutSheet = true
                                     },
-                                    controlsConfig = playerConfig.controls,
+                                    controlsConfig = effectivePlayerConfig.controls,
                                     showPreviousControl = hasExplicitControlsConfig &&
                                             playerConfig.controls.previous,
                                     isAudioOnly = isAudioOnly,
@@ -1306,7 +1317,7 @@ fun MtvVideoPlayerSdk(
                                 exoPlayer = exoPlayer,
                                 selectedItems = selectedItems,
                                 isAudioOnly = isAudioOnly,
-                                reportIssueEnabled = playerConfig.controls.reportIssue,
+                                reportIssueEnabled = effectivePlayerConfig.controls.reportIssue,
                                 onReportIssue = { comment ->
                                     val url = playerModel?.hlsUrl ?: playerModel?.mpdUrl ?: playerModel?.liveUrl ?: playerModel?.videoUrl
                                     effectiveController.generateDiagnosticReport(

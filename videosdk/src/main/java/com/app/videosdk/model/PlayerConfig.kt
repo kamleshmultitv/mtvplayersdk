@@ -11,7 +11,7 @@ data class PlayerConfig(
     val autoPlayFeature: Boolean = true,
     val autoPlayDetail: Boolean = true,
     val autoPlayAssets: Boolean = true,
-    val featureTier: PlayerFeatureTier = PlayerFeatureTier.LEGACY_COMPAT,
+    val featureTier: PlayerFeatureTier = PlayerFeatureTier.BASIC_PLAYER,
     val monetizationPackage: PlayerMonetizationPackage = PlayerMonetizationPackage.NONE,
     val featureGates: PlayerFeatureGates = PlayerFeatureGates(),
     val analyticsEnabled: Boolean = false,
@@ -36,6 +36,7 @@ data class PlayerControlsConfig(
     val fullscreen: Boolean = true,
     val exitFullscreen: Boolean = true,
     val audioOnlyToggle: Boolean = false,
+    val lockScreen: Boolean = true,
     val reportIssue: Boolean = true
 )
 
