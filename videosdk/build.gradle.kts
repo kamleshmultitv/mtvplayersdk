@@ -7,7 +7,8 @@ plugins {
     id("maven-publish")
 }
 
-val sdkVersionName = "mobile-monetization-1.0.7"
+// val sdkVersionName = "mobile-monetization-1.0.7"
+val sdkVersionName = "mtvPlayer-1.0.0"
 
 android {
     namespace = "com.app.videosdk"
