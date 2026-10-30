@@ -7,6 +7,8 @@ plugins {
     id("maven-publish")
 }
 
+val sdkVersionName = "mobile-monetization-1.0.7"
+
 android {
     namespace = "com.app.videosdk"
     compileSdk = 36
@@ -14,6 +16,7 @@ android {
     defaultConfig {
         minSdk = 24
         consumerProguardFiles("consumer-rules.pro")
+        buildConfigField("String", "SDK_VERSION", "\"$sdkVersionName\"")
     }
 
     buildTypes {
@@ -72,7 +75,7 @@ afterEvaluate {
 
                 groupId = "com.github.kamleshmultitv"
                 artifactId = "videosdk"
-                version = "mobile-monetization-1.0.5"
+                version = sdkVersionName
             }
         }
     }

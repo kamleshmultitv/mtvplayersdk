@@ -419,6 +419,9 @@ data class ClientIssueReportDto(
     val issueType: String,
     val severity: String,
     val message: String,
+    val contentId: String?,
+    val contentTitle: String?,
+    val contentUrl: String?,
     val errorCode: String?,
     val reportPayloadJson: String
 )
@@ -451,6 +454,9 @@ class ClientPlayerIssueReporter(
             issueType = report.issueType,
             severity = report.severity,
             message = report.message,
+            contentId = report.contentId,
+            contentTitle = report.contentTitle,
+            contentUrl = report.contentUrl,
             errorCode = report.errorCode,
             reportPayloadJson = report.toJson()
         )

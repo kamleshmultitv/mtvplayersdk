@@ -34,6 +34,20 @@ object SdkLogger {
         }
     }
 
+    fun logLong(message: String) {
+        if (level == SdkLogLevel.INFO || level == SdkLogLevel.DEBUG) {
+            val json = redact(message)
+            val maxLogSize = 3500
+            for (i in 0..json.length / maxLogSize) {
+                val start = i * maxLogSize
+                val end = (start + maxLogSize).coerceAtMost(json.length)
+                if (start < end) {
+                    Log.i(tag, "REPORT_JSON [${i + 1}]: ${json.substring(start, end)}")
+                }
+            }
+        }
+    }
+
     fun error(message: String, throwable: Throwable? = null) {
         if (level != SdkLogLevel.OFF) {
             Log.e(tag, redact(message), throwable)

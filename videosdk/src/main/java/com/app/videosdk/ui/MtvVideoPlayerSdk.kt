@@ -1308,9 +1308,13 @@ fun MtvVideoPlayerSdk(
                                 isAudioOnly = isAudioOnly,
                                 reportIssueEnabled = playerConfig.controls.reportIssue,
                                 onReportIssue = { comment ->
-                                    effectiveController.generateDiagnosticReport(customMessage = comment) { report ->
-                                        issueListener?.onIssueDetected(report)
-                                    }
+                                    val url = playerModel?.hlsUrl ?: playerModel?.mpdUrl ?: playerModel?.liveUrl ?: playerModel?.videoUrl
+                                    effectiveController.generateDiagnosticReport(
+                                        customMessage = comment,
+                                        contentId = playerModel?.id,
+                                        contentTitle = playerModel?.title ?: playerModel?.episodeTitle,
+                                        contentUrl = url
+                                    )
                                 }
                             ) { isSettingsClick = it }
                         }

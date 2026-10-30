@@ -23,6 +23,9 @@ data class ClientIssueReportDto(
     val issueType: String,
     val severity: String,
     val message: String,
+    val contentId: String?,
+    val contentTitle: String?,
+    val contentUrl: String?,
     val errorCode: String?,
     val errorCodeName: String?,
     val contentType: String?,
@@ -45,8 +48,20 @@ interface ClientIssueReportApi {
  * Simulated backend API implementation for the client application.
  */
 class SimulatedClientIssueReportApi : ClientIssueReportApi {
+    private val gson = com.google.gson.Gson()
+
     override suspend fun submitReport(token: String, reportDto: ClientIssueReportDto): Boolean {
-        Log.i("ClientIssueReporter", "Uploading issue report [${reportDto.reportId}] type=${reportDto.issueType} to backend...")
+        val jsonDto = gson.toJson(reportDto)
+        Log.i("ClientIssueReporter", "Uploading exact API DTO JSON to backend:")
+        val maxLogSize = 3500
+        for (i in 0..jsonDto.length / maxLogSize) {
+            val start = i * maxLogSize
+            val end = (start + maxLogSize).coerceAtMost(jsonDto.length)
+            if (start < end) {
+                Log.i("ClientIssueReporter", "API_PAYLOAD [${i + 1}]: ${jsonDto.substring(start, end)}")
+            }
+        }
+
         // Simulate network latency
         delay(300)
         Log.i("ClientIssueReporter", "Successfully uploaded issue report [${reportDto.reportId}] to backend database!")
@@ -74,6 +89,19 @@ class ClientPlayerIssueReporter(
     override fun onIssueDetected(report: MtvPlayerIssueReport) {
         Log.d("ClientIssueReporter", "SDK reported issue: type=${report.issueType}, id=${report.reportId}")
 
+        val prettyGson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+        val prettyJson = prettyGson.toJson(report)
+        Log.i("ClientIssueReporter", "--- EXACT MTV PLAYER ISSUE REPORT JSON ---")
+        val maxLogSize = 3500
+        for (i in 0..prettyJson.length / maxLogSize) {
+            val start = i * maxLogSize
+            val end = (start + maxLogSize).coerceAtMost(prettyJson.length)
+            if (start < end) {
+                Log.i("ClientIssueReporter", prettyJson.substring(start, end))
+            }
+        }
+        Log.i("ClientIssueReporter", "------------------------------------------")
+
         // Check duplicate submission
         if (submittedReportIds.contains(report.reportId)) {
             Log.d("ClientIssueReporter", "Report [${report.reportId}] already submitted. Skipping.")
@@ -88,6 +116,9 @@ class ClientPlayerIssueReporter(
             issueType = report.issueType,
             severity = report.severity,
             message = report.message,
+            contentId = report.contentId,
+            contentTitle = report.contentTitle,
+            contentUrl = report.contentUrl,
             errorCode = report.errorCode,
             errorCodeName = report.errorCodeName,
             contentType = report.contentType,

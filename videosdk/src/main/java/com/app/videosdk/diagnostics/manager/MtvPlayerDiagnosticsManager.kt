@@ -165,7 +165,10 @@ class MtvPlayerDiagnosticsManager(
         contentType: String? = null,
         streamType: String? = null,
         positionMs: Long? = null,
-        durationMs: Long? = null
+        durationMs: Long? = null,
+        contentId: String? = null,
+        contentTitle: String? = null,
+        contentUrl: String? = null
     ): MtvPlayerIssueReport {
         val issueType = issueTypeOverride ?: MtvPlayerIssueType.UNKNOWN
         val message = customMessage ?: "Manual diagnostic report requested"
@@ -175,6 +178,9 @@ class MtvPlayerDiagnosticsManager(
             issueType = issueType,
             severity = "INFO",
             message = SdkLogger.redact(message),
+            contentId = contentId,
+            contentTitle = contentTitle,
+            contentUrl = SdkLogger.redactUrl(contentUrl),
             contentType = contentType,
             streamType = streamType,
             playbackPositionMs = positionMs,

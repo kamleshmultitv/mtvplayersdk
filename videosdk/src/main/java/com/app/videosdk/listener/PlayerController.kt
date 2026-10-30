@@ -53,11 +53,19 @@ class PlayerController {
      */
     fun generateDiagnosticReport(
         customMessage: String? = null,
-        callback: (com.app.videosdk.diagnostics.model.MtvPlayerIssueReport) -> Unit
+        contentId: String? = null,
+        contentTitle: String? = null,
+        contentUrl: String? = null,
+        callback: (com.app.videosdk.diagnostics.model.MtvPlayerIssueReport) -> Unit = {}
     ) {
         val manager = diagnosticsManager
         if (manager != null) {
-            val report = manager.generateDiagnosticReport(customMessage = customMessage)
+            val report = manager.generateDiagnosticReport(
+                customMessage = customMessage,
+                contentId = contentId,
+                contentTitle = contentTitle,
+                contentUrl = contentUrl
+            )
             callback(report)
         }
     }
