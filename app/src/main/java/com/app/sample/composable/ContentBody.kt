@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -178,17 +179,19 @@ fun ContentBody(
             }
 
             // 📜 Content List
-            ContentList(
-                pagingItems = pagingItems,
-                onItemClick = { index ->
-                    selectedIndex.intValue = index
-                    onOverrideContent(null)
-                },
-                downloadContentList = { list ->
-                    downloadedContentList.clear()
-                    downloadedContentList.addAll(list)
-                }
-            )
+            if (!isFullScreen) {
+                ContentList(
+                    pagingItems = pagingItems,
+                    onItemClick = { index ->
+                        selectedIndex.intValue = index
+                        onOverrideContent(null)
+                    },
+                    downloadContentList = { list ->
+                        downloadedContentList.clear()
+                        downloadedContentList.addAll(list)
+                    }
+                )
+            }
         }
 
         // ➕ Floating Action Button

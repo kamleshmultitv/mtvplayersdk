@@ -131,5 +131,6 @@ dependencies {
     implementation(libs.interactivemedia)
     implementation(libs.play.services.ads)
     implementation(libs.androidx.media3.transformer)
+    implementation("androidx.window:window:1.5.1")
 
 }

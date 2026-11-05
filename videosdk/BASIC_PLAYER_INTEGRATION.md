@@ -41,14 +41,36 @@ Add the SDK dependency to your app module's `build.gradle.kts`:
 
 ```kotlin
 dependencies {
-    // Mtv Video Player SDK - Basic Player
-    implementation("com.github.kamleshmultitv:videosdk:mobile-monetization-1.0.7")
+    // Mtv Video Player SDK - Basic Player (Direct Notation)
+    implementation("com.github.kamleshmultitv:mtvplayersdk:mtvPlayer-1.0.0")
 
     // Jetpack Compose & Media3 (Ensure Compose is enabled in buildFeatures)
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
 }
+```
+
+### Step 3: Configure AndroidManifest.xml (Foldable & Tablet Ready)
+
+Declare the `INTERNET` permission, include the Google Mobile Ads Application ID meta-data, and ensure your `MainActivity` handles configuration changes gracefully (critical for seamless folding/unfolding on Galaxy Z Fold, Pixel Fold, and tablet devices without restarting playback):
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+
+<application ...>
+    <meta-data
+        android:name="com.google.android.gms.ads.APPLICATION_ID"
+        android:value="ca-app-pub-3940256099942544~3347511713"/>
+
+    <activity
+        android:name=".MainActivity"
+        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+        android:exported="true"
+        ...>
+        ...
+    </activity>
+</application>
 ```
 
 ---
@@ -83,7 +105,17 @@ fun SimpleBasicPlayerScreen() {
 
 ---
 
-## 4. Programmatic Control (Optional)
+## 4. Android Foldable Device Compatibility
+
+The Mtv Video Player SDK is built with **Jetpack Compose and adaptive layout primitives** to support foldable devices, dual-screen devices, and tablets seamlessly:
+
+* **Seamless Folding & Unfolding**: When transitioning between the outer cover screen and the inner foldable display (e.g., Galaxy Z Fold), the player dynamically adjusts its aspect ratio and layout constraints instantly.
+* **No Activity Restarts**: Configuring `android:configChanges` in your `AndroidManifest.xml` (as shown in Step 3) ensures that folding or unfolding the device **does not trigger an Activity restart**, keeping video playback and buffering completely uninterrupted.
+* **Adaptive Scaling**: Using `Modifier.fillMaxSize()` allows the video container, player gestures, and custom controls to scale fluidly across varying screen sizes and postures (flat, table-top, or book mode).
+
+---
+
+## 5. Programmatic Control (Optional)
 
 You can pass a `PlayerController` to control playback programmatically from your app UI (e.g. custom play/pause or mute buttons):
 
@@ -103,7 +135,7 @@ controller.play(newVideoModel)
 
 ---
 
-## 5. Complete Working Activity Example
+## 6. Complete Working Activity Example
 
 ```kotlin
 package com.example.basicapp
@@ -142,14 +174,3 @@ class MainActivity : ComponentActivity() {
     }
 }
 ```
-
----
-
-## 6. Troubleshooting & Verification
-
-* **Video not playing?**
-  * Ensure internet permission is declared in `AndroidManifest.xml`:
-    ```xml
-    <uses-permission android.permission.INTERNET />
-    ```
-  * Verify that your stream URL (`hlsUrl` / `videoUrl`) is accessible over HTTPS.

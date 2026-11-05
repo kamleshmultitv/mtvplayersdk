@@ -4,10 +4,21 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2026-02-19T12:41:49.389601400Z">
+        <DropdownSelection timestamp="2026-11-05T11:01:57.181302Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="PhysicalDevice" identifier="serial=0005534CI002899" />
+              <DeviceId pluginId="LocalEmulator" identifier="path=/Users/kamlesh/.android/avd/Pixel_10_Pro_Fold.avd" />
+            </handle>
+          </Target>
+        </DropdownSelection>
+        <DialogSelection />
+      </SelectionState>
+      <SelectionState runConfigName="androidTest">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2026-11-05T12:08:33.122999Z">
+          <Target type="DEFAULT_BOOT">
+            <handle>
+              <DeviceId pluginId="LocalEmulator" identifier="path=/Users/kamlesh/.android/avd/Pixel_10_Pro_Fold.avd" />
             </handle>
           </Target>
         </DropdownSelection>

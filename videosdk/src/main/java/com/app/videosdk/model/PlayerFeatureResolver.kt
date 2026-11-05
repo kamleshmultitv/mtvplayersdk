@@ -87,6 +87,7 @@ internal fun PlayerConfig.resolveFeatureSet(): ResolvedPlayerFeatureSet {
             )
 
         PlayerFeatureTier.PREMIUM_UX ->
+
             ResolvedPlayerFeatureSet(
                 subtitles = true,
                 fullscreen = true,

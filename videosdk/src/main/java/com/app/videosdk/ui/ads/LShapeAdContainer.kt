@@ -31,7 +31,7 @@ fun LShapeAdContainer(
     videoContent: @Composable () -> Unit
 ) {
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = modifier) {
 
         val showAds =
             isVisible &&

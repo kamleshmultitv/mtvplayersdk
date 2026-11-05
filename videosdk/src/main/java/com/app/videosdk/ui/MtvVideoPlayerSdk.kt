@@ -7,6 +7,16 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.widget.FrameLayout
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.util.fastAny
+import androidx.compose.ui.util.fastForEach
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -30,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -67,6 +78,9 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.PlayerView
+import androidx.window.layout.WindowInfoTracker
+import androidx.window.layout.FoldingFeature
+import androidx.window.layout.WindowLayoutInfo
 import com.app.videosdk.R
 import com.app.videosdk.listener.AdsListener
 import com.app.videosdk.listener.PipListener
@@ -122,6 +136,27 @@ fun MtvVideoPlayerSdk(
     val configuration = LocalConfiguration.current
 
     var contentDuration by remember { mutableLongStateOf(0L) }
+
+    val foldActivity = remember(context) {
+        var ctx = context
+        while (ctx is android.content.ContextWrapper) {
+            if (ctx is android.app.Activity) return@remember ctx
+            ctx = ctx.baseContext
+        }
+        null
+    }
+
+    val foldingFeaturesState = remember(foldActivity, context) {
+        if (foldActivity != null) {
+            WindowInfoTracker.getOrCreate(foldActivity).windowLayoutInfo(foldActivity)
+        } else {
+            kotlinx.coroutines.flow.flowOf(WindowLayoutInfo(emptyList()))
+        }
+    }.collectAsState(initial = WindowLayoutInfo(emptyList()))
+
+    val isFoldDevice = remember(foldingFeaturesState.value) {
+        foldingFeaturesState.value.displayFeatures.any { it is FoldingFeature }
+    }
 
 
     val playerView = remember {
@@ -1026,7 +1061,15 @@ fun MtvVideoPlayerSdk(
     }
 
     val playerSizeModifier = when (displayMode) {
-        PlayerMode.FULL_SCREEN -> Modifier.fillMaxSize()
+        PlayerMode.FULL_SCREEN -> {
+            if (isFoldDevice) {
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+            } else {
+                Modifier.fillMaxSize()
+            }
+        }
         PlayerMode.REELS -> Modifier.fillMaxSize()
         PlayerMode.MINI -> Modifier.aspectRatio(16f / 9f)
     }
@@ -1035,7 +1078,14 @@ fun MtvVideoPlayerSdk(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(durationMillis = 260))
-            .then(playerSizeModifier)
+            .then(
+                if (isFullScreen && isFoldDevice) {
+                    Modifier.fillMaxSize()
+                } else {
+                    playerSizeModifier
+                }
+            ),
+        contentAlignment = if (isFullScreen && isFoldDevice) Alignment.Center else Alignment.TopStart
     ) {
 
         // 🔥 Drawer RTL only
@@ -1044,6 +1094,7 @@ fun MtvVideoPlayerSdk(
             ModalNavigationDrawer(
                 drawerState = drawerState,
                 gesturesEnabled = true,
+                modifier = if (isFullScreen && isFoldDevice) Modifier.fillMaxSize() else Modifier,
                 drawerContent = {
                     if (playerModel?.isChapterEnabled == true &&
                         playerModel.chapters?.isNotEmpty() == true
@@ -1066,31 +1117,89 @@ fun MtvVideoPlayerSdk(
                 // 🔥 Reset back to LTR for player
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
 
-                    LShapeAdContainer(
-                        playerModel = playerModel,
-                        isFullScreen = isFullScreen,
-                        isVisible = showLShapeAd && !isAdsShowing && !pipEnabled,
-                        bannerAdsEnabled = effectiveBannerAdsEnabled,
-                        closeButtonEnabled = hasExplicitAdsConfig && playerConfig.ads.closeButtonEnabled,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateContentSize(animationSpec = tween(durationMillis = 260))
-                            .then(playerSizeModifier)
-                            .background(Color.Black),
-                        onCloseClick = { showLShapeAd = false }
+                    Box(
+                        modifier = if (isFullScreen && isFoldDevice) Modifier.fillMaxSize() else Modifier,
+                        contentAlignment = if (isFullScreen && isFoldDevice) Alignment.Center else Alignment.TopStart
                     ) {
+                        LShapeAdContainer(
+                            playerModel = playerModel,
+                            isFullScreen = isFullScreen,
+                            isVisible = showLShapeAd && !isAdsShowing && !pipEnabled,
+                            bannerAdsEnabled = effectiveBannerAdsEnabled,
+                            closeButtonEnabled = hasExplicitAdsConfig && playerConfig.ads.closeButtonEnabled,
+                            modifier = Modifier
+                                .animateContentSize(animationSpec = tween(durationMillis = 260))
+                                .then(
+                                    if (isFullScreen && isFoldDevice) {
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(16f / 9f)
+                                    } else {
+                                        playerSizeModifier
+                                    }
+                                )
+                                .background(Color.Black),
+                            onCloseClick = { showLShapeAd = false }
+                        ) {
 
-                        Box(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = zoomAccumulator
+                                    scaleY = zoomAccumulator
+                                }
+                                .pointerInput(pipEnabled, isLockScreen, isAdsShowing) {
+                                    awaitEachGesture {
+                                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                        while (true) {
+                                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                                            val activeCount = event.changes.count { it.pressed }
+                                            if (activeCount > 1) {
+                                                if (!pipEnabled && !isLockScreen && !isAdsShowing) {
+                                                    while (true) {
+                                                        val zoomEvent = awaitPointerEvent(PointerEventPass.Initial)
+                                                        val currentActive = zoomEvent.changes.count { it.pressed }
+                                                        if (currentActive < 2) break
+                                                        val zoomChange = zoomEvent.calculateZoom()
+                                                        if (zoomChange != 1f) {
+                                                            zoomAccumulator = (zoomAccumulator * zoomChange).coerceIn(1f, 4f)
+                                                        }
+                                                        zoomEvent.changes.fastForEach {
+                                                            if (it.positionChanged()) it.consume()
+                                                        }
+                                                    }
+                                                    do {
+                                                        val upEvent = awaitPointerEvent(PointerEventPass.Initial)
+                                                        upEvent.changes.fastForEach { it.consume() }
+                                                    } while (upEvent.changes.fastAny { it.pressed })
+                                                }
+                                                break
+                                            }
+                                            if (activeCount == 0) break
+                                        }
+                                    }
+                                }
+                                .pointerInput(isControllerVisible, isLockScreen, pipEnabled, isAdsShowing) {
+                                    if (!isControllerVisible) {
+                                        detectTapGestures(
+                                            onTap = {
+                                                when {
+                                                    isLockScreen -> isLockOverlayVisible = true
+                                                    !pipEnabled && !isAdsShowing -> isControllerVisible = true
+                                                }
+                                            },
+                                            onDoubleTap = {
+                                                zoomAccumulator = 1f
+                                            }
+                                        )
+                                    }
+                                }
+                        ) {
                             if (exoPlayer != null) {
                                 androidx.media3.ui.compose.ContentFrame(
                                     player = exoPlayer,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer {
-                                            val finalScale = if (isFullScreen) zoomAccumulator else 1f
-                                            scaleX = finalScale
-                                            scaleY = finalScale
-                                        }
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             } else {
                                 AndroidView(
@@ -1118,50 +1227,6 @@ fun MtvVideoPlayerSdk(
                         }
 
                         PlayerWatermarkOverlay(effectivePlayerConfig.watermark)
-
-                        // Keep gesture handling on a Compose layer above PlayerView.
-                        // AndroidView can otherwise consume the first multi-touch gesture
-                        // after the controller overlay has disappeared.
-                        PlayerGestureLayer(
-                            isFullScreen = isFullScreen,
-                            pipEnabled = pipEnabled,
-                            isAdsShowing = isAdsShowing,
-                            isLockScreen = isLockScreen,
-                            isSettingsClick = isSettingsClick,
-                            showControls = showControls,
-                            fillScale = fillScale,
-                            zoomAccumulator = zoomAccumulator,
-                            hasActivatedFill = hasActivatedFill,
-                            onActivatedFillChanged = { hasActivatedFill = it },
-                            onFilledChanged = { isFilled = it },
-                            onZoomAccumulatorChanged = { zoomAccumulator = it },
-                            onLockOverlayVisibleChanged = { isLockOverlayVisible = it },
-                            onToggleControllerVisibility = { isControllerVisible = !isControllerVisible },
-                            onLongPress2xSpeedStart = {
-                                val player = exoPlayer
-                                if (player != null && !isLockScreen && !pipEnabled && !isAdsShowing && !isLive) {
-                                    if (player.isPlaying || player.playWhenReady) {
-                                        previousPlaybackSpeed.floatValue = player.playbackParameters.speed
-                                        isLongPress2xSpeedActive = true
-                                        isControllerVisible = false
-                                        player.setPlaybackSpeed(2.0f)
-                                        playerStateListener?.onPlaybackSpeedChanged(2.0f)
-                                        hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    }
-                                }
-                            },
-                            onLongPress2xSpeedEnd = {
-                                if (isLongPress2xSpeedActive) {
-                                    isLongPress2xSpeedActive = false
-                                    val player = exoPlayer
-                                    if (player != null) {
-                                        val restoreSpeed = previousPlaybackSpeed.floatValue
-                                        player.setPlaybackSpeed(restoreSpeed)
-                                        playerStateListener?.onPlaybackSpeedChanged(restoreSpeed)
-                                    }
-                                }
-                            }
-                        )
 
                         // ⚡ 2X Speed Indicator Overlay on Long Press
                         AnimatedVisibility(
@@ -1197,155 +1262,156 @@ fun MtvVideoPlayerSdk(
                             }
                         }
 
-                        // 🎛 Controller
-                        AnimatedVisibility(
-                            visible = showControls && isControllerVisible && !pipEnabled && !isLockScreen && !isAdsShowing,
-                            enter = fadeIn(),
-                            exit = fadeOut()
-                        ) {
-                            exoPlayer?.let { player ->
-                                CustomPlayerController(
-                                    playerModelList = activeContentList,
-                                    index = activeIndex,
-                                    totalDuration = contentDuration,
-                                    pipListener = pipListener,
-                                    isFullScreen = { full ->
-                                        val newMode = if (full) PlayerMode.FULL_SCREEN else PlayerMode.MINI
-                                        currentMode = newMode
-                                        setFullScreen(full) // ✅ notify parent
-                                        playerStateListener?.onFullScreenChanged(full)
-                                    },
-                                    isLockScreen = { isLockScreen = it },
-                                    isCurrentlyFullScreen = isFullScreen,
-                                    isCurrentlyLockScreen = isLockScreen,
-                                    exoPlayer = player,
-                                    externalCastUtils = castUtils,
-                                    episodeNowPlayingStyle = episodeNowPlayingStyle,
-                                    modifier = Modifier.fillMaxSize(),
-                                    isControlsVisible = isControllerVisible,
-                                    onShowControls = { isControllerVisible = it },
-                                    isPipEnabled = {
-                                        pipEnabled = it
-                                        if (it) {
-                                            isControllerVisible = false
-                                            isSettingsClick = false
-                                        }
-                                    },
-                                    onSettingsButtonClick = { isSettingsClick = it },
-                                    isLoading = if (hasRenderedFirstFrame) isLoading else false,
-                                    onBackPressed = {
-                                        if (currentMode == PlayerMode.FULL_SCREEN) {
-                                            currentMode = PlayerMode.MINI
-                                            setFullScreen(false) // ✅ sync parent
-                                        } else {
-                                            onPlayerBack(true)
-                                        }
-                                    },
-                                    cuePoints = imaCuePoints/* +
-                                            if (playerModel?.gamAdsConfig?.isAdsEnabled == true)
-                                                lBandCuePoints
-                                            else emptyList()*/,
-                                    playContent = { changeSelectedIndex(it) },
-                                    isSkipIntroClicked = isSkipIntroClicked,
-                                    onSkipIntroClicked = { isSkipIntroClicked = it },
-                                    onNextEpisodeClick = { changeSelectedIndex(it) },
-                                    showContentTitle = !isAgeRatingPresentationActive,
-                                    onChapterClick = {
-                                        if (playerModel?.isChapterEnabled == true) {
-                                            coroutineScope.launch { drawerState.open() }
-                                        }
-                                    },
-                                    onCutClick = {
-                                        showCutSheet = true
-                                    },
-                                    controlsConfig = effectivePlayerConfig.controls,
-                                    showPreviousControl = hasExplicitControlsConfig &&
-                                            playerConfig.controls.previous,
-                                    isAudioOnly = isAudioOnly,
-                                    showLowBandwidthHint = showLowBandwidthHint,
-                                    onAudioModeToggle = {
-                                        isAudioOnly = !isAudioOnly
-                                        showLowBandwidthHint = false
-                                    }
-
-                                )
-                            }
-                        }
-
-                        // Rating and title share one visual slot. The title is hidden
-                        // until this badge completes its own collapse animation.
-                        ageRating?.let { rating ->
-                            PlayerAgeRatingOverlay(
-                                ageRating = rating,
-                                presentationKey = ageRatingPresentationKey,
-                                isInPictureInPicture = pipEnabled || isInPipMode,
-                                modifier = Modifier.align(Alignment.TopStart),
-                                titleSlotTopPadding = if (isFullScreen) 19.dp else 23.dp,
-                                applyStatusBarPadding = isFullScreen,
-                                onPresentationActiveChanged = {
-                                    isAgeRatingPresentationActive = it
-                                }
-                            )
-                        }
-
-                        // 🔒 Lock Overlay
-                        if (isLockScreen) {
-                            AnimatedVisibility(
-                                visible = isLockOverlayVisible && !pipEnabled,
-                                enter = fadeIn(),
-                                exit = fadeOut()
-                            ) {
-                                exoPlayer?.let {
-                                    LockScreenOverlay(
-                                        playerModel = playerModel,
-                                        isLocked = isLockScreen,
-                                        showUnlockConfirm = showUnlockConfirm,
-                                        onUnlockRequest = { showUnlockConfirm = true },
-                                        onConfirmUnlock = {
-                                            isLockScreen = false
-                                            showUnlockConfirm = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        // ⚙ Settings — only visible in fullscreen mode
-                        if (isSettingsClick && isFullScreen) {
-                            SelectorHeader(
-                                playerModel = playerModel,
-                                exoPlayer = exoPlayer,
-                                selectedItems = selectedItems,
-                                isAudioOnly = isAudioOnly,
-                                reportIssueEnabled = effectivePlayerConfig.controls.reportIssue,
-                                onReportIssue = { comment ->
-                                    val url = playerModel?.hlsUrl ?: playerModel?.mpdUrl ?: playerModel?.liveUrl ?: playerModel?.videoUrl
-                                    effectiveController.generateDiagnosticReport(
-                                        customMessage = comment,
-                                        contentId = playerModel?.id,
-                                        contentTitle = playerModel?.title ?: playerModel?.episodeTitle,
-                                        contentUrl = url
-                                    )
-                                }
-                            ) { isSettingsClick = it }
-                        }
-
-                        if (showCutSheet && exoPlayer != null) {
-
-                            val duration = exoPlayer.duration
-
-                            if (duration > 0) {
-                                CutBottomSheet(
-                                    contentId = playerModel?.id,
-                                    url = playbackUrl,
-                                    duration = duration,
-                                    onDismiss = { showCutSheet = false }
-                                )
-                            }
-                        }
-
                     }
                 }
+            }
+        }
+    }
+
+        // 🎛 Controller
+        AnimatedVisibility(
+            visible = showControls && isControllerVisible && !pipEnabled && !isLockScreen && !isAdsShowing,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            exoPlayer?.let { player ->
+                CustomPlayerController(
+                    playerModelList = activeContentList,
+                    index = activeIndex,
+                    totalDuration = contentDuration,
+                    pipListener = pipListener,
+                    isFullScreen = { full ->
+                        val newMode = if (full) PlayerMode.FULL_SCREEN else PlayerMode.MINI
+                        currentMode = newMode
+                        setFullScreen(full) // ✅ notify parent
+                        playerStateListener?.onFullScreenChanged(full)
+                    },
+                    isLockScreen = { isLockScreen = it },
+                    isCurrentlyFullScreen = isFullScreen,
+                    isCurrentlyLockScreen = isLockScreen,
+                    exoPlayer = player,
+                    externalCastUtils = castUtils,
+                    episodeNowPlayingStyle = episodeNowPlayingStyle,
+                    modifier = Modifier.fillMaxSize(),
+                    isControlsVisible = isControllerVisible,
+                    onShowControls = { isControllerVisible = it },
+                    isPipEnabled = {
+                        pipEnabled = it
+                        if (it) {
+                            isControllerVisible = false
+                            isSettingsClick = false
+                        }
+                    },
+                    onSettingsButtonClick = { isSettingsClick = it },
+                    isLoading = if (hasRenderedFirstFrame) isLoading else false,
+                    onBackPressed = {
+                        if (currentMode == PlayerMode.FULL_SCREEN) {
+                            currentMode = PlayerMode.MINI
+                            setFullScreen(false) // ✅ sync parent
+                        } else {
+                            onPlayerBack(true)
+                        }
+                    },
+                    cuePoints = imaCuePoints/* +
+                            if (playerModel?.gamAdsConfig?.isAdsEnabled == true)
+                                lBandCuePoints
+                            else emptyList()*/,
+                    playContent = { changeSelectedIndex(it) },
+                    isSkipIntroClicked = isSkipIntroClicked,
+                    onSkipIntroClicked = { isSkipIntroClicked = it },
+                    onNextEpisodeClick = { changeSelectedIndex(it) },
+                    showContentTitle = !isAgeRatingPresentationActive,
+                    onChapterClick = {
+                        if (playerModel?.isChapterEnabled == true) {
+                            coroutineScope.launch { drawerState.open() }
+                        }
+                    },
+                    onCutClick = {
+                        showCutSheet = true
+                    },
+                    controlsConfig = effectivePlayerConfig.controls,
+                    showPreviousControl = hasExplicitControlsConfig &&
+                            playerConfig.controls.previous,
+                    isAudioOnly = isAudioOnly,
+                    showLowBandwidthHint = showLowBandwidthHint,
+                    onAudioModeToggle = {
+                        isAudioOnly = !isAudioOnly
+                        showLowBandwidthHint = false
+                    }
+
+                )
+            }
+        }
+
+        // Rating and title share one visual slot. The title is hidden
+        // until this badge completes its own collapse animation.
+        ageRating?.let { rating ->
+            PlayerAgeRatingOverlay(
+                ageRating = rating,
+                presentationKey = ageRatingPresentationKey,
+                isInPictureInPicture = pipEnabled || isInPipMode,
+                modifier = Modifier.align(Alignment.TopStart),
+                titleSlotTopPadding = if (isFullScreen) 19.dp else 23.dp,
+                applyStatusBarPadding = isFullScreen,
+                onPresentationActiveChanged = {
+                    isAgeRatingPresentationActive = it
+                }
+            )
+        }
+
+        // 🔒 Lock Overlay
+        if (isLockScreen) {
+            AnimatedVisibility(
+                visible = isLockOverlayVisible && !pipEnabled,
+                enter = fadeIn(),
+                exit = fadeOut()
+            ) {
+                exoPlayer?.let {
+                    LockScreenOverlay(
+                        playerModel = playerModel,
+                        isLocked = isLockScreen,
+                        showUnlockConfirm = showUnlockConfirm,
+                        onUnlockRequest = { showUnlockConfirm = true },
+                        onConfirmUnlock = {
+                            isLockScreen = false
+                            showUnlockConfirm = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // ⚙ Settings — only visible in fullscreen mode
+        if (isSettingsClick && isFullScreen) {
+            SelectorHeader(
+                playerModel = playerModel,
+                exoPlayer = exoPlayer,
+                selectedItems = selectedItems,
+                isAudioOnly = isAudioOnly,
+                reportIssueEnabled = effectivePlayerConfig.controls.reportIssue,
+                onReportIssue = { comment ->
+                    val url = playerModel?.hlsUrl ?: playerModel?.mpdUrl ?: playerModel?.liveUrl ?: playerModel?.videoUrl
+                    effectiveController.generateDiagnosticReport(
+                        customMessage = comment,
+                        contentId = playerModel?.id,
+                        contentTitle = playerModel?.title ?: playerModel?.episodeTitle,
+                        contentUrl = url
+                    )
+                }
+            ) { isSettingsClick = it }
+        }
+
+        if (showCutSheet && exoPlayer != null) {
+
+            val duration = exoPlayer.duration
+
+            if (duration > 0) {
+                CutBottomSheet(
+                    contentId = playerModel?.id,
+                    url = playbackUrl,
+                    duration = duration,
+                    onDismiss = { showCutSheet = false }
+                )
             }
         }
     }
